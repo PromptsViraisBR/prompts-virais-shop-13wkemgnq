@@ -27,7 +27,16 @@ import { toast } from '@/hooks/use-toast'
 import type { PromptRecord, NicheType, StyleType } from '@/types'
 import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS } from '@/types'
 import { formatHookTitle, getEstimatedDuration, getPlatformInfo } from '@/lib/promptHooks'
-import { adaptPromptWithImages } from '@/services/generations'
+import {
+  adaptPromptWithImages,
+  regeneratePromptVariations,
+  PromptVariation,
+} from '@/services/generations'
+import {
+  getUserRegenerationCredits,
+  consumeExtraRegenerationCredit,
+} from '@/services/regenerationCredits'
+import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import {
   Dialog,
   DialogContent,
@@ -37,15 +46,22 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ImagePlus, Upload } from 'lucide-react'
+import { ImagePlus, Upload, RefreshCw } from 'lucide-react'
 
 // Lista ordenada de nichos para os chips táteis
 const NICHE_KEYS: NicheType[] = [
   'moda_feminina',
   'streetwear_casual',
   'fitness_academia',
-  'moda_praia',
+  'moda_fitness_plus_size',
+  'espelhos_decoracao',
+  'produtos_eletronicos',
+  'capinhas_acessorios_celular',
+  'pet_acessorios',
+  'cozinha_utilidades',
+  'relogios_bijus',
   'acessorios_calcados',
+  'moda_praia',
   'moda_masculina',
   'infantil_kids',
   'lingerie_pijamas',
@@ -70,7 +86,7 @@ export const Library: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'free' | 'favorites'>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  // Modal de Personalização com Fotos
+  // Modal de Personalização com Fotos e Regeneração com 3 Variações
   const [customizePrompt, setCustomizePrompt] = useState<PromptRecord | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [customFiles, setCustomFiles] = useState<File[]>([])
@@ -80,6 +96,15 @@ export const Library: React.FC = () => {
   const [adapting, setAdapting] = useState(false)
   const [adaptedResult, setAdaptedResult] = useState<string | null>(null)
   const [copiedAdapted, setCopiedAdapted] = useState(false)
+
+  // Variações e cobrança de extras no modal da biblioteca
+  const [customVariations, setCustomVariations] = useState<PromptVariation[]>([])
+  const [selectedCustomVarId, setSelectedCustomVarId] = useState<string | null>(null)
+  const [copiedCustomVarId, setCopiedCustomVarId] = useState<string | null>(null)
+  const [customRegenerating, setCustomRegenerating] = useState(false)
+  const [hasCustomFreeRegenerated, setHasCustomFreeRegenerated] = useState(false)
+  const [extraCreditsBalance, setExtraCreditsBalance] = useState<number>(0)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -132,7 +157,85 @@ export const Library: React.FC = () => {
     setCustomPreviews([])
     setAdaptedResult(null)
     setCopiedAdapted(false)
+    setCustomVariations([])
+    setSelectedCustomVarId(null)
+    setCopiedCustomVarId(null)
+    setHasCustomFreeRegenerated(false)
+    if (user) {
+      getUserRegenerationCredits(user.id).then((c) => {
+        if (c) setExtraCreditsBalance(c.extra_prompts_balance || 0)
+      })
+    }
     setModalOpen(true)
+  }
+
+  const handleCopyCustomVariation = (vId: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedCustomVarId(vId)
+    toast({
+      title: 'Variação copiada! 📋✨',
+      description: 'Roteiro copiado para a área de transferência.',
+    })
+    setTimeout(() => setCopiedCustomVarId(null), 2500)
+  }
+
+  const handleCustomRegenerate = async () => {
+    if (!customizePrompt) return
+
+    // Se já usou o primeiro clique gratuito de variações nesta modal e não tem saldo extra
+    if (hasCustomFreeRegenerated && extraCreditsBalance <= 0) {
+      if (!user) {
+        toast({
+          title: 'Faça login para regenerar',
+          description: 'Entre na sua conta para obter mais variações.',
+          variant: 'destructive',
+        })
+        navigate('/login')
+        return
+      }
+      setPaymentModalOpen(true)
+      return
+    }
+
+    setCustomRegenerating(true)
+    try {
+      const res = await regeneratePromptVariations({
+        basePrompt: adaptedResult || customizePrompt.prompt_text,
+        promptTitle: customProductName.trim() || customizePrompt.title,
+        productName: customProductName.trim() || customizePrompt.title,
+        visualDetails: customVisualDetails.trim() || undefined,
+        niche: customizePrompt.niche,
+        imagesCount: customFiles.length,
+      })
+
+      if (res.success && res.variations?.length) {
+        setCustomVariations(res.variations)
+        setSelectedCustomVarId(res.variations[0].id)
+
+        if (hasCustomFreeRegenerated && extraCreditsBalance > 0 && user) {
+          await consumeExtraRegenerationCredit(user.id)
+          setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
+          toast({
+            title: '3 Novas Variações Regeneradas! ⚡',
+            description: '1 crédito extra foi utilizado com sucesso.',
+          })
+        } else {
+          setHasCustomFreeRegenerated(true)
+          toast({
+            title: '3 Novas Variações Geradas! 🎨✨',
+            description: '3 abordagens diferentes (Emocional, Urgência e Prova Social) incluídas.',
+          })
+        }
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao regenerar variações',
+        description: err.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCustomRegenerating(false)
+    }
   }
 
   const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -528,8 +631,8 @@ export const Library: React.FC = () => {
           <div className="space-y-1.5">
             <h3 className="font-extrabold text-xl text-foreground">Nada encontrado por aqui 😅</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Tente outra palavra na busca ou escolha outro nicho acima. Temos mais de 30 roteiros
-              validados com ganchos prontos!
+              Tente outra palavra na busca ou escolha outro nicho acima. Temos mais de{' '}
+              {prompts.length || 40} roteiros validados com ganchos prontos!
             </p>
           </div>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
@@ -539,7 +642,7 @@ export const Library: React.FC = () => {
               onClick={handleResetFilters}
               className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-semibold rounded-full px-5"
             >
-              ✨ Ver todos os 30 roteiros
+              ✨ Ver todos os {prompts.length || 40}+ roteiros
             </Button>
             {searchTerm && (
               <Button
@@ -828,7 +931,7 @@ export const Library: React.FC = () => {
                 )}
               </Button>
 
-              {/* Exibição do Roteiro Adaptado */}
+              {/* Exibição do Roteiro Adaptado e Botão de Regeneração */}
               {adaptedResult && (
                 <div className="space-y-3 pt-3 border-t">
                   <div className="flex items-center justify-between">
@@ -836,33 +939,166 @@ export const Library: React.FC = () => {
                       <Sparkles className="w-3.5 h-3.5" />
                       Roteiro Adaptado com Suas Fotos:
                     </span>
+                  </div>
+
+                  <div className="bg-muted/40 border rounded-xl p-3.5 font-mono text-xs whitespace-pre-wrap max-h-52 overflow-y-auto leading-relaxed select-all">
+                    {adaptedResult}
+                  </div>
+
+                  {/* Ações: Copiar ou Regenerar 3 Variações */}
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
                     <Button
-                      size="sm"
                       onClick={handleCopyAdapted}
-                      className="text-xs gap-1 font-bold bg-pink-600 text-white"
+                      className="flex-1 py-4 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 text-xs"
                     >
                       {copiedAdapted ? (
                         <>
-                          <Check className="w-3 h-3" />
-                          Copiado!
+                          <Check className="w-3.5 h-3.5" />
+                          Roteiro Adaptado Copiado!
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3 h-3" />
-                          Copiar Roteiro
+                          <Copy className="w-3.5 h-3.5" />
+                          Copiar Roteiro Adaptado
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={handleCustomRegenerate}
+                      disabled={customRegenerating}
+                      variant="outline"
+                      className="py-4 border-pink-500/40 text-pink-600 dark:text-pink-400 font-bold hover:bg-pink-500/10 gap-2 text-xs"
+                    >
+                      {customRegenerating ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                          <span>Regenerando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Regenerar (3 Variações)</span>
                         </>
                       )}
                     </Button>
                   </div>
-                  <div className="bg-muted/40 border rounded-xl p-3.5 font-mono text-xs whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed select-all">
-                    {adaptedResult}
+
+                  {/* Saldo e Informação de Cobrança Extra */}
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-between px-1">
+                    <span>
+                      {hasCustomFreeRegenerated
+                        ? extraCreditsBalance > 0
+                          ? `Saldo: ${extraCreditsBalance} prompt(s) extra(s) liberado(s)`
+                          : 'Próxima regeneração: R$ 1,99 por prompt extra'
+                        : '1º clique de regeneração incluído'}
+                    </span>
+                    {extraCreditsBalance > 0 && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold"
+                      >
+                        {extraCreditsBalance} crédito(s)
+                      </Badge>
+                    )}
                   </div>
+
+                  {/* Exibição das 3 Variações no Modal */}
+                  {customVariations.length > 0 && (
+                    <div className="space-y-3 pt-3 border-t">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-pink-500" />3 Variações em Ângulos
+                          Diferentes:
+                        </span>
+                        <Badge className="bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-[10px] font-bold">
+                          1-Clique
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {customVariations.map((v) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setSelectedCustomVarId(v.id)}
+                            className={`p-2 rounded-xl text-left border text-xs transition-all ${
+                              selectedCustomVarId === v.id
+                                ? 'border-pink-500 bg-pink-500/10 text-pink-700 dark:text-pink-300 font-bold shadow-xs'
+                                : 'border-border bg-card hover:bg-muted/30 text-muted-foreground'
+                            }`}
+                          >
+                            <span className="block truncate text-[11px]">{v.badge}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedCustomVarId &&
+                        (() => {
+                          const cVar = customVariations.find((v) => v.id === selectedCustomVarId)
+                          if (!cVar) return null
+                          const isCopied = copiedCustomVarId === cVar.id
+                          return (
+                            <div className="p-3 rounded-2xl border bg-muted/20 space-y-2 animate-in fade-in-50">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-xs font-bold text-foreground">
+                                    {cVar.angle}
+                                  </span>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {cVar.description}
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleCopyCustomVariation(cVar.id, cVar.prompt_text)
+                                  }
+                                  className="h-7 text-xs gap-1 font-bold bg-pink-600 text-white hover:bg-pink-700"
+                                >
+                                  {isCopied ? (
+                                    <>
+                                      <Check className="w-3 h-3" />
+                                      Copiado!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3" />
+                                      Copiar
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+
+                              <div className="bg-background border rounded-xl p-3 font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto select-all">
+                                {cVar.prompt_text}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Pagamento Demonstrativo para Regenerações Extras na Biblioteca */}
+      {user && (
+        <RegenerationPaymentModal
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          userId={user.id}
+          onPaymentSuccess={(newBalance) => {
+            setExtraCreditsBalance(newBalance)
+            setTimeout(() => {
+              handleCustomRegenerate()
+            }, 300)
+          }}
+        />
+      )}
     </div>
   )
 }

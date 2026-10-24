@@ -26,6 +26,29 @@ export interface AdaptPromptInput {
   imagesCount?: number
 }
 
+export interface PromptVariation {
+  id: string
+  angle: string
+  badge: string
+  description: string
+  prompt_text: string
+}
+
+export interface RegenerateVariationsInput {
+  basePrompt?: string
+  promptTitle?: string
+  productName?: string
+  visualDetails?: string
+  niche?: string
+  imagesCount?: number
+}
+
+export interface RegenerateVariationsResult {
+  success: boolean
+  product_name: string
+  variations: PromptVariation[]
+}
+
 export interface AdaptPromptResult {
   success: boolean
   adapted_prompt: string
@@ -178,6 +201,75 @@ export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<G
     generated_prompt: generatedText,
     image_prompt_description: input.visualDetails || '',
   })
+}
+
+export async function regeneratePromptVariations(
+  input: RegenerateVariationsInput,
+): Promise<RegenerateVariationsResult> {
+  const imagesCount = input.imagesCount || 1
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/regenerate-variations`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+        },
+        body: JSON.stringify({
+          original_prompt: input.basePrompt,
+          prompt_title: input.promptTitle,
+          product_name: input.productName,
+          visual_details: input.visualDetails,
+          niche: input.niche || 'moda_feminina',
+          images_count: imagesCount,
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}))
+      throw new Error(errData.message || `Erro ${response.status} ao regenerar variações.`)
+    }
+
+    return (await response.json()) as RegenerateVariationsResult
+  } catch (err: any) {
+    console.warn('Erro na rota de regeneração, usando fallback local com 3 variações:', err)
+    const prod = input.productName || input.promptTitle || 'peça em destaque'
+    const visual = input.visualDetails || 'caimento fiel e acabamento premium'
+    const baseScript = input.basePrompt || ''
+
+    return {
+      success: true,
+      product_name: prod,
+      variations: [
+        {
+          id: 'v1_emocional',
+          angle: 'Emocional & Autoestima',
+          badge: '💖 Ângulo Emocional',
+          description: 'Focado em sensação, transformação pessoal, elogios e desejo imediato.',
+          prompt_text: `[VARIAÇÃO 1 - ÂNGULO EMOCIONAL & DESEJO ✨]\n\n🎬 CENA 1 (0-3s) - O GANCHO EMOCIONAL (HOOK):\n- POV em frente ao espelho: segurando o(a) ${prod} no corpo com olhar radiante.\n- Texto na tela: "POV: O momento exato em que você veste e se sente maravilhosa! 💖"\n- Narração: "POV: O dia em que eu cansei de peças sem graça e experimentei esse ${prod}! O caimento no corpo é surreal."\n\n🎬 CENA 2 (3-9s) - DETALHES REAIS:\n- Close nos detalhes das fotos: ${visual}.\n- Narração: "Material de extrema qualidade que valoriza as curvas e dá conforto o dia todo."\n\n🎬 CENA 3 (9-15s) - CHAMADA DE DESEJO:\n- Apontando para o carrinho amarelo:\n- Narração: "Você merece se sentir linda todos os dias! O link com envio imediato tá no carrinho amarelo aqui embaixo 👇"`,
+        },
+        {
+          id: 'v2_urgencia',
+          angle: 'Urgência & Escassez',
+          badge: '⚡ Ângulo Urgência',
+          description:
+            'Focado em promoção relâmpago, estoque acabando e chamada direta pro carrinho.',
+          prompt_text: `[VARIAÇÃO 2 - ÂNGULO URGÊNCIA & ESCASSEZ ⚡]\n\n🎬 CENA 1 (0-3s) - O GANCHO DE ALERTA (HOOK):\n- Câmera rápida com cortes dinâmicos mostrando o(a) ${prod}.\n- Texto na tela: "ÚLTIMAS UNIDADES EM QUEIMA DE ESTOQUE! ⚡🔥"\n- Narração: "SE VOCÊ TÁ VENDO ESSE VÍDEO, CORRE! O lote desse ${prod} tá zerando com cupom de desconto hoje!"\n\n🎬 CENA 2 (3-9s) - PROVA DO PRODUTO:\n- Destaque nos detalhes observados: ${visual}.\n- Narração: "Estoque nacional que esgota em poucas horas pela procura recorde."\n\n🎬 CENA 3 (9-15s) - CHAMADA URGENTE:\n- Apontando para o carrinho:\n- Narração: "Clica agora no carrinho amarelo ou na sacolinha antes que a promoção encerre e volte ao preço normal! 🛒"`,
+        },
+        {
+          id: 'v3_prova_social',
+          angle: 'Prova Social & Quebra de Objeções',
+          badge: '⭐ Ângulo Prova Social',
+          description:
+            'Focado em avaliações 5 estrelas, durabilidade, caimento real e comparativo.',
+          prompt_text: `[VARIAÇÃO 3 - ÂNGULO PROVA SOCIAL & CONFIANÇA ⭐]\n\n🎬 CENA 1 (0-3s) - O GANCHO DE PROVA REAL (HOOK):\n- POV abrindo o pacote ou mostrando o(a) ${prod} com luz natural.\n- Texto na tela: "NOTA 5 ESTRELAS: MAIS DE 3.000 CLIENTES APROVARAM! ⭐⭐⭐⭐⭐"\n- Narração: "Eu comprei esse ${prod} pra ver se todas aquelas avaliações 5 estrelas eram verdade... E olhem esse acabamento!"\n\n🎬 CENA 2 (3-9s) - COMPROVAÇÃO DE QUALIDADE:\n- Mostrando acabamento fiel às fotos: ${visual}.\n- Narração: "Costuras reforçadas, toque nobre e zero decepção na entrega."\n\n🎬 CENA 3 (9-15s) - CTA CONFIÁVEL:\n- Apontando para o link:\n- Narração: "Mais de 3.000 pessoas já compraram e aprovaram. Veja as fotos e avaliações no link da sacolinha aqui embaixo!"`,
+        },
+      ],
+    }
+  }
 }
 
 export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<AdaptPromptResult> {

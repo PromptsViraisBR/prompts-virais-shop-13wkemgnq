@@ -10,6 +10,13 @@ export type NicheType =
   | 'streetwear_casual'
   | 'infantil_kids'
   | 'lingerie_pijamas'
+  | 'espelhos_decoracao'
+  | 'produtos_eletronicos'
+  | 'capinhas_acessorios_celular'
+  | 'moda_fitness_plus_size'
+  | 'pet_acessorios'
+  | 'cozinha_utilidades'
+  | 'relogios_bijus'
 
 export type StyleType = 'pov' | 'modelo' | 'unboxing_vitrine'
 export type PlatformType = 'tiktok_shop' | 'shopee' | 'ambos'
@@ -170,24 +177,48 @@ export const NICHE_LABELS: Record<NicheType, string> = {
   moda_feminina: 'Moda Feminina',
   moda_masculina: 'Moda Masculina',
   fitness_academia: 'Fitness & Academia',
-  moda_praia: 'Moda Praia & Biquínis',
-  acessorios_calcados: 'Calçados & Acessórios',
+  moda_praia: 'Moda Praia',
+  acessorios_calcados: 'Acessórios & Calçados',
   streetwear_casual: 'Streetwear & Casual',
   infantil_kids: 'Infantil & Kids',
   lingerie_pijamas: 'Lingerie & Pijamas',
+  espelhos_decoracao: 'Espelhos & Decoração',
+  produtos_eletronicos: 'Produtos Eletrônicos',
+  capinhas_acessorios_celular: 'Capinhas & Acessórios Celular',
+  moda_fitness_plus_size: 'Moda Fitness Plus Size',
+  pet_acessorios: 'Pet & Acessórios',
+  cozinha_utilidades: 'Cozinha & Utilidades',
+  relogios_bijus: 'Relógios & Bijus',
 }
 
 export const NICHE_EMOJIS: Record<NicheType, string> = {
   moda_feminina: '👗',
   moda_masculina: '👔',
   fitness_academia: '💪',
-  moda_praia: '🌊',
-  acessorios_calcados: '👟',
+  moda_praia: '👙',
+  acessorios_calcados: '👠',
   streetwear_casual: '🧢',
-  infantil_kids: '🧸',
-  lingerie_pijamas: '✨',
+  infantil_kids: '👶',
+  lingerie_pijamas: '🩱',
+  espelhos_decoracao: '🪞',
+  produtos_eletronicos: '📱',
+  capinhas_acessorios_celular: '🔌',
+  moda_fitness_plus_size: '🏋️',
+  pet_acessorios: '🧸',
+  cozinha_utilidades: '🏠',
+  relogios_bijus: '⌚',
 }
 
+export interface RegenerationCreditRecord {
+  id: string
+  user: string
+  extra_prompts_balance: number
+  total_purchased: number
+  total_used: number
+  last_purchase_card_last4?: string
+  created: string
+  updated: string
+}
 export const STYLE_EMOJIS: Record<StyleType, string> = {
   pov: '🪞',
   modelo: '💃',

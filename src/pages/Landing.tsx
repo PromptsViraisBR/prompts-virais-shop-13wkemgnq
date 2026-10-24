@@ -344,7 +344,7 @@ export const Landing: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Biblioteca de prompts 100% liberada (30+ roteiros)</span>
+                <span>Biblioteca de prompts 100% liberada (40+ roteiros)</span>{' '}
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />

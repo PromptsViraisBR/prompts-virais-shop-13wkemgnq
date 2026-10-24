@@ -247,7 +247,7 @@ export const Plans: React.FC = () => {
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
-                <strong>Biblioteca 100% liberada</strong> de prompts virais (30+ roteiros)
+                <strong>Biblioteca 100% liberada</strong> de prompts virais (40+ roteiros)
               </span>
             </div>
             <div className="flex items-start gap-2.5">

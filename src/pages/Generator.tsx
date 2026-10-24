@@ -5,7 +5,15 @@ import {
   saveGeneratedPrompt,
   getUserGenerations,
   adaptPromptWithImages,
+  regeneratePromptVariations,
+  PromptVariation,
 } from '@/services/generations'
+import {
+  getUserRegenerationCredits,
+  consumeExtraRegenerationCredit,
+} from '@/services/regenerationCredits'
+import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
+import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -70,11 +78,29 @@ export const Generator: React.FC = () => {
   const [history, setHistory] = useState<GenerationRecord[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
 
+  // Estados de Regeneração com 3 Variações e Cobrança de Extras
+  const [variations, setVariations] = useState<PromptVariation[]>([])
+  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null)
+  const [regenerating, setRegenerating] = useState(false)
+  const [copiedVarId, setCopiedVarId] = useState<string | null>(null)
+  const [hasFreeRegenerated, setHasFreeRegenerated] = useState(false)
+  const [extraCreditsBalance, setExtraCreditsBalance] = useState<number>(0)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+
   useEffect(() => {
     if (user && isPaidPlan) {
       loadHistory()
+      loadRegenCredits()
     }
   }, [user, isPaidPlan])
+
+  const loadRegenCredits = async () => {
+    if (!user) return
+    const credits = await getUserRegenerationCredits(user.id)
+    if (credits) {
+      setExtraCreditsBalance(credits.extra_prompts_balance || 0)
+    }
+  }
 
   // Limpeza de Object URLs quando previews mudarem
   useEffect(() => {
@@ -244,6 +270,102 @@ export const Generator: React.FC = () => {
       description: 'Cole no bloco de notas ou vá direto para a gravação da vitrine.',
     })
     setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleCopyVariation = (vId: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedVarId(vId)
+    toast({
+      title: 'Variação copiada! 📋✨',
+      description: 'Roteiro copiado para a área de transferência.',
+    })
+    setTimeout(() => setCopiedVarId(null), 2500)
+  }
+
+  const handleRegenerateClick = async () => {
+    if (!user) {
+      toast({
+        title: 'Faça login para regenerar',
+        description: 'Entre na sua conta para continuar.',
+        variant: 'destructive',
+      })
+      navigate('/login')
+      return
+    }
+
+    if (!isPaidPlan) {
+      toast({
+        title: 'Recurso Exclusivo PRO',
+        description: 'Assine um plano para usar a regeneração inteligente.',
+        variant: 'destructive',
+      })
+      navigate('/planos')
+      return
+    }
+
+    // Se já usou o clique de regeneração gratuito incluído nesta sessão/produto
+    // e não tem créditos extras pagos no saldo, exibe o modal de cobrança
+    if (hasFreeRegenerated && extraCreditsBalance <= 0) {
+      setPaymentModalOpen(true)
+      return
+    }
+
+    setRegenerating(true)
+    try {
+      const res = await regeneratePromptVariations({
+        basePrompt: currentPrompt || undefined,
+        promptTitle: productName.trim(),
+        productName: productName.trim(),
+        visualDetails: visualDetails.trim() || details.trim() || undefined,
+        niche,
+        imagesCount: referenceFiles.length,
+      })
+
+      if (res.success && res.variations?.length) {
+        setVariations(res.variations)
+        setSelectedVariationId(res.variations[0].id)
+
+        // Se era uma regeneração extra com crédito, deduz 1 crédito
+        if (hasFreeRegenerated && extraCreditsBalance > 0) {
+          await consumeExtraRegenerationCredit(user.id)
+          setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
+          toast({
+            title: '3 Novas Variações Regeneradas! ⚡',
+            description: '1 crédito extra foi utilizado com sucesso.',
+          })
+        } else {
+          setHasFreeRegenerated(true)
+          toast({
+            title: '3 Novas Variações Geradas! 🎨✨',
+            description: '3 abordagens diferentes (Emocional, Urgência e Prova Social) incluídas.',
+          })
+        }
+
+        // Salvar a 1ª variação no histórico também
+        try {
+          await saveGeneratedPrompt({
+            userId: user.id,
+            productName: productName.trim() || 'Variação de Roteiro',
+            niche,
+            style,
+            platform,
+            details: details.trim() || undefined,
+            visualDetails: visualDetails.trim() || undefined,
+          })
+          loadHistory()
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao regenerar variações',
+        description: err.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setRegenerating(false)
+    }
   }
 
   return (
@@ -670,22 +792,140 @@ export const Generator: React.FC = () => {
                     {currentPrompt}
                   </div>
 
-                  <Button
-                    onClick={handleCopyPrompt}
-                    className="w-full py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Roteiro Copiado para a Área de Transferência!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        Copiar Roteiro em 1 Clique
-                      </>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <Button
+                      onClick={handleCopyPrompt}
+                      className="flex-1 py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Roteiro Copiado!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Copiar Roteiro Principal
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={handleRegenerateClick}
+                      disabled={regenerating}
+                      variant="outline"
+                      className="py-5 border-pink-500/40 text-pink-600 dark:text-pink-400 font-bold hover:bg-pink-500/10 gap-2 shadow-xs"
+                    >
+                      {regenerating ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                          <span>Gerando 3 Variações...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          <span>Regenerar (3 Variações)</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Informação sobre regenerações extras e saldo de créditos */}
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-between px-1">
+                    <span>
+                      {hasFreeRegenerated
+                        ? extraCreditsBalance > 0
+                          ? `Saldo: ${extraCreditsBalance} prompt(s) extra(s) liberado(s)`
+                          : 'Próxima regeneração: R$ 1,99 por prompt extra'
+                        : '1º clique de regeneração incluído no plano PRO'}
+                    </span>
+                    {extraCreditsBalance > 0 && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold"
+                      >
+                        {extraCreditsBalance} crédito(s)
+                      </Badge>
                     )}
-                  </Button>
+                  </div>
+
+                  {/* Seção das 3 variações regeneradas */}
+                  {variations.length > 0 && (
+                    <div className="space-y-3 pt-3 border-t">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-pink-500" />3 Variações em Ângulos
+                          Diferentes:
+                        </span>
+                        <Badge className="bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-[10px] font-bold">
+                          1-Clique
+                        </Badge>
+                      </div>
+
+                      {/* Abas / Pílulas para alternar entre as 3 variações */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {variations.map((v) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setSelectedVariationId(v.id)}
+                            className={`p-2 rounded-xl text-left border text-xs transition-all ${
+                              selectedVariationId === v.id
+                                ? 'border-pink-500 bg-pink-500/10 text-pink-700 dark:text-pink-300 font-bold shadow-xs'
+                                : 'border-border bg-card hover:bg-muted/30 text-muted-foreground'
+                            }`}
+                          >
+                            <span className="block truncate text-[11px]">{v.badge}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Variação selecionada em destaque com botão de copiar individual */}
+                      {selectedVariationId &&
+                        (() => {
+                          const currentVar = variations.find((v) => v.id === selectedVariationId)
+                          if (!currentVar) return null
+                          const isVarCopied = copiedVarId === currentVar.id
+                          return (
+                            <div className="p-3.5 rounded-2xl border bg-muted/20 space-y-2.5 animate-in fade-in-50">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-xs font-bold text-foreground">
+                                    {currentVar.angle}
+                                  </span>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {currentVar.description}
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleCopyVariation(currentVar.id, currentVar.prompt_text)
+                                  }
+                                  className="h-8 text-xs gap-1 font-bold bg-pink-600 text-white hover:bg-pink-700"
+                                >
+                                  {isVarCopied ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      Copiado!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5" />
+                                      Copiar Variação
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+
+                              <div className="bg-background border rounded-xl p-3 font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto select-all">
+                                {currentVar.prompt_text}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="py-16 px-4 text-center space-y-3">
@@ -707,6 +947,22 @@ export const Generator: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Modal de Cobrança Demonstrativa para Regenerações Extras */}
+      {user && (
+        <RegenerationPaymentModal
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          userId={user.id}
+          onPaymentSuccess={(newBalance) => {
+            setExtraCreditsBalance(newBalance)
+            // Dispara a regeneração logo após o pagamento demonstrativo
+            setTimeout(() => {
+              handleRegenerateClick()
+            }, 300)
+          }}
+        />
+      )}
     </div>
   )
 }

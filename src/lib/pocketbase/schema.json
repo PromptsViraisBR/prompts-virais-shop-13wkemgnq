@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T20:09:11.733Z",
+  "generatedAt": "2026-10-24T20:27:13.251Z",
   "collections": [
     {
       "name": "users",
@@ -168,7 +168,14 @@
             "acessorios_calcados",
             "streetwear_casual",
             "infantil_kids",
-            "lingerie_pijamas"
+            "lingerie_pijamas",
+            "espelhos_decoracao",
+            "produtos_eletronicos",
+            "capinhas_acessorios_celular",
+            "moda_fitness_plus_size",
+            "pet_acessorios",
+            "cozinha_utilidades",
+            "relogios_bijus"
           ]
         },
         {
@@ -330,7 +337,14 @@
             "acessorios_calcados",
             "streetwear_casual",
             "infantil_kids",
-            "lingerie_pijamas"
+            "lingerie_pijamas",
+            "espelhos_decoracao",
+            "produtos_eletronicos",
+            "capinhas_acessorios_celular",
+            "moda_fitness_plus_size",
+            "pet_acessorios",
+            "cozinha_utilidades",
+            "relogios_bijus"
           ]
         },
         {
@@ -478,6 +492,67 @@
       "indexes": [
         "CREATE INDEX idx_credits_usage_user_date ON video_credits_usage (user, date)",
         "CREATE UNIQUE INDEX idx_credits_usage_user_engine_date ON video_credits_usage (user, engine, date)"
+      ]
+    },
+    {
+      "name": "regeneration_credits",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != '' && user = @request.auth.id",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "extra_prompts_balance",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_purchased",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_used",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_purchase_card_last4",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_regeneration_credits_user ON regeneration_credits (user)"
       ]
     }
   ]

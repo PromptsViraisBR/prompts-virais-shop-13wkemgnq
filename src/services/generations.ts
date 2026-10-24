@@ -26,6 +26,8 @@ export interface GenerateImageInput {
   prompt?: string
   generationId?: string
   referenceImageUrls?: string[]
+  combinationMode?: 'fidelity' | 'artistic'
+  googleAiApiKey?: string
 }
 
 export interface GenerateImageResult {
@@ -39,6 +41,7 @@ export interface GenerateImageResult {
 
 export interface GenerateVideoInput {
   productName: string
+  engine?: string
   niche?: NicheType
   style?: StyleType
   details?: string
@@ -46,6 +49,8 @@ export interface GenerateVideoInput {
   prompt?: string
   generationId?: string
   referenceImageUrls?: string[]
+  xaiApiKey?: string
+  googleAiApiKey?: string
 }
 
 export interface GenerateVideoResult {
@@ -53,6 +58,10 @@ export interface GenerateVideoResult {
   video_url?: string
   duration?: string
   model?: string
+  engine?: string
+  engine_mode?: string
+  remaining_credits?: number | string
+  limit?: number
   prompt?: string
   product_name?: string
   fallback?: boolean
@@ -60,6 +69,24 @@ export interface GenerateVideoResult {
   recommended_action?: string
   error?: string
   code?: string
+}
+
+export async function getVideoCredits(): Promise<import('@/types').VideoCreditsResponse | null> {
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/video-credits`,
+      {
+        headers: {
+          ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+        },
+      },
+    )
+    if (!response.ok) return null
+    return (await response.json()) as import('@/types').VideoCreditsResponse
+  } catch (err) {
+    console.warn('Erro ao consultar créditos de vídeo:', err)
+    return null
+  }
 }
 
 export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): string {
@@ -230,6 +257,8 @@ export async function generateProductImage(
       image_description: input.imageDescription,
       prompt: input.prompt,
       generation_id: input.generationId,
+      combination_mode: input.combinationMode || 'fidelity',
+      google_ai_api_key: input.googleAiApiKey,
       reference_image_urls: input.referenceImageUrls || [],
     }),
   })
@@ -262,12 +291,15 @@ export async function generateProductVideo(
     },
     body: JSON.stringify({
       product_name: input.productName,
+      engine: input.engine || 'flow',
       niche: input.niche,
       style: input.style,
       details: input.details,
       script: input.script,
       prompt: input.prompt,
       generation_id: input.generationId,
+      xai_api_key: input.xaiApiKey,
+      google_ai_api_key: input.googleAiApiKey,
       reference_image_urls: input.referenceImageUrls || [],
     }),
   })

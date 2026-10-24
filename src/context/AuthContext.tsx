@@ -14,7 +14,12 @@ interface AuthContextType {
   signup: (email: string, pass: string, name: string) => Promise<void>
   logout: () => void
   refreshSubscription: () => Promise<void>
-  updateProfile: (data: { name?: string; email?: string }) => Promise<void>
+  updateProfile: (data: {
+    name?: string
+    email?: string
+    xai_api_key?: string
+    google_ai_api_key?: string
+  }) => Promise<void>
   changePlanDemo: (newPlan: PlanType, cardData?: { last4: string; brand: string }) => Promise<void>
 }
 
@@ -87,7 +92,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSubscription(null)
   }
 
-  const updateProfile = async (data: { name?: string; email?: string }) => {
+  const updateProfile = async (data: {
+    name?: string
+    email?: string
+    xai_api_key?: string
+    google_ai_api_key?: string
+  }) => {
     if (!user) throw new Error('Não autenticado')
     const updated = await pb.collection('users').update<UserRecord>(user.id, data)
     setUser(updated)

@@ -6,6 +6,7 @@ import {
   getUserGenerations,
   generateProductImage,
   generateProductVideo,
+  getVideoCredits,
   updateGenerationImage,
   updateGenerationVideo,
 } from '@/services/generations'
@@ -53,10 +54,22 @@ import {
   X,
   ImagePlus,
   FileImage,
+  Key,
+  ShieldCheck,
+  Zap,
+  Cpu,
+  UserCheck,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/types'
-import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
+import type {
+  GenerationRecord,
+  NicheType,
+  StyleType,
+  PlatformType,
+  VideoEngineType,
+  VideoCreditsResponse,
+} from '@/types'
+import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS, VIDEO_ENGINES } from '@/types'
 
 export const Generator: React.FC = () => {
   const { user, isPaidPlan } = useAuth()
@@ -74,8 +87,14 @@ export const Generator: React.FC = () => {
   const [referenceFiles, setReferenceFiles] = useState<File[]>([])
   const [referencePreviews, setReferencePreviews] = useState<string[]>([])
 
-  // Image Generation Custom Description State
+  // Image Generation Custom Description State & Combination Mode
   const [imageDescription, setImageDescription] = useState('')
+  const [combinationMode, setCombinationMode] = useState<'fidelity' | 'artistic'>('fidelity')
+
+  // Video Engine State & Credits
+  const [selectedEngine, setSelectedEngine] = useState<VideoEngineType>('flow')
+  const [creditsData, setCreditsData] = useState<VideoCreditsResponse | null>(null)
+  const [loadingCredits, setLoadingCredits] = useState(false)
 
   // Results State
   const [generating, setGenerating] = useState(false)
@@ -83,6 +102,8 @@ export const Generator: React.FC = () => {
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null)
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null)
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null)
+  const [currentVideoEngine, setCurrentVideoEngine] = useState<string | null>(null)
+  const [currentEngineMode, setCurrentEngineMode] = useState<string | null>(null)
   const [currentSavedImageUrls, setCurrentSavedImageUrls] = useState<string[]>([])
   const [generatingImage, setGeneratingImage] = useState(false)
   const [generatingVideo, setGeneratingVideo] = useState(false)
@@ -93,10 +114,25 @@ export const Generator: React.FC = () => {
   const [historyOpen, setHistoryOpen] = useState(false)
 
   useEffect(() => {
+    if (user) {
+      loadCredits()
+    }
     if (user && isPaidPlan) {
       loadHistory()
     }
   }, [user, isPaidPlan])
+
+  const loadCredits = async () => {
+    setLoadingCredits(true)
+    try {
+      const data = await getVideoCredits()
+      if (data) {
+        setCreditsData(data)
+      }
+    } finally {
+      setLoadingCredits(false)
+    }
+  }
 
   // Limpeza de Object URLs quando previews mudarem
   useEffect(() => {
@@ -287,6 +323,7 @@ export const Generator: React.FC = () => {
         style,
         details,
         imageDescription: imageDescription.trim() || undefined,
+        combinationMode,
         referenceImageUrls: activeRefUrls,
         generationId: currentGenerationId || undefined,
       })
@@ -373,6 +410,7 @@ export const Generator: React.FC = () => {
 
       const res = await generateProductVideo({
         productName,
+        engine: selectedEngine,
         niche,
         style,
         details,
@@ -381,19 +419,22 @@ export const Generator: React.FC = () => {
         generationId: currentGenerationId || undefined,
       })
 
+      // Atualiza créditos após a geração
+      loadCredits()
+
       if (res.fallback) {
-        // Fallback gracioso com mensagem explicativa e orientação
         setVideoFallbackMsg(
           res.message ||
-            'A fila de geração de vídeo direto por IA está com alta demanda momentânea. Você pode gerar a imagem de alta definição com Nano Banana enquanto a fila normaliza.',
+            `Os servidores do motor ${selectedEngine.toUpperCase()} estão com alta demanda momentânea. Você pode alternar para outro motor (Flow, Grok, Kling, Hailuo, Luma) ou gerar a imagem com Nano Banana.`,
         )
         toast({
-          title: 'Servidores de vídeo em alta demanda',
-          description:
-            'A renderização direta está congestionada nos servidores de IA. Sugerimos utilizar o gerador de imagem grátis com Nano Banana.',
+          title: `Servidor ${selectedEngine.toUpperCase()} em alta demanda`,
+          description: 'Você pode tentar outro motor no seletor ou gerar imagem com Nano Banana.',
         })
       } else if (res.video_url) {
         setCurrentVideoUrl(res.video_url)
+        setCurrentVideoEngine(res.engine || selectedEngine)
+        setCurrentEngineMode(res.engine_mode || null)
         setVideoFallbackMsg(null)
 
         if (currentGenerationId) {
@@ -402,7 +443,11 @@ export const Generator: React.FC = () => {
             setHistory((prev) =>
               prev.map((item) =>
                 item.id === currentGenerationId
-                  ? { ...item, generated_video_url: res.video_url }
+                  ? {
+                      ...item,
+                      generated_video_url: res.video_url,
+                      video_engine: res.engine || selectedEngine,
+                    }
                   : item,
               ),
             )
@@ -411,9 +456,12 @@ export const Generator: React.FC = () => {
           }
         }
 
+        const isFull = res.engine_mode === 'full_mode_custom_key'
         toast({
-          title: 'Vídeo gerado com sucesso! 🎬',
-          description: 'Vídeo vertical 9:16 de até 10s pronto para o TikTok Shop / Shopee.',
+          title: isFull ? 'Vídeo gerado no MODO COMPLETO! 🎬✨' : 'Vídeo gerado com sucesso! 🎬',
+          description: isFull
+            ? 'Gerado via sua chave oficial própria sem consumir créditos in-app!'
+            : `Vídeo vertical 9:16 gerado via motor ${selectedEngine.toUpperCase()}.`,
         })
       }
     } catch (err: unknown) {
@@ -421,18 +469,28 @@ export const Generator: React.FC = () => {
       if (errorObj?.code === 'PLAN_UPGRADE_REQUIRED') {
         toast({
           title: 'Upgrade para o Plano PRO Necessário',
-          description: errorObj.message || 'Assine o plano PRO a R$ 49,90/mês para liberar vídeos.',
+          description:
+            errorObj.message ||
+            'Assine o plano PRO a R$ 49,90/mês ou conecte sua própria chave no Perfil.',
           variant: 'destructive',
         })
         navigate('/planos')
+      } else if (errorObj?.code === 'DAILY_CREDITS_EXHAUSTED') {
+        toast({
+          title: 'Créditos diários esgotados para este motor',
+          description:
+            errorObj.message ||
+            'Conecte sua própria chave no Perfil para usar o Modo Completo ilimitado!',
+          variant: 'destructive',
+        })
       } else {
         console.error('Erro na geração de vídeo:', err)
         setVideoFallbackMsg(
-          'O serviço de geração de vídeo está temporariamente indisponível no momento. Você pode utilizar a geração de imagem grátis com Nano Banana como alternativa.',
+          `O motor de vídeo ${selectedEngine.toUpperCase()} está temporariamente indisponível no momento. Experimente selecionar outro motor ou utilize o gerador de imagens Nano Banana.`,
         )
         toast({
           title: 'Geração temporariamente indisponível',
-          description: 'Recomendamos usar o gerador de imagem Nano Banana como referência visual.',
+          description: 'Recomendamos testar outro motor ou usar o gerador de imagem Nano Banana.',
           variant: 'destructive',
         })
       }
@@ -656,7 +714,6 @@ export const Generator: React.FC = () => {
                     </button>
                   </div>
                 </div>
-
                 {/* 1. Uploader de Imagens da Galeria (Até 3 imagens como Referência) */}
                 <div className="space-y-2.5 p-4 rounded-xl border-2 border-dashed border-pink-500/30 bg-pink-500/5 hover:border-pink-500/50 transition-colors">
                   <div className="flex items-center justify-between gap-2">
@@ -753,7 +810,6 @@ export const Generator: React.FC = () => {
                     </label>
                   )}
                 </div>
-
                 {/* Nome do Produto */}
                 <div className="space-y-2">
                   <Label htmlFor="product-name" className="font-semibold">
@@ -767,7 +823,6 @@ export const Generator: React.FC = () => {
                     required
                   />
                 </div>
-
                 {/* Nicho & Estilo */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -806,7 +861,6 @@ export const Generator: React.FC = () => {
                     </Select>
                   </div>
                 </div>
-
                 {/* Plataforma */}
                 <div className="space-y-2">
                   <Label htmlFor="platform" className="font-semibold">
@@ -825,7 +879,6 @@ export const Generator: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
                 {/* Detalhes que vendem */}
                 <div className="space-y-2">
                   <Label htmlFor="details" className="font-semibold">
@@ -841,7 +894,6 @@ export const Generator: React.FC = () => {
                     O roteiro destacará esses pontos na cena de quebra de objeções.
                   </p>
                 </div>
-
                 {/* Público Alvo */}
                 <div className="space-y-2">
                   <Label htmlFor="target-audience" className="font-semibold">
@@ -854,22 +906,21 @@ export const Generator: React.FC = () => {
                     onChange={(e) => setTargetAudience(e.target.value)}
                   />
                 </div>
-
-                {/* 2. Campo de escrita para descrever o que a pessoa quer na imagem gerada */}
-                <div className="space-y-2 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                {/* 2. Campo de escrita e Modo de Combinação com Fidelidade (Nano Banana) */}
+                <div className="space-y-3 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20">
                   <div className="flex items-center justify-between gap-2">
                     <Label
                       htmlFor="image-description"
                       className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-foreground"
                     >
                       <ImageIcon className="w-4 h-4 text-amber-500" />
-                      O que você quer ver na Imagem? (Nano Banana)
+                      Nano Banana: Direção Visual & Combinação
                     </Label>
                     <Badge
                       variant="outline"
                       className="text-[10px] text-amber-600 border-amber-500/30"
                     >
-                      Opcional
+                      Grátis
                     </Badge>
                   </div>
                   <Input
@@ -879,11 +930,46 @@ export const Generator: React.FC = () => {
                     onChange={(e) => setImageDescription(e.target.value)}
                     className="bg-background text-xs sm:text-sm"
                   />
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Descreva detalhes de cenário, pose, iluminação ou modelo que você deseja na
-                    geração visual com Nano Banana.
-                  </p>
-                </div>
+
+                  {/* Controle de Fidelidade de Combinação de Pessoa + Roupa */}
+                  <div className="p-2.5 rounded-lg bg-background/80 border space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
+                        Modo de Combinação de Fotos:
+                      </span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setCombinationMode('fidelity')}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${
+                            combinationMode === 'fidelity'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-muted text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Preservar Pessoa & Roupa (Fiel)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCombinationMode('artistic')}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${
+                            combinationMode === 'artistic'
+                              ? 'bg-purple-600 text-white shadow-xs'
+                              : 'bg-muted text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Inspiração Livre
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-tight">
+                      {combinationMode === 'fidelity'
+                        ? '✅ Mantém os traços, rosto e identidade da pessoa enviada vestindo a peça de roupa física sem alterar a peça original.'
+                        : 'Cria uma composição artística baseada na paleta de cores e estilo das fotos.'}
+                    </p>
+                  </div>
+                </div>{' '}
               </CardContent>
 
               <CardFooter className="pt-2 flex flex-col gap-2.5">
@@ -904,7 +990,6 @@ export const Generator: React.FC = () => {
                     </>
                   )}
                 </Button>
-
                 {/* Botão de Imagem Grátis com Nano Banana */}
                 <Button
                   type="button"
@@ -928,8 +1013,110 @@ export const Generator: React.FC = () => {
                     </>
                   )}
                 </Button>
+                {/* Seletor de Motor de Vídeo & Status de Créditos */}
+                <div className="space-y-2 p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="video-engine-select"
+                      className="text-xs font-bold flex items-center gap-1.5 text-foreground"
+                    >
+                      <Film className="w-3.5 h-3.5 text-purple-500" />
+                      Motor de Vídeo (IA):
+                    </Label>
+                    <Link
+                      to="/perfil"
+                      className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-semibold"
+                      title="Conecte sua chave oficial para Modo Completo ilimitado"
+                    >
+                      <Key className="w-3 h-3" />
+                      Conectar chave no Perfil
+                    </Link>
+                  </div>
 
-                {/* Botão de Gerar Vídeo (até 10s) • Exclusivo PRO */}
+                  <Select
+                    value={selectedEngine}
+                    onValueChange={(v) => setSelectedEngine(v as VideoEngineType)}
+                  >
+                    <SelectTrigger
+                      id="video-engine-select"
+                      className="bg-background text-xs sm:text-sm font-semibold"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(VIDEO_ENGINES).map(([k, meta]) => {
+                        const engineStatus = creditsData?.engines?.[k as VideoEngineType]
+                        const isFull = engineStatus?.full_mode
+                        const remainingText = isFull
+                          ? 'Modo Completo (Chave Própria)'
+                          : engineStatus
+                            ? `${engineStatus.remaining}/${engineStatus.limit} hoje`
+                            : meta.badge
+
+                        return (
+                          <SelectItem key={k} value={k}>
+                            <div className="flex items-center justify-between gap-3 w-full">
+                              <span className="font-semibold">{meta.name}</span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                                  isFull
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {remainingText}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Badge do Motor Atual e Créditos */}
+                  {(() => {
+                    const curMeta = VIDEO_ENGINES[selectedEngine]
+                    const curStatus = creditsData?.engines?.[selectedEngine]
+                    const isFull = curStatus?.full_mode
+
+                    return (
+                      <div className="pt-1 flex flex-col gap-1 text-[11px] text-muted-foreground">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-foreground font-semibold">
+                            {isFull ? (
+                              <>
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                Modo Completo Ativo
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                Cota Diária In-App:
+                              </>
+                            )}
+                          </span>
+                          <span className="font-mono font-bold text-foreground">
+                            {isFull
+                              ? 'Ilimitado (Sua Chave)'
+                              : curStatus
+                                ? `${curStatus.remaining} de ${curStatus.limit} créditos restantes hoje`
+                                : curMeta.badge}
+                          </span>
+                        </div>
+                        <p className="text-[10px] leading-tight">
+                          {curMeta.description}{' '}
+                          {!isFull && curMeta.supportsCustomKey && (
+                            <span className="text-purple-600 dark:text-purple-400">
+                              Dica: Conecte sua chave oficial ({curMeta.keyName}) no Perfil para
+                              usar seu próprio saldo!
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    )
+                  })()}
+                </div>
+                {/* Botão de Gerar Vídeo (até 10s) */}
                 <Button
                   type="button"
                   onClick={handleGenerateVideo}
@@ -939,18 +1126,26 @@ export const Generator: React.FC = () => {
                   {generatingVideo ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Gerando Vídeo com IA (até 10s)...
+                      Renderizando com {VIDEO_ENGINES[selectedEngine]?.name || selectedEngine}...
                     </>
                   ) : (
                     <>
                       <Film className="w-4 h-4 mr-2" />
-                      <span>Gerar Vídeo Viral (até 10s)</span>
-                      <Badge className="ml-2 bg-amber-400 text-amber-950 font-extrabold text-[10px] shadow-sm">
-                        PRO • R$ 49,90
-                      </Badge>
+                      <span>
+                        Gerar Vídeo com {VIDEO_ENGINES[selectedEngine]?.name.split(' ')[0] || 'IA'}
+                      </span>
+                      {creditsData?.engines?.[selectedEngine]?.full_mode ? (
+                        <Badge className="ml-2 bg-emerald-500 text-white font-extrabold text-[10px] shadow-sm">
+                          MODO COMPLETO
+                        </Badge>
+                      ) : (
+                        <Badge className="ml-2 bg-amber-400 text-amber-950 font-extrabold text-[10px] shadow-sm">
+                          PRO • {VIDEO_ENGINES[selectedEngine]?.badge.split('/')[0]}
+                        </Badge>
+                      )}
                     </>
                   )}
-                </Button>
+                </Button>{' '}
               </CardFooter>
             </form>
           </Card>
@@ -1147,15 +1342,27 @@ export const Generator: React.FC = () => {
                       </div>
 
                       <div className="text-center space-y-1 max-w-sm">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
                           <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
-                            Vídeo Vertical 9:16 • 10s
+                            Motor:{' '}
+                            {currentVideoEngine
+                              ? currentVideoEngine.toUpperCase()
+                              : selectedEngine.toUpperCase()}
                           </Badge>
+                          {currentEngineMode === 'full_mode_custom_key' ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                              Modo Completo (Chave Própria)
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold">
+                              Créditos In-App
+                            </Badge>
+                          )}
                           <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                            Pronto para TikTok Shop / Shopee
+                            9:16 Vertical
                           </Badge>
                         </div>
-                        <p className="text-xs font-semibold text-foreground">
+                        <p className="text-xs font-semibold text-foreground pt-1">
                           {productName || 'Vídeo gerado para criativo de vendas'}
                         </p>
                       </div>
@@ -1499,13 +1706,18 @@ export const Generator: React.FC = () => {
                       {item.generated_video_url && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-purple-500/10 rounded-lg p-2 border border-purple-500/20">
                           <Film className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                          <span className="truncate flex-1">Vídeo de 10s salvo</span>
+                          <span className="truncate flex-1">
+                            Vídeo salvo{' '}
+                            {item.video_engine ? `(${item.video_engine.toUpperCase()})` : ''}
+                          </span>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-6 text-[10px] px-2 text-purple-600"
                             onClick={() => {
                               setCurrentVideoUrl(item.generated_video_url || null)
+                              setCurrentVideoEngine(item.video_engine || null)
+                              setCurrentEngineMode(item.engine_mode || null)
                               setActiveTab('video')
                             }}
                           >
@@ -1535,6 +1747,14 @@ export const Generator: React.FC = () => {
                         }
                         if (item.generated_video_url) {
                           setCurrentVideoUrl(item.generated_video_url)
+                          setCurrentVideoEngine(item.video_engine || null)
+                          setCurrentEngineMode(item.engine_mode || null)
+                        }
+                        if (
+                          item.combination_mode === 'fidelity' ||
+                          item.combination_mode === 'artistic'
+                        ) {
+                          setCombinationMode(item.combination_mode)
                         }
                         if (item.reference_images) {
                           const files = Array.isArray(item.reference_images)

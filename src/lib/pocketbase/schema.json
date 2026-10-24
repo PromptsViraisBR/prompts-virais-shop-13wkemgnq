@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T16:05:06.247Z",
+  "generatedAt": "2026-10-24T17:00:21.454Z",
   "collections": [
     {
       "name": "users",
@@ -37,6 +37,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "xai_api_key",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "google_ai_api_key",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -378,9 +390,83 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "video_engine",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "engine_mode",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "combination_mode",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"]
+    },
+    {
+      "name": "video_credits_usage",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != '' && user = @request.auth.id",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "engine",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_credits_usage_user_date ON video_credits_usage (user, date)",
+        "CREATE UNIQUE INDEX idx_credits_usage_user_engine_date ON video_credits_usage (user, engine, date)"
+      ]
     }
   ]
 }

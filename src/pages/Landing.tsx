@@ -80,27 +80,59 @@ export const Landing: React.FC = () => {
             primeiros 3 segundos e geram cliques imediatos no carrinho da sua vitrine.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link to="/planos">
-              <Button
-                size="lg"
-                className="w-full sm:w-auto px-8 py-6 text-base font-bold bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white shadow-xl shadow-pink-500/20"
-              >
-                <Crown className="w-5 h-5 mr-2" />
-                Assinar e Liberar Todos os Prompts
-              </Button>
-            </Link>
+          {/* Ações Hero com destaque principal para o Gerador de Prompt personalizado */}
+          <div className="space-y-4 pt-4">
+            {/* Super CTA chamativo: Gerador de Prompts sob medida para a peça que o lojista quer vender */}
+            <div className="flex justify-center">
+              <Link to="/gerador" className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto px-8 py-7 sm:py-8 text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-2xl shadow-pink-500/40 ring-4 ring-pink-500/20 hover:ring-pink-500/40 hover:scale-[1.03] active:scale-[0.99] transition-all duration-200 rounded-2xl group relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-white/20 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none" />
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="p-1.5 rounded-xl bg-white/20 text-white flex items-center justify-center shadow-inner">
+                      <Wand2 className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
+                    </span>
+                    <div className="text-left leading-tight">
+                      <span className="block text-sm sm:text-base font-extrabold tracking-wide">
+                        ✨ Gerar o Prompt da Minha Roupa (Grátis)
+                      </span>
+                      <span className="block text-[11px] sm:text-xs font-medium text-white/90">
+                        Crie um roteiro viral sob medida para o que você quer vender hoje
+                      </span>
+                    </div>
+                    <ArrowRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1 shrink-0" />
+                  </div>
+                </Button>
+              </Link>
+            </div>
 
-            <Link to="/biblioteca">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full sm:w-auto px-6 py-6 text-base font-semibold"
-              >
-                Explorar Biblioteca Grátis
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            {/* CTAs Secundários Harmonizados: Assinatura e Biblioteca Pronta */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link to="/planos" className="w-full sm:w-auto">
+                <Button
+                  size="default"
+                  variant="outline"
+                  className="w-full sm:w-auto px-6 py-5 text-sm font-bold border-pink-500/40 text-foreground hover:bg-pink-500/10 hover:border-pink-500"
+                >
+                  <Crown className="w-4 h-4 mr-2 text-amber-500" />
+                  Assinar e Liberar Todos os Prompts
+                </Button>
+              </Link>
+
+              <Link to="/biblioteca" className="w-full sm:w-auto">
+                <Button
+                  size="default"
+                  variant="ghost"
+                  className="w-full sm:w-auto px-6 py-5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  <ShoppingBag className="w-4 h-4 mr-2 text-pink-500" />
+                  Explorar Prompts Prontos na Biblioteca
+                  <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Social Proof Badges */}

@@ -21,7 +21,7 @@ import {
   Image as ImageIcon,
   RefreshCw,
 } from 'lucide-react'
-import { regeneratePromptReferenceImage } from '@/services/prompts'
+import { regeneratePromptReferenceImage, regeneratePromptReferenceVideo } from '@/services/prompts'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
@@ -36,6 +36,7 @@ export const PromptDetail: React.FC = () => {
   const [copied, setCopied] = useState(false)
   const [isFav, setIsFav] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [videoError, setVideoError] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
 
   useEffect(() => {
@@ -130,28 +131,58 @@ export const PromptDetail: React.FC = () => {
 
   const isLocked = !prompt.is_free && !isPaidPlan
 
-  const handleRegenerateImage = async () => {
+  const handleRegenerateVisual = async () => {
     if (!prompt) return
     setRegenerating(true)
     try {
-      const res = await regeneratePromptReferenceImage(prompt, user?.google_ai_api_key)
-      if (res.success && res.image_url) {
-        setPrompt({ ...prompt, reference_image_url: res.image_url })
+      // 1. Regenerar a imagem de referência via Nano Banana
+      const imgRes = await regeneratePromptReferenceImage(prompt, user?.google_ai_api_key)
+      let newImageUrl = prompt.reference_image_url
+      if (imgRes.success && imgRes.image_url) {
+        newImageUrl = imgRes.image_url
         setImageError(false)
+      }
+
+      // 2. Disparar a regeneração do clip animado correspondente
+      const vidRes = await regeneratePromptReferenceVideo(
+        { ...prompt, reference_image_url: newImageUrl },
+        user?.google_ai_api_key,
+        user?.xai_api_key,
+      )
+
+      let newVideoUrl = prompt.reference_video_url
+      if (vidRes.success && vidRes.video_url) {
+        newVideoUrl = vidRes.video_url
+        setVideoError(false)
+      }
+
+      setPrompt((prev) =>
+        prev
+          ? {
+              ...prev,
+              reference_image_url: newImageUrl,
+              reference_video_url: newVideoUrl,
+            }
+          : prev,
+      )
+
+      if (imgRes.success || vidRes.success) {
         toast({
-          title: 'Referência visual atualizada! ✨',
-          description: 'Nova imagem gerada pelo motor Nano Banana.',
+          title: 'Visual e animação atualizados! ✨',
+          description: vidRes.success
+            ? 'Novo clip animado e imagem gerados com sucesso.'
+            : 'Imagem de referência atualizada com sucesso (preview animado via Ken Burns).',
         })
       } else {
         toast({
-          title: 'Não foi possível gerar nova imagem',
-          description: res.error || 'Tente novamente em instantes.',
+          title: 'Não foi possível gerar novo visual completo',
+          description: imgRes.error || vidRes.error || 'Tente novamente em instantes.',
           variant: 'destructive',
         })
       }
     } catch (err: any) {
       toast({
-        title: 'Erro ao gerar',
+        title: 'Erro ao gerar visual',
         description: err.message,
         variant: 'destructive',
       })
@@ -160,6 +191,7 @@ export const PromptDetail: React.FC = () => {
     }
   }
 
+  const hasVideo = Boolean(prompt.reference_video_url && !videoError)
   const hasImage = Boolean(prompt.reference_image_url && !imageError)
 
   return (
@@ -178,12 +210,12 @@ export const PromptDetail: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleRegenerateImage}
+              onClick={handleRegenerateVisual}
               disabled={regenerating}
               className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
-              {regenerating ? 'Gerando...' : 'Regerar Visual'}
+              {regenerating ? 'Regerando Visual...' : 'Regerar Visual'}
             </Button>
           )}
 
@@ -194,17 +226,28 @@ export const PromptDetail: React.FC = () => {
         </div>
       </div>
 
-      {/* Hero Visual de Referência (Cena 9:16 ou formato editorial com preview) */}
+      {/* Hero Visual de Referência (Cena 9:16 com clip em loop ou fallback animado) */}
       <div className="relative rounded-3xl overflow-hidden border bg-muted/30 shadow-lg">
         <div className="grid grid-cols-1 md:grid-cols-12 items-center">
-          {/* Imagem Vertical de Referência em destaque */}
-          <div className="md:col-span-5 relative aspect-[9/14] sm:aspect-[9/13] max-h-[460px] w-full overflow-hidden bg-black/5 dark:bg-black/20 flex items-center justify-center border-b md:border-b-0 md:border-r">
-            {hasImage ? (
+          {/* Clip Animado / Imagem Vertical de Referência em destaque */}
+          <div className="md:col-span-5 relative aspect-[9/14] sm:aspect-[9/13] max-h-[480px] w-full overflow-hidden bg-black/5 dark:bg-black/20 flex items-center justify-center border-b md:border-b-0 md:border-r group">
+            {hasVideo ? (
+              <video
+                src={prompt.reference_video_url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                onError={() => setVideoError(true)}
+                className="w-full h-full object-cover object-center"
+              />
+            ) : hasImage ? (
               <img
                 src={prompt.reference_image_url}
                 alt={prompt.title}
                 onError={() => setImageError(true)}
-                className="w-full h-full object-cover object-center"
+                className="w-full h-full object-cover object-center ken-burns-active"
               />
             ) : (
               <div className="flex flex-col items-center justify-center p-6 text-center space-y-3">
@@ -220,9 +263,14 @@ export const PromptDetail: React.FC = () => {
               </div>
             )}
 
-            <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-white text-[11px] font-semibold flex items-center gap-1.5">
+            {/* Gradient Overlay sutil inferior */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+            <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-white text-[11px] font-semibold flex items-center gap-1.5 shadow-xs">
               <Sparkles className="w-3.5 h-3.5 text-pink-400" />
-              Cena de Referência 9:16 (Visual do Vídeo)
+              {hasVideo
+                ? 'Clip Animado de Referência (Loop)'
+                : 'Preview Animado da Referência (9:16)'}
             </div>
           </div>
 

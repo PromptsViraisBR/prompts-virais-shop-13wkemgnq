@@ -76,3 +76,43 @@ export async function regeneratePromptReferenceImage(
     return { success: false, error: err.message || 'Erro de conexão' }
   }
 }
+
+/**
+ * Regenera ou preenche o clip animado de vídeo do prompt usando o pipeline de vídeo existente
+ */
+export async function regeneratePromptReferenceVideo(
+  prompt: PromptRecord,
+  userGoogleKey?: string,
+  userXaiKey?: string,
+): Promise<{ success: boolean; video_url?: string; error?: string }> {
+  try {
+    const baseUrl = import.meta.env.VITE_POCKETBASE_URL || ''
+    const res = await fetch(`${baseUrl}/backend/v1/generate-video`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(pb.authStore.token ? { Authorization: `Bearer ${pb.authStore.token}` } : {}),
+      },
+      body: JSON.stringify({
+        prompt_id: prompt.id,
+        product_name: prompt.title,
+        niche: prompt.niche,
+        style: prompt.style,
+        engine: 'flow',
+        details: prompt.description || prompt.title,
+        prompt: `Short 3-second animated video preview for e-commerce prompt showcase: ${prompt.title}.`,
+        reference_image_urls: prompt.reference_image_url ? [prompt.reference_image_url] : [],
+        google_ai_api_key: userGoogleKey,
+        xai_api_key: userXaiKey,
+      }),
+    })
+
+    const data = await res.json()
+    if (data.success && data.video_url) {
+      return { success: true, video_url: data.video_url }
+    }
+    return { success: false, error: data.error || data.message || 'Falha ao gerar vídeo' }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro de conexão' }
+  }
+}

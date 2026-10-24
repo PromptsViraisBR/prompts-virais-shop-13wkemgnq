@@ -36,6 +36,7 @@ import {
   Crown,
   Image as ImageIcon,
 } from 'lucide-react'
+import { PromptAnimatedMedia } from '@/components/PromptAnimatedMedia'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord, NicheType, StyleType } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
@@ -47,7 +48,7 @@ export const Library: React.FC = () => {
   const [prompts, setPrompts] = useState<PromptRecord[]>([])
   const [favoritePromptIds, setFavoritePromptIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
+  const [hoveredPromptId, setHoveredPromptId] = useState<string | null>(null)
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('')
@@ -294,101 +295,30 @@ export const Library: React.FC = () => {
           {displayedPrompts.map((prompt) => {
             const isLocked = !prompt.is_free && !isPaidPlan
             const isFav = favoritePromptIds.has(prompt.id)
-            const hasCustomImage = Boolean(prompt.reference_image_url && !imageErrors[prompt.id])
-            const fallbackColor =
-              prompt.niche === 'moda_feminina'
-                ? 'from-pink-500/20 via-rose-500/10 to-transparent'
-                : prompt.niche === 'fitness_academia'
-                  ? 'from-purple-500/20 via-indigo-500/10 to-transparent'
-                  : prompt.niche === 'moda_praia'
-                    ? 'from-cyan-500/20 via-teal-500/10 to-transparent'
-                    : 'from-amber-500/20 via-orange-500/10 to-transparent'
+            const isHovered = hoveredPromptId === prompt.id
 
             return (
               <Card
                 key={prompt.id}
                 onClick={() => navigate(`/prompt/${prompt.id}`)}
+                onMouseEnter={() => setHoveredPromptId(prompt.id)}
+                onMouseLeave={() =>
+                  setHoveredPromptId((curr) => (curr === prompt.id ? null : curr))
+                }
+                onTouchStart={() => setHoveredPromptId(prompt.id)}
                 className={`flex flex-col justify-between border cursor-pointer transition-all hover:shadow-xl hover:border-pink-500/50 group relative overflow-hidden rounded-2xl ${
                   isLocked ? 'bg-muted/10' : ''
                 }`}
               >
-                {/* Visual Reference Header / Thumbnail 9:16 compact banner */}
-                <div className="relative aspect-[16/10] sm:aspect-[16/11] w-full overflow-hidden bg-muted/40 border-b">
-                  {hasCustomImage ? (
-                    <img
-                      src={prompt.reference_image_url}
-                      alt={prompt.title}
-                      loading="lazy"
-                      onError={() => {
-                        setImageErrors((prev) => ({ ...prev, [prompt.id]: true }))
-                      }}
-                      className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div
-                      className={`w-full h-full bg-gradient-to-br ${fallbackColor} flex flex-col items-center justify-center p-4 text-center space-y-2`}
-                    >
-                      <div className="w-10 h-10 rounded-full bg-background/80 shadow-xs flex items-center justify-center text-pink-500">
-                        <ImageIcon className="w-5 h-5" />
-                      </div>
-                      <span className="text-[11px] font-medium text-muted-foreground line-clamp-1">
-                        Cena de Referência Visual
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Gradient Overlay & Badges em cima da imagem */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-black/30 pointer-events-none" />
-
-                  {/* Top floating actions */}
-                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1 z-10">
-                    <Badge
-                      variant="secondary"
-                      className="text-[11px] font-semibold backdrop-blur-md bg-background/80 shadow-xs"
-                    >
-                      {NICHE_LABELS[prompt.niche] || prompt.niche}
-                    </Badge>
-
-                    <div className="flex items-center gap-1">
-                      {prompt.is_free ? (
-                        <Badge className="bg-emerald-500/90 hover:bg-emerald-600 text-white border-0 text-[10px] font-bold shadow-xs">
-                          Gratuito
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-amber-500/90 hover:bg-amber-600 text-white border-0 text-[10px] font-bold shadow-xs">
-                          PRO
-                        </Badge>
-                      )}
-
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="h-7 w-7 rounded-full backdrop-blur-md bg-background/80 shadow-xs hover:bg-background"
-                        onClick={(e) => handleToggleFavorite(e, prompt.id)}
-                        aria-label="Favoritar"
-                      >
-                        <Heart
-                          className={`w-3.5 h-3.5 transition-colors ${
-                            isFav ? 'fill-rose-500 text-rose-500' : 'text-muted-foreground'
-                          }`}
-                        />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Bottom visual tag */}
-                  <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[11px] text-white/95 font-medium drop-shadow-sm">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-xs">
-                      <Video className="w-3 h-3 text-pink-400" />
-                      {STYLE_LABELS[prompt.style] || prompt.style}
-                    </span>
-                    {prompt.platform && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-xs">
-                        {PLATFORM_LABELS[prompt.platform]}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                {/* Visual Animated Preview Header: video clip on hover or Ken Burns motion fallback */}
+                <PromptAnimatedMedia
+                  prompt={prompt}
+                  isHovered={isHovered}
+                  isFav={isFav}
+                  onToggleFavorite={(e) => handleToggleFavorite(e, prompt.id)}
+                  aspectClassName="aspect-[16/10] sm:aspect-[16/11]"
+                  showBadgeOverlays={true}
+                />
 
                 <CardHeader className="space-y-2 pb-2 pt-3 px-4 sm:px-5">
                   <CardTitle className="text-base sm:text-lg font-bold group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors line-clamp-2 leading-snug">

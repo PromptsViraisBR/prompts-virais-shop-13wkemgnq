@@ -287,4 +287,21 @@
   .animate-spotlight {
     animation: spotlight 2s ease forwards;
   }
+
+  /* Ken Burns animated preview effect for prompt reference cards */
+  @keyframes ken-burns-hover {
+    0% {
+      transform: scale(1) translate(0, 0);
+    }
+    50% {
+      transform: scale(1.12) translate(-1.5%, -2%);
+    }
+    100% {
+      transform: scale(1.18) translate(1.5%, 1%);
+    }
+  }
+
+  .ken-burns-active {
+    animation: ken-burns-hover 6s ease-in-out infinite alternate;
+  }
 }

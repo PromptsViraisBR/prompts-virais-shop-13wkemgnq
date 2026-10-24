@@ -51,6 +51,7 @@ export interface PromptRecord {
   is_free?: boolean
   tags?: string
   reference_image_url?: string
+  reference_video_url?: string
   created: string
   updated: string
 }

@@ -586,6 +586,20 @@ routerAdd('POST', '/backend/v1/generate-video', (e) => {
       }
     }
 
+    // 5.1 Persistir no prompt da biblioteca se prompt_id foi informado (para clip animado)
+    const promptId = (body.prompt_id || '').trim()
+    if (promptId && videoResultUrl) {
+      try {
+        const promptRec = $app.findRecordById('prompts', promptId)
+        if (promptRec) {
+          promptRec.set('reference_video_url', videoResultUrl)
+          $app.save(promptRec)
+        }
+      } catch (pSaveErr) {
+        console.log('[SAVE_VIDEO_TO_PROMPT_ERR] ' + pSaveErr.message)
+      }
+    }
+
     const updatedRemaining = isUsingCustomKey
       ? 'ilimitado (chave própria)'
       : Math.max(0, currentLimit - (currentUsageCount + 1))

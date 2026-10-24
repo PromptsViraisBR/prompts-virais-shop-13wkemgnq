@@ -72,6 +72,7 @@ export interface GenerationRecord {
   platform?: PlatformType
   target_audience?: string
   generated_prompt: string
+  generated_image_url?: string
   created: string
   updated: string
 }

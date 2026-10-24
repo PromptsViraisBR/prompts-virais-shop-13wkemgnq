@@ -10,6 +10,24 @@ export interface GeneratePromptInput {
   platform?: PlatformType
   targetAudience?: string
   details?: string
+  generatedImageUrl?: string
+}
+
+export interface GenerateImageInput {
+  productName: string
+  niche?: NicheType
+  style?: StyleType
+  details?: string
+  prompt?: string
+  generationId?: string
+}
+
+export interface GenerateImageResult {
+  success: boolean
+  image_url: string
+  prompt: string
+  model: string
+  product_name: string
 }
 
 export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): string {
@@ -122,6 +140,43 @@ export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<G
     platform: input.platform || 'ambos',
     target_audience: input.targetAudience || '',
     generated_prompt: generatedText,
+    generated_image_url: input.generatedImageUrl || '',
+  })
+}
+
+export async function generateProductImage(
+  input: GenerateImageInput,
+): Promise<GenerateImageResult> {
+  const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-image`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+    },
+    body: JSON.stringify({
+      product_name: input.productName,
+      niche: input.niche,
+      style: input.style,
+      details: input.details,
+      prompt: input.prompt,
+      generation_id: input.generationId,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.error || `Erro ${response.status} ao gerar imagem.`)
+  }
+
+  return (await response.json()) as GenerateImageResult
+}
+
+export async function updateGenerationImage(
+  generationId: string,
+  imageUrl: string,
+): Promise<GenerationRecord> {
+  return await pb.collection('generations').update<GenerationRecord>(generationId, {
+    generated_image_url: imageUrl,
   })
 }
 

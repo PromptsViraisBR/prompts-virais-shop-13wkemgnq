@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T15:17:32.121Z",
+  "generatedAt": "2026-10-24T15:37:24.804Z",
   "collections": [
     {
       "name": "users",
@@ -348,6 +348,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "generated_image_url",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"]

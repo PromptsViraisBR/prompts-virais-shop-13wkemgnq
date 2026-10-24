@@ -100,7 +100,8 @@ export const Profile: React.FC = () => {
     }
   }
 
-  const planName = plan === 'annual' ? 'Anual VIP' : plan === 'monthly' ? 'Mensal PRO' : 'Gratuito'
+  const planName =
+    plan === 'annual' ? 'Anual VIP' : plan === 'monthly' ? 'PRO (Vídeo IA)' : 'Gratuito'
 
   return (
     <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-8">
@@ -203,6 +204,15 @@ export const Profile: React.FC = () => {
                   <span>
                     Gerador personalizado de catálogo (
                     {isPaidPlan ? 'Liberado' : 'Bloqueado no plano gratuito'})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle
+                    className={`w-3.5 h-3.5 ${isPaidPlan ? 'text-purple-500' : 'text-muted-foreground/50'}`}
+                  />
+                  <span>
+                    Gerador de vídeo com IA até 10s (
+                    {isPaidPlan ? 'Liberado no PRO/VIP' : 'Exclusivo PRO'})
                   </span>
                 </div>
               </div>

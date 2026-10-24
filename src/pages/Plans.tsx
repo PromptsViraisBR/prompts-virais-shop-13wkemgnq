@@ -109,7 +109,7 @@ export const Plans: React.FC = () => {
       setModalOpen(false)
       toast({
         title: 'Assinatura confirmada com sucesso! 🎉',
-        description: `Seu plano foi atualizado para ${selectedPlanForModal === 'annual' ? 'Anual VIP' : 'Mensal PRO'}. Todos os recursos liberados!`,
+        description: `Seu plano foi atualizado para ${selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (R$ 49,90)'}. Geração de vídeo de até 10s liberada!`,
       })
       navigate('/biblioteca')
     } catch (err) {
@@ -225,19 +225,25 @@ export const Plans: React.FC = () => {
 
           <CardHeader>
             <CardTitle className="text-xl font-bold flex items-center justify-between">
-              Mensal PRO
+              PRO com Vídeo IA
               <Zap className="w-5 h-5 text-pink-500" />
             </CardTitle>
             <CardDescription>
-              Acesso total para criadores e lojistas que postam diariamente.
+              Acesso total com geração exclusiva de vídeos curtos de até 10s para criadores e lojas.
             </CardDescription>
             <div className="pt-4">
-              <span className="text-4xl font-extrabold">R$ 29,90</span>
+              <span className="text-4xl font-extrabold">R$ 49,90</span>
               <span className="text-muted-foreground text-sm font-medium"> /mês</span>
             </div>
           </CardHeader>
 
           <CardContent className="space-y-3.5 text-sm flex-1">
+            <div className="flex items-start gap-2.5 bg-purple-500/10 p-2.5 rounded-lg border border-purple-500/20">
+              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+              <span className="text-purple-950 dark:text-purple-200 font-semibold text-xs">
+                <strong>Gerador de Vídeo Curto (até 10s)</strong> vertical 9:16 com IA
+              </span>
+            </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
@@ -247,7 +253,7 @@ export const Plans: React.FC = () => {
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
-                <strong>Gerador Inteligente Ilimitado</strong> para roupas da sua vitrine
+                <strong>Gerador Inteligente Ilimitado</strong> de roteiros sob medida
               </span>
             </div>
             <div className="flex items-start gap-2.5">
@@ -258,11 +264,11 @@ export const Plans: React.FC = () => {
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Favoritos e histórico de prompts salvos na nuvem</span>
+              <span>Download de MP4 vertical sem marca d'água</span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Cancele quando quiser sem fidelidade</span>
+              <span>Histórico de roteiros, imagens e vídeos na nuvem</span>
             </div>
           </CardContent>
 
@@ -272,7 +278,7 @@ export const Plans: React.FC = () => {
               disabled={plan === 'monthly'}
               onClick={() => handleSelectPlan('monthly')}
             >
-              {plan === 'monthly' ? 'Plano Ativo' : 'Assinar Mensal'}
+              {plan === 'monthly' ? 'Plano Ativo' : 'Assinar PRO (R$ 49,90)'}
               {plan !== 'monthly' && <ArrowRight className="w-4 h-4 ml-2" />}
             </Button>
           </CardFooter>
@@ -310,21 +316,21 @@ export const Plans: React.FC = () => {
           </CardHeader>
 
           <CardContent className="space-y-3.5 text-sm flex-1">
-            <div className="flex items-start gap-2.5">
-              <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>
-                <strong>Tudo do plano Mensal</strong> incluído
+            <div className="flex items-start gap-2.5 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
+              <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <span className="text-amber-950 dark:text-amber-200 font-semibold text-xs">
+                <strong>Tudo do PRO incluído:</strong> Geração de vídeo (até 10s) + Prompts
               </span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
-                <strong>Economia de mais de R$ 120</strong> no ano
+                <strong>Economia de mais de R$ 360</strong> no comparativo anual
               </span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Acesso prioritário a novas atualizações de roteiro</span>
+              <span>Fila prioritária para renderização de vídeos com IA</span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
@@ -366,7 +372,8 @@ export const Plans: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <CreditCard className="w-5 h-5 text-pink-500" />
-              Assinatura do Plano {selectedPlanForModal === 'annual' ? 'Anual VIP' : 'Mensal PRO'}
+              Assinatura do Plano{' '}
+              {selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (R$ 49,90/mês)'}
             </DialogTitle>
             <DialogDescription>
               Fluxo demonstrativo de pagamento com cartão de crédito. Preencha ou use os dados de
@@ -436,7 +443,7 @@ export const Plans: React.FC = () => {
             <div className="p-3 bg-muted rounded-lg flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Valor a ativar:</span>
               <span className="font-extrabold text-foreground">
-                {selectedPlanForModal === 'annual' ? 'R$ 238,80 /ano' : 'R$ 29,90 /mês'}
+                {selectedPlanForModal === 'annual' ? 'R$ 238,80 /ano' : 'R$ 49,90 /mês'}
               </span>
             </div>
 

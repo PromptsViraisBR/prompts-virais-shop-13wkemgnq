@@ -73,6 +73,7 @@ export interface GenerationRecord {
   target_audience?: string
   generated_prompt: string
   generated_image_url?: string
+  generated_video_url?: string
   created: string
   updated: string
 }

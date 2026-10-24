@@ -8,6 +8,7 @@ interface AuthContextType {
   subscription: SubscriptionRecord | null
   plan: PlanType
   isPaidPlan: boolean
+  isProOrVip: boolean
   isLoading: boolean
   login: (email: string, pass: string) => Promise<void>
   signup: (email: string, pass: string, name: string) => Promise<void>
@@ -101,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Determina plano: se não tem assinatura ou expirou, fallback para 'free'
   const plan: PlanType = subscription?.status === 'active' ? subscription.plan : 'free'
   const isPaidPlan = plan === 'monthly' || plan === 'annual'
+  const isProOrVip = isPaidPlan // Plano PRO (R$ 49,90) e Anual VIP têm acesso à geração de vídeo
 
   return (
     <AuthContext.Provider
@@ -109,6 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subscription,
         plan,
         isPaidPlan,
+        isProOrVip,
         isLoading,
         login,
         signup,

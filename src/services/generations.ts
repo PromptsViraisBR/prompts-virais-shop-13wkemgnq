@@ -11,6 +11,7 @@ export interface GeneratePromptInput {
   targetAudience?: string
   details?: string
   generatedImageUrl?: string
+  generatedVideoUrl?: string
 }
 
 export interface GenerateImageInput {
@@ -28,6 +29,30 @@ export interface GenerateImageResult {
   prompt: string
   model: string
   product_name: string
+}
+
+export interface GenerateVideoInput {
+  productName: string
+  niche?: NicheType
+  style?: StyleType
+  details?: string
+  script?: string
+  prompt?: string
+  generationId?: string
+}
+
+export interface GenerateVideoResult {
+  success: boolean
+  video_url?: string
+  duration?: string
+  model?: string
+  prompt?: string
+  product_name?: string
+  fallback?: boolean
+  message?: string
+  recommended_action?: string
+  error?: string
+  code?: string
 }
 
 export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): string {
@@ -141,6 +166,7 @@ export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<G
     target_audience: input.targetAudience || '',
     generated_prompt: generatedText,
     generated_image_url: input.generatedImageUrl || '',
+    generated_video_url: input.generatedVideoUrl || '',
   })
 }
 
@@ -177,6 +203,47 @@ export async function updateGenerationImage(
 ): Promise<GenerationRecord> {
   return await pb.collection('generations').update<GenerationRecord>(generationId, {
     generated_image_url: imageUrl,
+  })
+}
+
+export async function generateProductVideo(
+  input: GenerateVideoInput,
+): Promise<GenerateVideoResult> {
+  const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-video`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+    },
+    body: JSON.stringify({
+      product_name: input.productName,
+      niche: input.niche,
+      style: input.style,
+      details: input.details,
+      script: input.script,
+      prompt: input.prompt,
+      generation_id: input.generationId,
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    const errorMsg = data.error || `Erro ${response.status} ao gerar vídeo.`
+    const err = new Error(errorMsg) as Error & { code?: string }
+    if (data.code) err.code = data.code
+    throw err
+  }
+
+  return data as GenerateVideoResult
+}
+
+export async function updateGenerationVideo(
+  generationId: string,
+  videoUrl: string,
+): Promise<GenerationRecord> {
+  return await pb.collection('generations').update<GenerationRecord>(generationId, {
+    generated_video_url: videoUrl,
   })
 }
 

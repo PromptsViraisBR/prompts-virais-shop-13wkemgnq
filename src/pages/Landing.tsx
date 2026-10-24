@@ -281,22 +281,35 @@ export const Landing: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-4">
-          {/* MENSAL */}
+          {/* MENSAL PRO */}
           <Card className="flex flex-col justify-between border-2 border-pink-500 shadow-xl relative">
             <div className="absolute -top-3 left-6">
               <Badge className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs uppercase">
-                Mais Escolhido
+                Novo • Mais Escolhido 🔥
               </Badge>
             </div>
             <CardHeader className="pt-6">
-              <CardTitle className="text-2xl font-bold">Mensal PRO</CardTitle>
-              <CardDescription>Acesso total ilimitado para criadores ativos.</CardDescription>
+              <CardTitle className="text-2xl font-bold flex items-center justify-between">
+                <span>Plano PRO</span>
+                <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
+                  Com Vídeo IA
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Acesso total com gerador exclusivo de vídeos curtos de até 10s.
+              </CardDescription>
               <div className="pt-2">
-                <span className="text-4xl font-extrabold">R$ 29,90</span>
+                <span className="text-4xl font-extrabold">R$ 49,90</span>
                 <span className="text-muted-foreground text-sm font-medium"> /mês</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm flex-1">
+              <div className="flex items-center gap-2 bg-purple-500/10 p-2 rounded-lg border border-purple-500/20">
+                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                <span className="font-semibold text-xs text-purple-950 dark:text-purple-200">
+                  Gerador de vídeos de até 10s (9:16 vertical)
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span>Biblioteca de prompts 100% liberada</span>
@@ -313,7 +326,7 @@ export const Landing: React.FC = () => {
             <CardFooter>
               <Link to="/planos" className="w-full">
                 <Button className="w-full bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold py-5">
-                  Assinar Mensal
+                  Assinar PRO (R$ 49,90)
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
@@ -335,17 +348,19 @@ export const Landing: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm flex-1">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Todos os recursos do plano Mensal</span>
+              <div className="flex items-center gap-2 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="font-semibold text-xs text-amber-950 dark:text-amber-200">
+                  Tudo do PRO: geração de vídeos (até 10s) incluída
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Economia de R$ 120 por ano</span>
+                <span>Economia de mais de R$ 360 no comparativo anual</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Prioridade em novos roteiros semanais</span>
+                <span>Fila prioritária para geração com IA</span>
               </div>
             </CardContent>
             <CardFooter>

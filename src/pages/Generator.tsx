@@ -5,7 +5,9 @@ import {
   saveGeneratedPrompt,
   getUserGenerations,
   generateProductImage,
+  generateProductVideo,
   updateGenerationImage,
+  updateGenerationVideo,
 } from '@/services/generations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +44,11 @@ import {
   Eye,
   ExternalLink,
   Flame,
+  Play,
+  Film,
+  AlertCircle,
+  Clock,
+  Sparkle,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/types'
@@ -64,8 +71,11 @@ export const Generator: React.FC = () => {
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null)
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null)
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null)
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null)
   const [generatingImage, setGeneratingImage] = useState(false)
-  const [activeTab, setActiveTab] = useState<'roteiro' | 'imagem'>('roteiro')
+  const [generatingVideo, setGeneratingVideo] = useState(false)
+  const [videoFallbackMsg, setVideoFallbackMsg] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'roteiro' | 'imagem' | 'video'>('roteiro')
   const [history, setHistory] = useState<GenerationRecord[]>([])
   const [copied, setCopied] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -134,6 +144,7 @@ export const Generator: React.FC = () => {
       setCurrentPrompt(record.generated_prompt)
       setCurrentGenerationId(record.id)
       setCurrentImageUrl(record.generated_image_url || null)
+      setCurrentVideoUrl(record.generated_video_url || null)
       setHistory((prev) => [record, ...prev])
       setActiveTab('roteiro')
 
@@ -209,6 +220,145 @@ export const Generator: React.FC = () => {
       })
     } finally {
       setGeneratingImage(false)
+    }
+  }
+
+  // Geração de Vídeo Curto até 10s (Exclusivo PRO)
+  const handleGenerateVideo = async () => {
+    if (!user) {
+      toast({
+        title: 'Faça login para gerar vídeos',
+        description: 'Entre na sua conta para utilizar o gerador de vídeo com IA.',
+      })
+      navigate('/login')
+      return
+    }
+
+    if (!isPaidPlan) {
+      toast({
+        title: 'Exclusivo do Plano PRO (R$ 49,90/mês)',
+        description:
+          'A geração de vídeo viral de até 10s é exclusiva para assinantes PRO e Anual VIP.',
+        variant: 'destructive',
+      })
+      navigate('/planos')
+      return
+    }
+
+    if (!productName.trim()) {
+      toast({
+        title: 'Informe o produto',
+        description: 'Digite o nome da peça no formulário para estruturar o vídeo.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setGeneratingVideo(true)
+    setVideoFallbackMsg(null)
+    setActiveTab('video')
+
+    try {
+      const res = await generateProductVideo({
+        productName,
+        niche,
+        style,
+        details,
+        script: currentPrompt || undefined,
+        generationId: currentGenerationId || undefined,
+      })
+
+      if (res.fallback) {
+        // Fallback gracioso com mensagem explicativa e orientação
+        setVideoFallbackMsg(
+          res.message ||
+            'A fila de geração de vídeo direto por IA está com alta demanda momentânea. Você pode gerar a imagem de alta definição com Nano Banana enquanto a fila normaliza.',
+        )
+        toast({
+          title: 'Servidores de vídeo em alta demanda',
+          description:
+            'A renderização direta está congestionada nos servidores de IA. Sugerimos utilizar o gerador de imagem grátis com Nano Banana.',
+        })
+      } else if (res.video_url) {
+        setCurrentVideoUrl(res.video_url)
+        setVideoFallbackMsg(null)
+
+        if (currentGenerationId) {
+          try {
+            await updateGenerationVideo(currentGenerationId, res.video_url)
+            setHistory((prev) =>
+              prev.map((item) =>
+                item.id === currentGenerationId
+                  ? { ...item, generated_video_url: res.video_url }
+                  : item,
+              ),
+            )
+          } catch (updateErr) {
+            console.warn('Erro ao vincular vídeo à geração:', updateErr)
+          }
+        }
+
+        toast({
+          title: 'Vídeo gerado com sucesso! 🎬',
+          description: 'Vídeo vertical 9:16 de até 10s pronto para o TikTok Shop / Shopee.',
+        })
+      }
+    } catch (err: unknown) {
+      const errorObj = err as { code?: string; message?: string }
+      if (errorObj?.code === 'PLAN_UPGRADE_REQUIRED') {
+        toast({
+          title: 'Upgrade para o Plano PRO Necessário',
+          description: errorObj.message || 'Assine o plano PRO a R$ 49,90/mês para liberar vídeos.',
+          variant: 'destructive',
+        })
+        navigate('/planos')
+      } else {
+        console.error('Erro na geração de vídeo:', err)
+        setVideoFallbackMsg(
+          'O serviço de geração de vídeo está temporariamente indisponível no momento. Você pode utilizar a geração de imagem grátis com Nano Banana como alternativa.',
+        )
+        toast({
+          title: 'Geração temporariamente indisponível',
+          description: 'Recomendamos usar o gerador de imagem Nano Banana como referência visual.',
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setGeneratingVideo(false)
+    }
+  }
+
+  const handleDownloadVideo = async () => {
+    if (!currentVideoUrl) return
+    try {
+      const fileName = `${productName.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'video_viral'}_10s.mp4`
+      if (currentVideoUrl.startsWith('data:')) {
+        const link = document.createElement('a')
+        link.href = currentVideoUrl
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else {
+        const res = await fetch(currentVideoUrl)
+        const blob = await res.blob()
+        const blobUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(blobUrl)
+      }
+
+      toast({
+        title: 'Download iniciado! 📥',
+        description: 'Vídeo curto salvo para postar nas redes.',
+      })
+    } catch (err) {
+      console.error('Erro no download do vídeo:', err)
+      window.open(currentVideoUrl, '_blank')
     }
   }
 
@@ -520,8 +670,8 @@ export const Generator: React.FC = () => {
                   type="button"
                   variant="outline"
                   onClick={handleGenerateImage}
-                  disabled={generatingImage}
-                  className="w-full border-pink-500/30 hover:border-pink-500 hover:bg-pink-500/10 text-foreground font-semibold py-5 transition-all"
+                  disabled={generatingImage || generatingVideo}
+                  className="w-full border-pink-500/30 hover:border-pink-500 hover:bg-pink-500/10 text-foreground font-semibold py-4 transition-all"
                 >
                   {generatingImage ? (
                     <>
@@ -538,6 +688,29 @@ export const Generator: React.FC = () => {
                     </>
                   )}
                 </Button>
+
+                {/* Botão de Gerar Vídeo (até 10s) • Exclusivo PRO */}
+                <Button
+                  type="button"
+                  onClick={handleGenerateVideo}
+                  disabled={generatingVideo || generating}
+                  className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-bold py-4 shadow-md transition-all relative group"
+                >
+                  {generatingVideo ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Gerando Vídeo com IA (até 10s)...
+                    </>
+                  ) : (
+                    <>
+                      <Film className="w-4 h-4 mr-2" />
+                      <span>Gerar Vídeo Viral (até 10s)</span>
+                      <Badge className="ml-2 bg-amber-400 text-amber-950 font-extrabold text-[10px] shadow-sm">
+                        PRO • R$ 49,90
+                      </Badge>
+                    </>
+                  )}
+                </Button>
               </CardFooter>
             </form>
           </Card>
@@ -549,19 +722,30 @@ export const Generator: React.FC = () => {
             <CardHeader className="bg-muted/40 border-b py-3 px-4 sm:px-6 flex flex-row items-center justify-between gap-2">
               <Tabs
                 value={activeTab}
-                onValueChange={(v) => setActiveTab(v as 'roteiro' | 'imagem')}
+                onValueChange={(v) => setActiveTab(v as 'roteiro' | 'imagem' | 'video')}
                 className="w-auto"
               >
-                <TabsList className="grid grid-cols-2 h-8">
-                  <TabsTrigger value="roteiro" className="text-xs gap-1.5 px-3">
-                    <Video className="w-3.5 h-3.5 text-pink-500" />
-                    Roteiro em Texto
+                <TabsList className="grid grid-cols-3 h-8">
+                  <TabsTrigger value="roteiro" className="text-xs gap-1 px-2 sm:px-3">
+                    <Video className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                    <span className="hidden sm:inline">Roteiro</span>
+                    <span className="sm:hidden">Texto</span>
                   </TabsTrigger>
-                  <TabsTrigger value="imagem" className="text-xs gap-1.5 px-3">
-                    <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
-                    Imagem Grátis
+                  <TabsTrigger value="imagem" className="text-xs gap-1 px-2 sm:px-3">
+                    <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>Imagem</span>
                     {currentImageUrl && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="video" className="text-xs gap-1 px-2 sm:px-3 relative">
+                    <Film className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                    <span>Vídeo</span>
+                    <Badge className="px-1 py-0 text-[8px] h-3.5 bg-amber-500/20 text-amber-600 dark:text-amber-300 font-bold ml-0.5">
+                      PRO
+                    </Badge>
+                    {currentVideoUrl && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block shrink-0" />
                     )}
                   </TabsTrigger>
                 </TabsList>
@@ -597,6 +781,17 @@ export const Generator: React.FC = () => {
                   Baixar Imagem
                 </Button>
               )}
+
+              {activeTab === 'video' && currentVideoUrl && (
+                <Button
+                  size="sm"
+                  onClick={handleDownloadVideo}
+                  className="gap-1.5 font-semibold text-xs bg-purple-600 hover:bg-purple-700 text-white h-8"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Baixar Vídeo
+                </Button>
+              )}
             </CardHeader>
 
             <CardContent className="p-4 sm:p-6 flex-1 flex flex-col justify-center">
@@ -621,6 +816,214 @@ export const Generator: React.FC = () => {
                     </div>
                   </div>
                 )
+              ) : activeTab === 'video' ? (
+                /* Aba Vídeo Viral (Até 10s) • Exclusivo PRO */
+                <div className="flex flex-col items-center justify-center h-full">
+                  {!isPaidPlan ? (
+                    /* Prompt de Upgrade Amigável para Não-PRO */
+                    <div className="text-center py-12 px-4 space-y-4 max-w-md mx-auto">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-500/20 to-amber-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto">
+                        <Crown className="w-8 h-8 text-amber-500" />
+                      </div>
+                      <div className="space-y-2">
+                        <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-bold uppercase tracking-wider">
+                          Exclusivo Plano PRO • R$ 49,90/mês
+                        </Badge>
+                        <h3 className="text-xl font-bold text-foreground">
+                          Gere Vídeos Virais de até 10s com IA
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Crie clipes verticais de alta conversão (formato 9:16) com inteligência
+                          artificial para destacar suas roupas no TikTok Shop e Shopee sem precisar
+                          gravar presencialmente.
+                        </p>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-muted/50 border text-xs text-left space-y-2">
+                        <div className="flex items-center gap-2 text-foreground font-semibold">
+                          <Sparkles className="w-4 h-4 text-pink-500" />
+                          O que está incluído no PRO:
+                        </div>
+                        <ul className="space-y-1 text-muted-foreground list-disc list-inside text-[11px]">
+                          <li>Vídeos verticais 9:16 de 5 a 10 segundos com movimento</li>
+                          <li>Estilos POV no espelho, modelo desfilando ou unboxing vitrine</li>
+                          <li>Download em MP4 sem marca d'água para publicar na sacolinha</li>
+                          <li>Acesso à biblioteca completa e gerador ilimitado</li>
+                        </ul>
+                      </div>
+
+                      <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+                        <Link to="/planos">
+                          <Button className="w-full sm:w-auto bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs shadow-md">
+                            <Crown className="w-3.5 h-3.5 mr-1.5" />
+                            Assinar Plano PRO por R$ 49,90
+                          </Button>
+                        </Link>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setActiveTab('imagem')
+                            handleGenerateImage()
+                          }}
+                          className="w-full sm:w-auto text-xs"
+                        >
+                          Usar Imagem Grátis (Nano Banana)
+                        </Button>
+                      </div>
+                    </div>
+                  ) : generatingVideo ? (
+                    /* Estado de Carregamento Claro */
+                    <div className="text-center py-16 px-4 space-y-4 text-muted-foreground">
+                      <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mx-auto text-purple-600 animate-pulse">
+                        <Film className="w-8 h-8 animate-spin" />
+                      </div>
+                      <div className="space-y-1.5 max-w-sm mx-auto">
+                        <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
+                          Processamento em Andamento (até 10s)
+                        </Badge>
+                        <h3 className="font-bold text-foreground text-base">
+                          Renderizando Vídeo com Inteligência Artificial...
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Vídeos com IA requerem computação pesada de renderização de quadros e
+                          movimento cinemático. Isso pode levar de 30 a 90 segundos. Por favor,
+                          aguarde.
+                        </p>
+                      </div>
+                    </div>
+                  ) : currentVideoUrl ? (
+                    /* Player de Vídeo Vertical 9:16 */
+                    <div className="w-full flex flex-col items-center space-y-4">
+                      <div className="relative rounded-2xl overflow-hidden border shadow-xl bg-black max-w-xs w-full aspect-[9/16] max-h-[460px] flex items-center justify-center">
+                        <video
+                          src={currentVideoUrl}
+                          controls
+                          autoPlay
+                          loop
+                          playsInline
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="text-center space-y-1 max-w-sm">
+                        <div className="flex items-center justify-center gap-2">
+                          <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
+                            Vídeo Vertical 9:16 • 10s
+                          </Badge>
+                          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                            Pronto para TikTok Shop / Shopee
+                          </Badge>
+                        </div>
+                        <p className="text-xs font-semibold text-foreground">
+                          {productName || 'Vídeo gerado para criativo de vendas'}
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleDownloadVideo}
+                          className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Baixar MP4
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(currentVideoUrl, '_blank')}
+                          className="text-xs gap-1"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Abrir em Nova Aba
+                        </Button>
+                      </div>
+                    </div>
+                  ) : videoFallbackMsg ? (
+                    /* Fallback Gracioso com Sugestão do Gerador de Imagem */
+                    <div className="text-center py-12 px-4 space-y-4 max-w-md mx-auto">
+                      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                        <AlertCircle className="w-7 h-7" />
+                      </div>
+                      <div className="space-y-2">
+                        <Badge
+                          variant="outline"
+                          className="text-amber-600 border-amber-500/30 text-[10px] font-bold"
+                        >
+                          Servidores de Vídeo Ocupados
+                        </Badge>
+                        <h3 className="font-bold text-foreground text-base">
+                          Renderização Temporariamente Ocupada
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {videoFallbackMsg}
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-muted/40 rounded-xl border text-xs text-left space-y-1">
+                        <span className="font-semibold text-foreground block">
+                          💡 Alternativa Recomendada:
+                        </span>
+                        <p className="text-muted-foreground text-[11px]">
+                          Utilize o <strong>Gerador de Imagens Nano Banana</strong> para criar a
+                          referência visual imediata da sua peça e monte o carrossel ou fundo do
+                          vídeo com o áudio de narração.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+                        <Button
+                          type="button"
+                          onClick={handleGenerateImage}
+                          className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-semibold text-xs shadow-sm"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
+                          Gerar Imagem com Nano Banana
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleGenerateVideo}
+                          className="text-xs"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                          Tentar Novamente
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Estado Inicial Aba Vídeo para Usuário PRO */
+                    <div className="text-center py-16 px-4 space-y-4 text-muted-foreground">
+                      <div className="w-16 h-16 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center mx-auto">
+                        <Film className="w-8 h-8" />
+                      </div>
+                      <div className="space-y-1.5 max-w-sm mx-auto">
+                        <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold uppercase tracking-wider mb-1">
+                          Recurso PRO Ativo
+                        </Badge>
+                        <h3 className="font-bold text-foreground text-base">
+                          Gerador de Vídeos Curtos com IA (até 10s)
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Preencha os dados do seu produto no formulário ao lado e clique em{' '}
+                          <strong>"Gerar Vídeo Viral (até 10s)"</strong> para renderizar uma cena
+                          vertical 9:16 com movimento e iluminação cinematográfica.
+                        </p>
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={handleGenerateVideo}
+                        disabled={generatingVideo}
+                        className="bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-bold text-xs shadow-md"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                        Criar Vídeo Viral Agora (10s)
+                      </Button>
+                    </div>
+                  )}
+                </div>
               ) : (
                 /* Aba Imagem Grátis (Nano Banana) */
                 <div className="flex flex-col items-center justify-center h-full">
@@ -736,6 +1139,25 @@ export const Generator: React.FC = () => {
                 ) : (
                   <span>Gere um roteiro estruturado com gancho e CTA</span>
                 )
+              ) : activeTab === 'video' ? (
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <Film className="w-3.5 h-3.5 text-purple-500" />
+                    Vídeo vertical 9:16 até 10s • Exclusivo PRO (R$ 49,90)
+                  </span>
+                  {currentVideoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleGenerateVideo}
+                      disabled={generatingVideo}
+                      className="text-xs h-auto p-0 text-purple-600 dark:text-purple-400 font-semibold gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Renderizar novo vídeo
+                    </Button>
+                  )}
+                </>
               ) : (
                 <>
                   <span className="flex items-center gap-1.5">
@@ -798,23 +1220,42 @@ export const Generator: React.FC = () => {
                       Estilo: {STYLE_LABELS[item.style]}
                     </CardDescription>
                   </CardHeader>
-                  {item.generated_image_url && (
-                    <div className="px-6 py-2">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 border">
-                        <ImageIcon className="w-3.5 h-3.5 text-pink-500 shrink-0" />
-                        <span className="truncate flex-1">Imagem gerada salva</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-[10px] px-2 text-pink-600"
-                          onClick={() => {
-                            setCurrentImageUrl(item.generated_image_url || null)
-                            setActiveTab('imagem')
-                          }}
-                        >
-                          Ver foto
-                        </Button>
-                      </div>
+                  {(item.generated_image_url || item.generated_video_url) && (
+                    <div className="px-6 py-2 space-y-1.5">
+                      {item.generated_image_url && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 border">
+                          <ImageIcon className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                          <span className="truncate flex-1">Imagem salva</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[10px] px-2 text-pink-600"
+                            onClick={() => {
+                              setCurrentImageUrl(item.generated_image_url || null)
+                              setActiveTab('imagem')
+                            }}
+                          >
+                            Ver foto
+                          </Button>
+                        </div>
+                      )}
+                      {item.generated_video_url && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-purple-500/10 rounded-lg p-2 border border-purple-500/20">
+                          <Film className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                          <span className="truncate flex-1">Vídeo de 10s salvo</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[10px] px-2 text-purple-600"
+                            onClick={() => {
+                              setCurrentVideoUrl(item.generated_video_url || null)
+                              setActiveTab('video')
+                            }}
+                          >
+                            Ver vídeo
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -828,6 +1269,9 @@ export const Generator: React.FC = () => {
                         setCurrentGenerationId(item.id)
                         if (item.generated_image_url) {
                           setCurrentImageUrl(item.generated_image_url)
+                        }
+                        if (item.generated_video_url) {
+                          setCurrentVideoUrl(item.generated_video_url)
                         }
                         setActiveTab('roteiro')
                       }}

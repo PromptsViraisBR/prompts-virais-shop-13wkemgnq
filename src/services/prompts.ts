@@ -50,7 +50,8 @@ export async function regeneratePromptReferenceImage(
   userGoogleKey?: string,
 ): Promise<{ success: boolean; image_url?: string; error?: string }> {
   try {
-    const res = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-image`, {
+    const baseUrl = import.meta.env.VITE_POCKETBASE_URL || ''
+    const res = await fetch(`${baseUrl}/backend/v1/generate-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

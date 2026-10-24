@@ -4,15 +4,12 @@ import { useAuth } from '@/context/AuthContext'
 import {
   saveGeneratedPrompt,
   getUserGenerations,
-  generateProductImage,
-  generateProductVideo,
-  getVideoCredits,
-  updateGenerationImage,
-  updateGenerationVideo,
+  adaptPromptWithImages,
 } from '@/services/generations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
   CardContent,
@@ -29,47 +26,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Wand2,
   Sparkles,
   Copy,
   Check,
   History,
-  Video,
-  ArrowRight,
   Crown,
-  RefreshCw,
-  ImageIcon,
-  Download,
-  Eye,
-  ExternalLink,
-  Flame,
-  Play,
-  Film,
-  AlertCircle,
-  Clock,
-  Sparkle,
   Upload,
   X,
   ImagePlus,
   FileImage,
-  Key,
-  ShieldCheck,
-  Zap,
-  Cpu,
-  UserCheck,
+  ArrowRight,
+  Flame,
+  ShoppingBag,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import type {
-  GenerationRecord,
-  NicheType,
-  StyleType,
-  PlatformType,
-  VideoEngineType,
-  VideoCreditsResponse,
-} from '@/types'
-import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS, VIDEO_ENGINES } from '@/types'
+import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/types'
+import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
 
 export const Generator: React.FC = () => {
   const { user, isPaidPlan } = useAuth()
@@ -82,57 +56,25 @@ export const Generator: React.FC = () => {
   const [platform, setPlatform] = useState<PlatformType>('tiktok_shop')
   const [targetAudience, setTargetAudience] = useState('')
   const [details, setDetails] = useState('')
+  const [visualDetails, setVisualDetails] = useState('')
 
-  // Reference Images State (Upload da Galeria - até 3 imagens)
+  // Upload de fotos (até 3 imagens)
   const [referenceFiles, setReferenceFiles] = useState<File[]>([])
   const [referencePreviews, setReferencePreviews] = useState<string[]>([])
 
-  // Image Generation Custom Description State & Combination Mode
-  const [imageDescription, setImageDescription] = useState('')
-  const [combinationMode, setCombinationMode] = useState<'fidelity' | 'artistic'>('fidelity')
-
-  // Video Engine State & Credits
-  const [selectedEngine, setSelectedEngine] = useState<VideoEngineType>('flow')
-  const [creditsData, setCreditsData] = useState<VideoCreditsResponse | null>(null)
-  const [loadingCredits, setLoadingCredits] = useState(false)
-
-  // Results State
+  // Resultados
   const [generating, setGenerating] = useState(false)
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null)
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null)
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null)
-  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null)
-  const [currentVideoEngine, setCurrentVideoEngine] = useState<string | null>(null)
-  const [currentEngineMode, setCurrentEngineMode] = useState<string | null>(null)
-  const [currentSavedImageUrls, setCurrentSavedImageUrls] = useState<string[]>([])
-  const [generatingImage, setGeneratingImage] = useState(false)
-  const [generatingVideo, setGeneratingVideo] = useState(false)
-  const [videoFallbackMsg, setVideoFallbackMsg] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'roteiro' | 'imagem' | 'video'>('roteiro')
-  const [history, setHistory] = useState<GenerationRecord[]>([])
   const [copied, setCopied] = useState(false)
+  const [history, setHistory] = useState<GenerationRecord[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
 
   useEffect(() => {
-    if (user) {
-      loadCredits()
-    }
     if (user && isPaidPlan) {
       loadHistory()
     }
   }, [user, isPaidPlan])
-
-  const loadCredits = async () => {
-    setLoadingCredits(true)
-    try {
-      const data = await getVideoCredits()
-      if (data) {
-        setCreditsData(data)
-      }
-    } finally {
-      setLoadingCredits(false)
-    }
-  }
 
   // Limpeza de Object URLs quando previews mudarem
   useEffect(() => {
@@ -155,7 +97,7 @@ export const Generator: React.FC = () => {
     if (availableSlots <= 0) {
       toast({
         title: 'Limite de imagens atingido',
-        description: 'Você pode adicionar no máximo 3 imagens de referência.',
+        description: 'Você pode adicionar no máximo 3 imagens da peça/vitrine.',
         variant: 'destructive',
       })
       e.target.value = ''
@@ -175,12 +117,11 @@ export const Generator: React.FC = () => {
       })
     } else {
       toast({
-        title: 'Foto(s) da peça adicionada(s)! 📸',
-        description: 'Usaremos como referência visual para detalhar o roteiro e a geração.',
+        title: 'Foto(s) adicionada(s) com sucesso! 📸',
+        description: 'O roteiro será gerado fielmente de acordo com a sua peça física.',
       })
     }
 
-    // Reset input value to allow re-selecting the same file if desired
     e.target.value = ''
   }
 
@@ -220,7 +161,7 @@ export const Generator: React.FC = () => {
       toast({
         title: 'Recurso Exclusivo do Plano Pago',
         description:
-          'O gerador personalizado para peças do seu catálogo está disponível nos planos Mensal e Anual.',
+          'O gerador personalizado para fotos do seu catálogo está disponível nos planos Mensal e Anual.',
         variant: 'destructive',
       })
       navigate('/planos')
@@ -238,54 +179,55 @@ export const Generator: React.FC = () => {
 
     setGenerating(true)
     try {
-      // Salva no banco de dados através do serviço com suporte às imagens de referência
+      // 1. Se o usuário enviou fotos ou detalhes visuais, chama a adaptação com IA
+      let scriptToSave = ''
+
+      if (referenceFiles.length > 0 || visualDetails.trim()) {
+        const adaptRes = await adaptPromptWithImages({
+          productName: productName.trim(),
+          visualDetails: visualDetails.trim() || details.trim() || undefined,
+          style,
+          platform,
+          referenceImages: referenceFiles,
+          imagesCount: referenceFiles.length,
+        })
+
+        if (adaptRes.success && adaptRes.adapted_prompt) {
+          scriptToSave = adaptRes.adapted_prompt
+        }
+      }
+
+      // 2. Salva no banco de dados através de saveGeneratedPrompt
       const record = await saveGeneratedPrompt({
         userId: user.id,
-        productName,
+        productName: productName.trim(),
         niche,
         style,
         platform,
-        targetAudience,
-        details,
+        targetAudience: targetAudience.trim() || undefined,
+        details: details.trim() || undefined,
+        visualDetails: visualDetails.trim() || undefined,
         referenceImages: referenceFiles.length > 0 ? referenceFiles : undefined,
-        imagePromptDescription: imageDescription || undefined,
       })
 
-      // Extrair URLs salvas no PocketBase para as imagens de referência
-      const savedUrls: string[] = []
-      if (record.reference_images) {
-        const fileNames = Array.isArray(record.reference_images)
-          ? record.reference_images
-          : [record.reference_images]
-        fileNames.forEach((fileName) => {
-          if (fileName) {
-            savedUrls.push(
-              `${import.meta.env.VITE_POCKETBASE_URL}/api/files/generations/${record.id}/${fileName}`,
-            )
-          }
-        })
-      }
-
-      setCurrentPrompt(record.generated_prompt)
+      // Se a IA gerou um roteiro adaptado customizado, utiliza no display
+      const finalPromptText = scriptToSave || record.generated_prompt
+      setCurrentPrompt(finalPromptText)
       setCurrentGenerationId(record.id)
-      setCurrentSavedImageUrls(savedUrls)
-      setCurrentImageUrl(record.generated_image_url || null)
-      setCurrentVideoUrl(record.generated_video_url || null)
       setHistory((prev) => [record, ...prev])
-      setActiveTab('roteiro')
 
       toast({
-        title: 'Roteiro Gerado com Sucesso! 🚀',
+        title: 'Roteiro Gerado com Sucesso! 🎬✨',
         description:
           referenceFiles.length > 0
-            ? `Roteiro estruturado com base nas ${referenceFiles.length} foto(s) da peça da sua galeria!`
-            : 'Pronto para você gravar com a sua peça da vitrine.',
+            ? `Roteiro 100% calibrado nas ${referenceFiles.length} foto(s) da sua vitrine!`
+            : 'Pronto para você gravar e vender no TikTok Shop ou Shopee.',
       })
     } catch (err) {
-      console.error(err)
+      console.error('Erro na geração do prompt:', err)
       toast({
         title: 'Erro ao gerar roteiro',
-        description: 'Tente novamente.',
+        description: 'Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {
@@ -293,550 +235,265 @@ export const Generator: React.FC = () => {
     }
   }
 
-  // Geração de Imagem com Nano Banana (Gratuito para todos, com campo de escrita/descrição)
-  const handleGenerateImage = async () => {
-    if (!productName.trim() && !imageDescription.trim()) {
-      toast({
-        title: 'Informe o produto ou descreva a imagem',
-        description:
-          'Preencha o nome da peça ou descreva no campo o que deseja ver na imagem gerada.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setGeneratingImage(true)
-    setActiveTab('imagem')
-
-    // Prioriza URLs já salvas no backend se tiver generationId salvo; se não, usa previews disponíveis
-    const activeRefUrls =
-      currentSavedImageUrls.length > 0
-        ? currentSavedImageUrls
-        : referencePreviews.length > 0
-          ? referencePreviews
-          : []
-
-    try {
-      const res = await generateProductImage({
-        productName: productName.trim() || 'Peça de moda',
-        niche,
-        style,
-        details,
-        imageDescription: imageDescription.trim() || undefined,
-        combinationMode,
-        referenceImageUrls: activeRefUrls,
-        generationId: currentGenerationId || undefined,
-      })
-
-      if (res && res.image_url) {
-        setCurrentImageUrl(res.image_url)
-
-        // Se houver roteiro gerado salvo no banco, atualiza com a nova imagem
-        if (currentGenerationId) {
-          try {
-            await updateGenerationImage(currentGenerationId, res.image_url)
-            setHistory((prev) =>
-              prev.map((item) =>
-                item.id === currentGenerationId
-                  ? { ...item, generated_image_url: res.image_url }
-                  : item,
-              ),
-            )
-          } catch (updateErr) {
-            console.warn('Erro ao vincular imagem à geração:', updateErr)
-          }
-        }
-
-        toast({
-          title: 'Imagem gerada com sucesso! 🎨',
-          description: 'Modelo Nano Banana: imagem de alta conversão pronta para o seu criativo.',
-        })
-      }
-    } catch (err) {
-      console.error('Erro ao gerar imagem:', err)
-      toast({
-        title: 'Não foi possível gerar a imagem',
-        description: 'Ocorreu uma falha no serviço de imagem. Tente novamente em alguns instantes.',
-        variant: 'destructive',
-      })
-    } finally {
-      setGeneratingImage(false)
-    }
-  }
-
-  // Geração de Vídeo Curto até 10s (Exclusivo PRO)
-  const handleGenerateVideo = async () => {
-    if (!user) {
-      toast({
-        title: 'Faça login para gerar vídeos',
-        description: 'Entre na sua conta para utilizar o gerador de vídeo com IA.',
-      })
-      navigate('/login')
-      return
-    }
-
-    if (!isPaidPlan) {
-      toast({
-        title: 'Exclusivo do Plano PRO (R$ 49,90/mês)',
-        description:
-          'A geração de vídeo viral de até 10s é exclusiva para assinantes PRO e Anual VIP.',
-        variant: 'destructive',
-      })
-      navigate('/planos')
-      return
-    }
-
-    if (!productName.trim()) {
-      toast({
-        title: 'Informe o produto',
-        description: 'Digite o nome da peça no formulário para estruturar o vídeo.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setGeneratingVideo(true)
-    setVideoFallbackMsg(null)
-    setActiveTab('video')
-
-    try {
-      // Para o vídeo PRO, repassa a primeira imagem de referência enviada (ou URLs do PB)
-      const activeRefUrls =
-        currentSavedImageUrls.length > 0
-          ? currentSavedImageUrls
-          : referencePreviews.length > 0
-            ? referencePreviews
-            : []
-
-      const res = await generateProductVideo({
-        productName,
-        engine: selectedEngine,
-        niche,
-        style,
-        details,
-        referenceImageUrls: activeRefUrls,
-        script: currentPrompt || undefined,
-        generationId: currentGenerationId || undefined,
-      })
-
-      // Atualiza créditos após a geração
-      loadCredits()
-
-      if (res.fallback) {
-        setVideoFallbackMsg(
-          res.message ||
-            `Os servidores do motor ${selectedEngine.toUpperCase()} estão com alta demanda momentânea. Você pode alternar para outro motor (Flow, Grok, Kling, Hailuo, Luma) ou gerar a imagem com Nano Banana.`,
-        )
-        toast({
-          title: `Servidor ${selectedEngine.toUpperCase()} em alta demanda`,
-          description: 'Você pode tentar outro motor no seletor ou gerar imagem com Nano Banana.',
-        })
-      } else if (res.video_url) {
-        setCurrentVideoUrl(res.video_url)
-        setCurrentVideoEngine(res.engine || selectedEngine)
-        setCurrentEngineMode(res.engine_mode || null)
-        setVideoFallbackMsg(null)
-
-        if (currentGenerationId) {
-          try {
-            await updateGenerationVideo(currentGenerationId, res.video_url)
-            setHistory((prev) =>
-              prev.map((item) =>
-                item.id === currentGenerationId
-                  ? {
-                      ...item,
-                      generated_video_url: res.video_url,
-                      video_engine: res.engine || selectedEngine,
-                    }
-                  : item,
-              ),
-            )
-          } catch (updateErr) {
-            console.warn('Erro ao vincular vídeo à geração:', updateErr)
-          }
-        }
-
-        const isFull = res.engine_mode === 'full_mode_custom_key'
-        toast({
-          title: isFull ? 'Vídeo gerado no MODO COMPLETO! 🎬✨' : 'Vídeo gerado com sucesso! 🎬',
-          description: isFull
-            ? 'Gerado via sua chave oficial própria sem consumir créditos in-app!'
-            : `Vídeo vertical 9:16 gerado via motor ${selectedEngine.toUpperCase()}.`,
-        })
-      }
-    } catch (err: unknown) {
-      const errorObj = err as { code?: string; message?: string }
-      if (errorObj?.code === 'PLAN_UPGRADE_REQUIRED') {
-        toast({
-          title: 'Upgrade para o Plano PRO Necessário',
-          description:
-            errorObj.message ||
-            'Assine o plano PRO a R$ 49,90/mês ou conecte sua própria chave no Perfil.',
-          variant: 'destructive',
-        })
-        navigate('/planos')
-      } else if (errorObj?.code === 'DAILY_CREDITS_EXHAUSTED') {
-        toast({
-          title: 'Créditos diários esgotados para este motor',
-          description:
-            errorObj.message ||
-            'Conecte sua própria chave no Perfil para usar o Modo Completo ilimitado!',
-          variant: 'destructive',
-        })
-      } else {
-        console.error('Erro na geração de vídeo:', err)
-        setVideoFallbackMsg(
-          `O motor de vídeo ${selectedEngine.toUpperCase()} está temporariamente indisponível no momento. Experimente selecionar outro motor ou utilize o gerador de imagens Nano Banana.`,
-        )
-        toast({
-          title: 'Geração temporariamente indisponível',
-          description: 'Recomendamos testar outro motor ou usar o gerador de imagem Nano Banana.',
-          variant: 'destructive',
-        })
-      }
-    } finally {
-      setGeneratingVideo(false)
-    }
-  }
-
-  const handleDownloadVideo = async () => {
-    if (!currentVideoUrl) return
-    try {
-      const fileName = `${productName.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'video_viral'}_10s.mp4`
-      if (currentVideoUrl.startsWith('data:')) {
-        const link = document.createElement('a')
-        link.href = currentVideoUrl
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      } else {
-        const res = await fetch(currentVideoUrl)
-        const blob = await res.blob()
-        const blobUrl = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(blobUrl)
-      }
-
-      toast({
-        title: 'Download iniciado! 📥',
-        description: 'Vídeo curto salvo para postar nas redes.',
-      })
-    } catch (err) {
-      console.error('Erro no download do vídeo:', err)
-      window.open(currentVideoUrl, '_blank')
-    }
-  }
-
-  const handleDownloadImage = async () => {
-    if (!currentImageUrl) return
-    try {
-      const fileName = `${productName.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'criativo'}_nano_banana.png`
-
-      if (currentImageUrl.startsWith('data:')) {
-        const link = document.createElement('a')
-        link.href = currentImageUrl
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      } else {
-        const res = await fetch(currentImageUrl)
-        const blob = await res.blob()
-        const blobUrl = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(blobUrl)
-      }
-
-      toast({
-        title: 'Download iniciado! 📥',
-        description: 'Imagem salva com sucesso na sua galeria/downloads.',
-      })
-    } catch (err) {
-      console.error('Erro no download:', err)
-      // Fallback abre direto em nova aba
-      window.open(currentImageUrl, '_blank')
-    }
-  }
-
-  const handleCopy = (textToCopy: string) => {
-    navigator.clipboard.writeText(textToCopy)
+  const handleCopyPrompt = () => {
+    if (!currentPrompt) return
+    navigator.clipboard.writeText(currentPrompt)
     setCopied(true)
     toast({
-      title: 'Prompt copiado com sucesso! 📋',
-      description: 'Cole no seu bloco de notas ou teleprompter e grave seu vídeo.',
+      title: 'Roteiro copiado! 📋✨',
+      description: 'Cole no bloco de notas ou vá direto para a gravação da vitrine.',
     })
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleApplyPreset = (
-    presetName: string,
-    presetNiche: NicheType,
-    presetStyle: StyleType,
-    presetDetails: string,
-  ) => {
-    setProductName(presetName)
-    setNiche(presetNiche)
-    setStyle(presetStyle)
-    setDetails(presetDetails)
+    setTimeout(() => setCopied(false), 2500)
   }
 
   return (
-    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
+    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
-        <div className="space-y-1">
-          <Badge
-            variant="outline"
-            className="text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-semibold uppercase"
-          >
-            Criador Sob Medida
-          </Badge>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Gerador de Roteiros Personalizados
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-xs font-bold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Gerador Fiel às Fotos da Peça</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
+            Gerador de Roteiros Virais 🎬
+            {isPaidPlan && (
+              <Badge className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs uppercase">
+                PRO Ilimitado
+              </Badge>
+            )}
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base max-w-2xl">
-            Insira o nome da roupa ou acessório do seu catálogo e gere uma estrutura completa de
-            roteiro com gancho, demonstração e CTA para a vitrine.
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
+            Suba até 3 fotos da sua peça física ou da vitrine da sua loja. Nossa inteligência cria
+            um roteiro viral cena a cena fiel às cores, caimento e detalhes reais do seu produto!
           </p>
         </div>
 
-        {user && isPaidPlan && (
+        {isPaidPlan && history.length > 0 && (
           <Button
             variant="outline"
             size="sm"
             onClick={() => setHistoryOpen(!historyOpen)}
-            className="gap-2 font-medium"
+            className="self-start md:self-auto gap-2"
           >
             <History className="w-4 h-4 text-pink-500" />
-            {historyOpen ? 'Ocultar Histórico' : `Ver Histórico (${history.length})`}
+            Histórico ({history.length})
           </Button>
         )}
       </div>
 
-      {/* Alerta de bloqueio caso não seja plano pago */}
+      {/* Alerta de Plano Gratuito com CTA de Upgrade */}
       {!isPaidPlan && (
-        <div className="rounded-2xl border-2 border-amber-500/30 bg-amber-500/5 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
-          <div className="space-y-2 text-center sm:text-left">
-            <div className="inline-flex items-center gap-2 text-amber-700 dark:text-amber-400 font-extrabold text-lg">
+        <Card className="border-2 border-pink-500/30 bg-gradient-to-br from-pink-500/5 via-amber-500/5 to-transparent shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <Badge className="bg-amber-500 text-white font-bold text-xs uppercase">
+                Recurso Exclusivo PRO
+              </Badge>
               <Crown className="w-5 h-5 text-amber-500" />
-              Recurso Exclusivo para Assinantes PRO
             </div>
-            <p className="text-sm text-muted-foreground max-w-xl">
-              O gerador personalizado cria roteiros específicos para qualquer peça do seu estoque
-              (vestidos, conjuntos, calças, tênis). Assine o plano Mensal ou Anual para gerar
-              roteiros ilimitados.
-            </p>
-          </div>
-          <Link to="/planos" className="shrink-0">
-            <Button className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold shadow-md">
-              Desbloquear Gerador PRO
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
-        </div>
+            <CardTitle className="text-xl font-bold">
+              Gere Roteiros Ilimitados para as Roupas da Sua Loja 👗📸
+            </CardTitle>
+            <CardDescription className="text-sm">
+              Assinantes dos planos Mensal e Anual têm acesso total ao Gerador Inteligente com fotos
+              da vitrine, ganchos comprovados de 0-3 segundos e todos os estilos virais.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="pt-2">
+            <Link to="/planos">
+              <Button className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2">
+                <Crown className="w-4 h-4" />
+                Desbloquear no Plano PRO
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
       )}
 
-      {/* Grid: Formulário x Resultado */}
+      {/* Histórico Deslizante / Recolhível */}
+      {isPaidPlan && historyOpen && history.length > 0 && (
+        <Card className="border bg-muted/20 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardHeader className="py-4 border-b">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-muted-foreground">
+                <History className="w-4 h-4 text-pink-500" />
+                Seus Roteiros Gerados Recentemente
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setHistoryOpen(false)}
+                className="h-7 text-xs"
+              >
+                Fechar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {history.slice(0, 6).map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    setCurrentPrompt(item.generated_prompt)
+                    setCurrentGenerationId(item.id)
+                    setProductName(item.product_name)
+                    setNiche(item.niche)
+                    setStyle(item.style)
+                    setHistoryOpen(false)
+                    window.scrollTo({ top: 300, behavior: 'smooth' })
+                  }}
+                  className="p-3.5 rounded-xl border bg-card hover:border-pink-500/50 cursor-pointer transition-all space-y-1.5 hover:shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-foreground line-clamp-1">
+                      {item.product_name}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {NICHE_LABELS[item.niche] || item.niche}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {item.generated_prompt}
+                  </p>
+                  <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold block pt-1">
+                    Ver e copiar este roteiro →
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Grid Principal: Formulário + Resultado */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Formulário */}
-        <div className="lg:col-span-6 space-y-6">
+        {/* Formulário (Col 7) */}
+        <div className="lg:col-span-7">
           <Card className="border shadow-md">
-            <CardHeader className="pb-4">
+            <CardHeader>
               <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <Wand2 className="w-5 h-5 text-amber-500" />
-                Dados da Peça do Catálogo
+                <Wand2 className="w-5 h-5 text-pink-500" />
+                Dados do Produto & Fotos da Vitrine
               </CardTitle>
               <CardDescription>
-                Especifique a peça para criar um roteiro com gatilhos de venda precisos.
+                Preencha os detalhes e anexe até 3 fotos da peça para calibrar o gancho e as cenas.
               </CardDescription>
             </CardHeader>
 
             <form onSubmit={handleGenerate}>
-              <CardContent className="space-y-4">
-                {/* Sugestões rápidas de preenchimento */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                    Sugestões rápidas de nicho:
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleApplyPreset(
-                          'Vestido Canelado Gola Alta',
-                          'moda_feminina',
-                          'pov',
-                          'Tecido encorpado que modela sem marcar nada na cintura',
-                        )
-                      }
-                      className="text-[11px] px-2.5 py-1 rounded-full bg-muted hover:bg-muted/80 text-foreground transition-colors"
-                    >
-                      👗 Vestido Midi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleApplyPreset(
-                          'Camiseta Oversized Gola Ribana',
-                          'streetwear_casual',
-                          'modelo',
-                          'Algodão pesado 240g com gola de 3cm que não laceia',
-                        )
-                      }
-                      className="text-[11px] px-2.5 py-1 rounded-full bg-muted hover:bg-muted/80 text-foreground transition-colors"
-                    >
-                      👕 Camiseta Oversized
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleApplyPreset(
-                          'Conjunto Fitness Sem Costura',
-                          'fitness_academia',
-                          'modelo',
-                          'Cós alto de compressão e tecido zero transparência',
-                        )
-                      }
-                      className="text-[11px] px-2.5 py-1 rounded-full bg-muted hover:bg-muted/80 text-foreground transition-colors"
-                    >
-                      🏋️ Legging / Top
-                    </button>
-                  </div>
-                </div>
-                {/* 1. Uploader de Imagens da Galeria (Até 3 imagens como Referência) */}
-                <div className="space-y-2.5 p-4 rounded-xl border-2 border-dashed border-pink-500/30 bg-pink-500/5 hover:border-pink-500/50 transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="space-y-0.5">
-                      <Label
-                        htmlFor="image-upload"
-                        className="font-bold text-sm flex items-center gap-2 cursor-pointer text-foreground"
-                      >
-                        <ImagePlus className="w-4 h-4 text-pink-500" />
-                        Fotos da Peça da Galeria
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] bg-pink-500/15 text-pink-600 dark:text-pink-400 font-bold ml-1"
-                        >
-                          Até 3 fotos ({referenceFiles.length}/3)
-                        </Badge>
-                      </Label>
-                      <p className="text-[11px] text-muted-foreground">
-                        Suba fotos reais da roupa/produto para guiar o roteiro e o vídeo PRO (cor,
-                        modelo, caimento).
-                      </p>
-                    </div>
-
-                    {referenceFiles.length < 3 && (
-                      <label
-                        htmlFor="image-upload"
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold cursor-pointer shadow-xs transition-colors shrink-0"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Adicionar</span>
-                        <input
-                          id="image-upload"
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleImageUpload}
-                          className="sr-only"
-                        />
-                      </label>
-                    )}
-                  </div>
-
-                  {/* Previews das Imagens Carregadas com botão de remoção */}
-                  {referencePreviews.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-2.5 pt-1">
-                      {referencePreviews.map((preview, index) => (
-                        <div
-                          key={index}
-                          className="relative group rounded-lg overflow-hidden border bg-background shadow-xs aspect-square flex items-center justify-center"
-                        >
-                          <img
-                            src={preview}
-                            alt={`Referência ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveImage(index)}
-                              className="p-1 rounded-full bg-rose-600 text-white hover:bg-rose-700 shadow-md transition-colors"
-                              title="Remover foto"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                            Foto {index + 1}
-                          </span>
-                        </div>
-                      ))}
-
-                      {referenceFiles.length < 3 && (
-                        <label
-                          htmlFor="image-upload"
-                          className="border-2 border-dashed border-muted-foreground/30 hover:border-pink-500/60 rounded-lg aspect-square flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-pink-600 cursor-pointer transition-colors bg-muted/20"
-                        >
-                          <ImagePlus className="w-5 h-5" />
-                          <span className="text-[10px] font-medium">+ Foto</span>
-                        </label>
-                      )}
-                    </div>
-                  ) : (
-                    <label
-                      htmlFor="image-upload"
-                      className="mt-1 flex flex-col items-center justify-center py-4 px-3 border border-dashed rounded-lg bg-background/50 hover:bg-background cursor-pointer text-center transition-colors group"
-                    >
-                      <FileImage className="w-6 h-6 text-pink-400 group-hover:scale-110 transition-transform mb-1" />
-                      <span className="text-xs font-semibold text-foreground">
-                        Toque para selecionar fotos da galeria
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        PNG, JPG, WEBP ou HEIC (máx. 3 fotos da peça real)
-                      </span>
-                    </label>
-                  )}
-                </div>
-                {/* Nome do Produto */}
+              <CardContent className="space-y-5">
+                {/* 1. Nome do Produto */}
                 <div className="space-y-2">
-                  <Label htmlFor="product-name" className="font-semibold">
-                    Nome da Roupa / Produto <span className="text-rose-500">*</span>
+                  <Label
+                    htmlFor="product-name"
+                    className="text-sm font-semibold flex items-center justify-between"
+                  >
+                    <span>Nome da Roupa / Produto *</span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      Ex: Vestido Midi Canelado
+                    </span>
                   </Label>
                   <Input
                     id="product-name"
-                    placeholder="Ex: Vestido Chemise Linho com Cinto"
+                    placeholder="Ex: Cropped Canelado Gola Alta, Calça Wide Leg Alfaiataria..."
                     value={productName}
                     onChange={(e) => setProductName(e.target.value)}
                     required
+                    disabled={!isPaidPlan}
+                    className="py-5"
                   />
                 </div>
-                {/* Nicho & Estilo */}
+
+                {/* 2. Upload de Fotos da Peça (Até 3 imagens) */}
+                <div className="space-y-2.5 p-4 rounded-2xl border-2 border-dashed bg-muted/20 border-pink-500/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                      <ImagePlus className="w-4 h-4 text-pink-500" />
+                      Fotos Reais da Peça (Até 3)
+                    </Label>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {referenceFiles.length} de 3 anexadas
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Suba fotos tiradas com o celular, da arara ou da vitrine. Nosso roteiro vai
+                    descrever exatamente o tecido, cor e caimento da foto!
+                  </p>
+
+                  {/* Previews das Imagens Selecionadas */}
+                  {referencePreviews.length > 0 && (
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      {referencePreviews.map((previewUrl, index) => (
+                        <div
+                          key={index}
+                          className="relative aspect-square rounded-xl overflow-hidden border bg-background group shadow-xs"
+                        >
+                          <img
+                            src={previewUrl}
+                            alt={`Referência ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-black transition-colors"
+                            title="Remover foto"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                          <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-[9px] text-white font-medium">
+                            Foto {index + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Botão de Upload se houver vagas */}
+                  {referenceFiles.length < 3 && (
+                    <div className="pt-1">
+                      <label
+                        htmlFor="image-upload-input"
+                        className={`inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border border-dashed border-pink-500/40 bg-pink-500/5 hover:bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold text-xs cursor-pointer transition-colors ${
+                          !isPaidPlan ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span>Adicionar Foto da Peça ({3 - referenceFiles.length} restantes)</span>
+                      </label>
+                      <input
+                        id="image-upload-input"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageUpload}
+                        disabled={!isPaidPlan || referenceFiles.length >= 3}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Nicho e Estilo em Linha */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="niche" className="font-semibold">
-                      Nicho / Categoria
-                    </Label>
-                    <Select value={niche} onValueChange={(v) => setNiche(v as NicheType)}>
-                      <SelectTrigger id="niche">
-                        <SelectValue />
+                    <Label className="text-sm font-semibold">Nicho do Produto</Label>
+                    <Select
+                      value={niche}
+                      onValueChange={(val) => setNiche(val as NicheType)}
+                      disabled={!isPaidPlan}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o nicho" />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(NICHE_LABELS).map(([k, label]) => (
-                          <SelectItem key={k} value={k}>
-                            {label}
+                        {(Object.keys(NICHE_LABELS) as NicheType[]).map((key) => (
+                          <SelectItem key={key} value={key}>
+                            {NICHE_LABELS[key]}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -844,949 +501,213 @@ export const Generator: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="style" className="font-semibold">
-                      Estilo de Gravação
-                    </Label>
-                    <Select value={style} onValueChange={(v) => setStyle(v as StyleType)}>
-                      <SelectTrigger id="style">
-                        <SelectValue />
+                    <Label className="text-sm font-semibold">Estilo de Gravação</Label>
+                    <Select
+                      value={style}
+                      onValueChange={(val) => setStyle(val as StyleType)}
+                      disabled={!isPaidPlan}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o estilo" />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(STYLE_LABELS).map(([k, label]) => (
-                          <SelectItem key={k} value={k}>
-                            {label}
+                        {(Object.keys(STYLE_LABELS) as StyleType[]).map((key) => (
+                          <SelectItem key={key} value={key}>
+                            {STYLE_LABELS[key]}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                {/* Plataforma */}
-                <div className="space-y-2">
-                  <Label htmlFor="platform" className="font-semibold">
-                    Plataforma Principal de Venda
-                  </Label>
-                  <Select value={platform} onValueChange={(v) => setPlatform(v as PlatformType)}>
-                    <SelectTrigger id="platform">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(PLATFORM_LABELS).map(([k, label]) => (
-                        <SelectItem key={k} value={k}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                {/* 4. Canal de Venda e Público-Alvo */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Canal de Venda</Label>
+                    <Select
+                      value={platform}
+                      onValueChange={(val) => setPlatform(val as PlatformType)}
+                      disabled={!isPaidPlan}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o canal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(PLATFORM_LABELS) as PlatformType[]).map((key) => (
+                          <SelectItem key={key} value={key}>
+                            {PLATFORM_LABELS[key]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="target-audience" className="text-sm font-semibold">
+                      Público-Alvo (Opcional)
+                    </Label>
+                    <Input
+                      id="target-audience"
+                      placeholder="Ex: Mulheres 20-35 anos, mães, homens streetwear..."
+                      value={targetAudience}
+                      onChange={(e) => setTargetAudience(e.target.value)}
+                      disabled={!isPaidPlan}
+                    />
+                  </div>
                 </div>
-                {/* Detalhes que vendem */}
+
+                {/* 5. Detalhes Visuais / Benefícios da Peça */}
                 <div className="space-y-2">
-                  <Label htmlFor="details" className="font-semibold">
-                    Diferenciais e Benefícios da Peça
+                  <Label
+                    htmlFor="visual-details"
+                    className="text-sm font-semibold flex items-center justify-between"
+                  >
+                    <span>Detalhes do Tecido / Caimento das Fotos (Opcional)</span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      Ex: canelado grosso, zero transparência
+                    </span>
+                  </Label>
+                  <Textarea
+                    id="visual-details"
+                    placeholder="Descreva detalhes específicos da foto: cor vinho acetinada, zíper reforçado, cintura com elástico embutido, caimento soltinho..."
+                    value={visualDetails}
+                    onChange={(e) => setVisualDetails(e.target.value)}
+                    disabled={!isPaidPlan}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+
+                {/* 6. Benefício Principal / Oferta */}
+                <div className="space-y-2">
+                  <Label htmlFor="product-details" className="text-sm font-semibold">
+                    Oferta / Benefício para o CTA (Opcional)
                   </Label>
                   <Input
-                    id="details"
-                    placeholder="Ex: Tecido duplo, forro interno, elástico na cintura, não amassa fácil"
+                    id="product-details"
+                    placeholder="Ex: Frete grátis hoje, cupom de 1ª compra, envio imediato..."
                     value={details}
                     onChange={(e) => setDetails(e.target.value)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    O roteiro destacará esses pontos na cena de quebra de objeções.
-                  </p>
-                </div>
-                {/* Público Alvo */}
-                <div className="space-y-2">
-                  <Label htmlFor="target-audience" className="font-semibold">
-                    Público-Alvo ou Ocasião de Uso (Opcional)
-                  </Label>
-                  <Input
-                    id="target-audience"
-                    placeholder="Ex: Mulheres elegantes para look de trabalho e dates"
-                    value={targetAudience}
-                    onChange={(e) => setTargetAudience(e.target.value)}
+                    disabled={!isPaidPlan}
                   />
                 </div>
-                {/* 2. Campo de escrita e Modo de Combinação com Fidelidade (Nano Banana) */}
-                <div className="space-y-3 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label
-                      htmlFor="image-description"
-                      className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-foreground"
-                    >
-                      <ImageIcon className="w-4 h-4 text-amber-500" />
-                      Nano Banana: Direção Visual & Combinação
-                    </Label>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] text-amber-600 border-amber-500/30"
-                    >
-                      Grátis
-                    </Badge>
-                  </div>
-                  <Input
-                    id="image-description"
-                    placeholder="Ex: Modelo morena no espelho do closet segurando a peça na cor terracota com luz quente..."
-                    value={imageDescription}
-                    onChange={(e) => setImageDescription(e.target.value)}
-                    className="bg-background text-xs sm:text-sm"
-                  />
-
-                  {/* Controle de Fidelidade de Combinação de Pessoa + Roupa */}
-                  <div className="p-2.5 rounded-lg bg-background/80 border space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-                        <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        Modo de Combinação de Fotos:
-                      </span>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setCombinationMode('fidelity')}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${
-                            combinationMode === 'fidelity'
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'bg-muted text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          Preservar Pessoa & Roupa (Fiel)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCombinationMode('artistic')}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${
-                            combinationMode === 'artistic'
-                              ? 'bg-purple-600 text-white shadow-xs'
-                              : 'bg-muted text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          Inspiração Livre
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground leading-tight">
-                      {combinationMode === 'fidelity'
-                        ? '✅ Mantém os traços, rosto e identidade da pessoa enviada vestindo a peça de roupa física sem alterar a peça original.'
-                        : 'Cria uma composição artística baseada na paleta de cores e estilo das fotos.'}
-                    </p>
-                  </div>
-                </div>{' '}
               </CardContent>
 
-              <CardFooter className="pt-2 flex flex-col gap-2.5">
+              <CardFooter className="pt-2 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Flame className="w-3.5 h-3.5 text-pink-500" />
+                  Roteiro de 15 a 22s pronto para o algoritmo
+                </span>
+
                 <Button
                   type="submit"
-                  disabled={generating}
-                  className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold py-5 shadow-md"
+                  disabled={generating || !isPaidPlan}
+                  size="lg"
+                  className="w-full sm:w-auto bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold shadow-md gap-2"
                 >
                   {generating ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Estruturando Cenas Virais...
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Calibrando Roteiro com as Fotos...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Gerar Roteiro Viral Agora
+                      <Wand2 className="w-4 h-4" />
+                      <span>Gerar Meu Prompt 🎬</span>
                     </>
                   )}
                 </Button>
-                {/* Botão de Imagem Grátis com Nano Banana */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleGenerateImage}
-                  disabled={generatingImage || generatingVideo}
-                  className="w-full border-pink-500/30 hover:border-pink-500 hover:bg-pink-500/10 text-foreground font-semibold py-4 transition-all"
-                >
-                  {generatingImage ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin text-pink-500" />
-                      Criando Imagem com Nano Banana...
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="w-4 h-4 mr-2 text-pink-500" />
-                      <span>Gerar Imagem de Referência</span>
-                      <Badge className="ml-2 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                        GRÁTIS • Nano Banana
-                      </Badge>
-                    </>
-                  )}
-                </Button>
-                {/* Seletor de Motor de Vídeo & Status de Créditos */}
-                <div className="space-y-2 p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="video-engine-select"
-                      className="text-xs font-bold flex items-center gap-1.5 text-foreground"
-                    >
-                      <Film className="w-3.5 h-3.5 text-purple-500" />
-                      Motor de Vídeo (IA):
-                    </Label>
-                    <Link
-                      to="/perfil"
-                      className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-semibold"
-                      title="Conecte sua chave oficial para Modo Completo ilimitado"
-                    >
-                      <Key className="w-3 h-3" />
-                      Conectar chave no Perfil
-                    </Link>
-                  </div>
-
-                  <Select
-                    value={selectedEngine}
-                    onValueChange={(v) => setSelectedEngine(v as VideoEngineType)}
-                  >
-                    <SelectTrigger
-                      id="video-engine-select"
-                      className="bg-background text-xs sm:text-sm font-semibold"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(VIDEO_ENGINES).map(([k, meta]) => {
-                        const engineStatus = creditsData?.engines?.[k as VideoEngineType]
-                        const isFull = engineStatus?.full_mode
-                        const remainingText = isFull
-                          ? 'Modo Completo (Chave Própria)'
-                          : engineStatus
-                            ? `${engineStatus.remaining}/${engineStatus.limit} hoje`
-                            : meta.badge
-
-                        return (
-                          <SelectItem key={k} value={k}>
-                            <div className="flex items-center justify-between gap-3 w-full">
-                              <span className="font-semibold">{meta.name}</span>
-                              <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                                  isFull
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold'
-                                    : 'bg-muted text-muted-foreground'
-                                }`}
-                              >
-                                {remainingText}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Badge do Motor Atual e Créditos */}
-                  {(() => {
-                    const curMeta = VIDEO_ENGINES[selectedEngine]
-                    const curStatus = creditsData?.engines?.[selectedEngine]
-                    const isFull = curStatus?.full_mode
-
-                    return (
-                      <div className="pt-1 flex flex-col gap-1 text-[11px] text-muted-foreground">
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1 text-foreground font-semibold">
-                            {isFull ? (
-                              <>
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                                Modo Completo Ativo
-                              </>
-                            ) : (
-                              <>
-                                <Zap className="w-3.5 h-3.5 text-amber-500" />
-                                Cota Diária In-App:
-                              </>
-                            )}
-                          </span>
-                          <span className="font-mono font-bold text-foreground">
-                            {isFull
-                              ? 'Ilimitado (Sua Chave)'
-                              : curStatus
-                                ? `${curStatus.remaining} de ${curStatus.limit} créditos restantes hoje`
-                                : curMeta.badge}
-                          </span>
-                        </div>
-                        <p className="text-[10px] leading-tight">
-                          {curMeta.description}{' '}
-                          {!isFull && curMeta.supportsCustomKey && (
-                            <span className="text-purple-600 dark:text-purple-400">
-                              Dica: Conecte sua chave oficial ({curMeta.keyName}) no Perfil para
-                              usar seu próprio saldo!
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    )
-                  })()}
-                </div>
-                {/* Botão de Gerar Vídeo (até 10s) */}
-                <Button
-                  type="button"
-                  onClick={handleGenerateVideo}
-                  disabled={generatingVideo || generating}
-                  className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-bold py-4 shadow-md transition-all relative group"
-                >
-                  {generatingVideo ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Renderizando com {VIDEO_ENGINES[selectedEngine]?.name || selectedEngine}...
-                    </>
-                  ) : (
-                    <>
-                      <Film className="w-4 h-4 mr-2" />
-                      <span>
-                        Gerar Vídeo com {VIDEO_ENGINES[selectedEngine]?.name.split(' ')[0] || 'IA'}
-                      </span>
-                      {creditsData?.engines?.[selectedEngine]?.full_mode ? (
-                        <Badge className="ml-2 bg-emerald-500 text-white font-extrabold text-[10px] shadow-sm">
-                          MODO COMPLETO
-                        </Badge>
-                      ) : (
-                        <Badge className="ml-2 bg-amber-400 text-amber-950 font-extrabold text-[10px] shadow-sm">
-                          PRO • {VIDEO_ENGINES[selectedEngine]?.badge.split('/')[0]}
-                        </Badge>
-                      )}
-                    </>
-                  )}
-                </Button>{' '}
               </CardFooter>
             </form>
           </Card>
         </div>
 
-        {/* Resultado Gerado */}
-        <div className="lg:col-span-6 space-y-6">
-          <Card className="border shadow-md min-h-[520px] flex flex-col justify-between">
-            <CardHeader className="bg-muted/40 border-b py-3 px-4 sm:px-6 flex flex-row items-center justify-between gap-2">
-              <Tabs
-                value={activeTab}
-                onValueChange={(v) => setActiveTab(v as 'roteiro' | 'imagem' | 'video')}
-                className="w-auto"
-              >
-                <TabsList className="grid grid-cols-3 h-8">
-                  <TabsTrigger value="roteiro" className="text-xs gap-1 px-2 sm:px-3">
-                    <Video className="w-3.5 h-3.5 text-pink-500 shrink-0" />
-                    <span className="hidden sm:inline">Roteiro</span>
-                    <span className="sm:hidden">Texto</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="imagem" className="text-xs gap-1 px-2 sm:px-3">
-                    <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>Imagem</span>
-                    {currentImageUrl && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+        {/* Exibição do Resultado (Col 5) */}
+        <div className="lg:col-span-5 space-y-4">
+          <Card className="border shadow-lg sticky top-24">
+            <CardHeader className="bg-muted/40 border-b py-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-pink-500" />
+                  Roteiro Completo para Gravação
+                </CardTitle>
+
+                {currentPrompt && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={handleCopyPrompt}
+                    className="gap-1.5 text-xs font-bold bg-gradient-to-r from-pink-600 to-amber-500 text-white"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Copiado!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copiar Roteiro
+                      </>
                     )}
-                  </TabsTrigger>
-                  <TabsTrigger value="video" className="text-xs gap-1 px-2 sm:px-3 relative">
-                    <Film className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                    <span>Vídeo</span>
-                    <Badge className="px-1 py-0 text-[8px] h-3.5 bg-amber-500/20 text-amber-600 dark:text-amber-300 font-bold ml-0.5">
-                      PRO
-                    </Badge>
-                    {currentVideoUrl && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block shrink-0" />
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {activeTab === 'roteiro' && currentPrompt && (
-                <Button
-                  size="sm"
-                  onClick={() => handleCopy(currentPrompt)}
-                  className="gap-1.5 font-semibold text-xs bg-gradient-to-r from-pink-600 to-amber-500 text-white h-8"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      Copiado!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Copiar Roteiro
-                    </>
-                  )}
-                </Button>
-              )}
-
-              {activeTab === 'imagem' && currentImageUrl && (
-                <Button
-                  size="sm"
-                  onClick={handleDownloadImage}
-                  className="gap-1.5 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white h-8"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Baixar Imagem
-                </Button>
-              )}
-
-              {activeTab === 'video' && currentVideoUrl && (
-                <Button
-                  size="sm"
-                  onClick={handleDownloadVideo}
-                  className="gap-1.5 font-semibold text-xs bg-purple-600 hover:bg-purple-700 text-white h-8"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Baixar Vídeo
-                </Button>
-              )}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
 
-            <CardContent className="p-4 sm:p-6 flex-1 flex flex-col justify-center">
-              {activeTab === 'roteiro' ? (
-                currentPrompt ? (
-                  <div className="bg-muted/30 border rounded-xl p-4 sm:p-6 font-mono text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-foreground select-all h-full max-h-[500px] overflow-y-auto">
+            <CardContent className="p-4 sm:p-6">
+              {currentPrompt ? (
+                <div className="space-y-4">
+                  <div className="p-3 rounded-xl bg-pink-500/10 border border-pink-500/20 text-xs text-pink-700 dark:text-pink-300 font-medium flex items-center justify-between">
+                    <span>✨ Roteiro pronto e calibrado para suas fotos!</span>
+                    <Badge variant="outline" className="text-[10px] bg-background">
+                      {referenceFiles.length > 0 ? `${referenceFiles.length} foto(s)` : 'Sem fotos'}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-muted/30 border rounded-xl p-4 font-mono text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-foreground select-all max-h-[460px] overflow-y-auto">
                     {currentPrompt}
                   </div>
-                ) : (
-                  <div className="text-center py-16 px-4 space-y-4 text-muted-foreground">
-                    <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
-                      <Sparkles className="w-8 h-8 text-amber-500" />
-                    </div>
-                    <div className="space-y-1 max-w-sm mx-auto">
-                      <h3 className="font-bold text-foreground text-base">
-                        Seu roteiro pronto aparecerá aqui
-                      </h3>
-                      <p className="text-xs">
-                        Preencha os dados da sua roupa ao lado e clique em "Gerar Roteiro Viral"
-                        para montar as cenas em segundos.
-                      </p>
-                    </div>
-                  </div>
-                )
-              ) : activeTab === 'video' ? (
-                /* Aba Vídeo Viral (Até 10s) • Exclusivo PRO */
-                <div className="flex flex-col items-center justify-center h-full">
-                  {!isPaidPlan ? (
-                    /* Prompt de Upgrade Amigável para Não-PRO */
-                    <div className="text-center py-12 px-4 space-y-4 max-w-md mx-auto">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-500/20 to-amber-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto">
-                        <Crown className="w-8 h-8 text-amber-500" />
-                      </div>
-                      <div className="space-y-2">
-                        <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-bold uppercase tracking-wider">
-                          Exclusivo Plano PRO • R$ 49,90/mês
-                        </Badge>
-                        <h3 className="text-xl font-bold text-foreground">
-                          Gere Vídeos Virais de até 10s com IA
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          Crie clipes verticais de alta conversão (formato 9:16) com inteligência
-                          artificial para destacar suas roupas no TikTok Shop e Shopee sem precisar
-                          gravar presencialmente.
-                        </p>
-                      </div>
 
-                      <div className="p-3.5 rounded-xl bg-muted/50 border text-xs text-left space-y-2">
-                        <div className="flex items-center gap-2 text-foreground font-semibold">
-                          <Sparkles className="w-4 h-4 text-pink-500" />
-                          O que está incluído no PRO:
-                        </div>
-                        <ul className="space-y-1 text-muted-foreground list-disc list-inside text-[11px]">
-                          <li>Vídeos verticais 9:16 de 5 a 10 segundos com movimento</li>
-                          <li>Estilos POV no espelho, modelo desfilando ou unboxing vitrine</li>
-                          <li>Download em MP4 sem marca d'água para publicar na sacolinha</li>
-                          <li>Acesso à biblioteca completa e gerador ilimitado</li>
-                        </ul>
-                      </div>
-
-                      <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
-                        <Link to="/planos">
-                          <Button className="w-full sm:w-auto bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs shadow-md">
-                            <Crown className="w-3.5 h-3.5 mr-1.5" />
-                            Assinar Plano PRO por R$ 49,90
-                          </Button>
-                        </Link>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setActiveTab('imagem')
-                            handleGenerateImage()
-                          }}
-                          className="w-full sm:w-auto text-xs"
-                        >
-                          Usar Imagem Grátis (Nano Banana)
-                        </Button>
-                      </div>
-                    </div>
-                  ) : generatingVideo ? (
-                    /* Estado de Carregamento Claro */
-                    <div className="text-center py-16 px-4 space-y-4 text-muted-foreground">
-                      <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mx-auto text-purple-600 animate-pulse">
-                        <Film className="w-8 h-8 animate-spin" />
-                      </div>
-                      <div className="space-y-1.5 max-w-sm mx-auto">
-                        <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
-                          Processamento em Andamento (até 10s)
-                        </Badge>
-                        <h3 className="font-bold text-foreground text-base">
-                          Renderizando Vídeo com Inteligência Artificial...
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          Vídeos com IA requerem computação pesada de renderização de quadros e
-                          movimento cinemático. Isso pode levar de 30 a 90 segundos. Por favor,
-                          aguarde.
-                        </p>
-                      </div>
-                    </div>
-                  ) : currentVideoUrl ? (
-                    /* Player de Vídeo Vertical 9:16 */
-                    <div className="w-full flex flex-col items-center space-y-4">
-                      <div className="relative rounded-2xl overflow-hidden border shadow-xl bg-black max-w-xs w-full aspect-[9/16] max-h-[460px] flex items-center justify-center">
-                        <video
-                          src={currentVideoUrl}
-                          controls
-                          autoPlay
-                          loop
-                          playsInline
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      <div className="text-center space-y-1 max-w-sm">
-                        <div className="flex flex-wrap items-center justify-center gap-1.5">
-                          <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
-                            Motor:{' '}
-                            {currentVideoEngine
-                              ? currentVideoEngine.toUpperCase()
-                              : selectedEngine.toUpperCase()}
-                          </Badge>
-                          {currentEngineMode === 'full_mode_custom_key' ? (
-                            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                              Modo Completo (Chave Própria)
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold">
-                              Créditos In-App
-                            </Badge>
-                          )}
-                          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                            9:16 Vertical
-                          </Badge>
-                        </div>
-                        <p className="text-xs font-semibold text-foreground pt-1">
-                          {productName || 'Vídeo gerado para criativo de vendas'}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={handleDownloadVideo}
-                          className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          Baixar MP4
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(currentVideoUrl, '_blank')}
-                          className="text-xs gap-1"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Abrir em Nova Aba
-                        </Button>
-                      </div>
-                    </div>
-                  ) : videoFallbackMsg ? (
-                    /* Fallback Gracioso com Sugestão do Gerador de Imagem */
-                    <div className="text-center py-12 px-4 space-y-4 max-w-md mx-auto">
-                      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
-                        <AlertCircle className="w-7 h-7" />
-                      </div>
-                      <div className="space-y-2">
-                        <Badge
-                          variant="outline"
-                          className="text-amber-600 border-amber-500/30 text-[10px] font-bold"
-                        >
-                          Servidores de Vídeo Ocupados
-                        </Badge>
-                        <h3 className="font-bold text-foreground text-base">
-                          Renderização Temporariamente Ocupada
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {videoFallbackMsg}
-                        </p>
-                      </div>
-
-                      <div className="p-3 bg-muted/40 rounded-xl border text-xs text-left space-y-1">
-                        <span className="font-semibold text-foreground block">
-                          💡 Alternativa Recomendada:
-                        </span>
-                        <p className="text-muted-foreground text-[11px]">
-                          Utilize o <strong>Gerador de Imagens Nano Banana</strong> para criar a
-                          referência visual imediata da sua peça e monte o carrossel ou fundo do
-                          vídeo com o áudio de narração.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
-                        <Button
-                          type="button"
-                          onClick={handleGenerateImage}
-                          className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-semibold text-xs shadow-sm"
-                        >
-                          <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
-                          Gerar Imagem com Nano Banana
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleGenerateVideo}
-                          className="text-xs"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                          Tentar Novamente
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Estado Inicial Aba Vídeo para Usuário PRO */
-                    <div className="text-center py-16 px-4 space-y-4 text-muted-foreground">
-                      <div className="w-16 h-16 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center mx-auto">
-                        <Film className="w-8 h-8" />
-                      </div>
-                      <div className="space-y-1.5 max-w-sm mx-auto">
-                        <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold uppercase tracking-wider mb-1">
-                          Recurso PRO Ativo
-                        </Badge>
-                        <h3 className="font-bold text-foreground text-base">
-                          Gerador de Vídeos Curtos com IA (até 10s)
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          Preencha os dados do seu produto no formulário ao lado e clique em{' '}
-                          <strong>"Gerar Vídeo Viral (até 10s)"</strong> para renderizar uma cena
-                          vertical 9:16 com movimento e iluminação cinematográfica.
-                        </p>
-                      </div>
-
-                      <Button
-                        type="button"
-                        onClick={handleGenerateVideo}
-                        disabled={generatingVideo}
-                        className="bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-bold text-xs shadow-md"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                        Criar Vídeo Viral Agora (10s)
-                      </Button>
-                    </div>
-                  )}
+                  <Button
+                    onClick={handleCopyPrompt}
+                    className="w-full py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Roteiro Copiado para a Área de Transferência!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        Copiar Roteiro em 1 Clique
+                      </>
+                    )}
+                  </Button>
                 </div>
               ) : (
-                /* Aba Imagem Grátis (Nano Banana) */
-                <div className="flex flex-col items-center justify-center h-full">
-                  {generatingImage ? (
-                    <div className="text-center py-16 px-4 space-y-4 text-muted-foreground">
-                      <div className="w-16 h-16 rounded-2xl bg-pink-500/10 flex items-center justify-center mx-auto text-pink-500 animate-pulse">
-                        <ImageIcon className="w-8 h-8 animate-spin" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="font-bold text-foreground text-base">
-                          Criando imagem com Nano Banana...
-                        </h3>
-                        <p className="text-xs max-w-xs mx-auto">
-                          Renderizando iluminação de estúdio, peça em cena e detalhes de alta
-                          conversão para TikTok Shop e Shopee.
-                        </p>
-                      </div>
-                    </div>
-                  ) : currentImageUrl ? (
-                    <div className="w-full flex flex-col items-center space-y-4">
-                      <div className="relative group rounded-xl overflow-hidden border shadow-lg bg-black/5 dark:bg-black/40 max-w-sm w-full aspect-[9/16] max-h-[440px] flex items-center justify-center">
-                        <img
-                          src={currentImageUrl}
-                          alt={productName || 'Visual gerado por Nano Banana'}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-between">
-                          <Badge className="self-start bg-black/60 text-white border-white/20 text-[10px]">
-                            Nano Banana • 9:16 Vertical
-                          </Badge>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={handleDownloadImage}
-                              className="flex-1 bg-white text-black hover:bg-white/90 font-bold text-xs gap-1.5"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              Baixar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(currentImageUrl, '_blank')}
-                              className="bg-black/60 text-white border-white/30 hover:bg-black/80 text-xs px-2.5"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-center space-y-1">
-                        <p className="text-xs font-semibold text-foreground">
-                          Referência visual gerada para {productName || 'sua peça'}
-                        </p>
-                        {imageDescription && (
-                          <p className="text-[11px] text-pink-600 dark:text-pink-400 italic">
-                            "{imageDescription}"
-                          </p>
-                        )}
-                        <p className="text-[11px] text-muted-foreground">
-                          Use como inspiração para o cenário, iluminação e enquadramento do seu
-                          vídeo.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-16 px-4 space-y-4 text-muted-foreground">
-                      <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
-                        <ImageIcon className="w-8 h-8 text-pink-500" />
-                      </div>
-                      <div className="space-y-1.5 max-w-sm mx-auto">
-                        <Badge
-                          variant="outline"
-                          className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px] font-bold uppercase tracking-wider mb-1"
-                        >
-                          100% Gratuito
-                        </Badge>
-                        <h3 className="font-bold text-foreground text-base">
-                          Gerador de Imagens Nano Banana
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          Gere uma imagem hiper-realista da sua roupa em cena de e-commerce. Você
-                          pode descrever exatamente o que deseja ver na imagem no campo de texto e
-                          usar as fotos da sua galeria de base.
-                        </p>
-                      </div>
-
-                      <Button
-                        type="button"
-                        onClick={handleGenerateImage}
-                        disabled={generatingImage}
-                        className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs shadow-md"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                        Criar Imagem com Descrição
-                      </Button>
-                    </div>
-                  )}
+                <div className="py-16 px-4 text-center space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-pink-500/10 text-pink-500 flex items-center justify-center mx-auto text-2xl">
+                    🎬
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-base text-foreground">
+                      Seu roteiro aparecerá aqui
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                      Preencha o formulário ao lado com os dados da peça e suba até 3 fotos. Ao
+                      clicar em "Gerar Meu Prompt", o roteiro completo será montado cena por cena.
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
-
-            <CardFooter className="border-t bg-muted/20 py-3 px-4 sm:px-6 flex items-center justify-between text-xs text-muted-foreground">
-              {activeTab === 'roteiro' ? (
-                currentPrompt ? (
-                  <>
-                    <span>Roteiro salvo no seu histórico do banco de dados</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopy(currentPrompt)}
-                      className="text-xs h-auto p-0 text-pink-600 dark:text-pink-400 font-semibold"
-                    >
-                      Copiar novamente
-                    </Button>
-                  </>
-                ) : (
-                  <span>Gere um roteiro estruturado com gancho e CTA</span>
-                )
-              ) : activeTab === 'video' ? (
-                <>
-                  <span className="flex items-center gap-1.5">
-                    <Film className="w-3.5 h-3.5 text-purple-500" />
-                    Vídeo vertical 9:16 até 10s • Exclusivo PRO (R$ 49,90)
-                  </span>
-                  {currentVideoUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleGenerateVideo}
-                      disabled={generatingVideo}
-                      className="text-xs h-auto p-0 text-purple-600 dark:text-purple-400 font-semibold gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Renderizar novo vídeo
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-amber-500" />
-                    Modelo: Nano Banana (Gemini 2.5 Flash Image)
-                  </span>
-                  {currentImageUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleGenerateImage}
-                      disabled={generatingImage}
-                      className="text-xs h-auto p-0 text-pink-600 dark:text-pink-400 font-semibold gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Gerar nova variação
-                    </Button>
-                  )}
-                </>
-              )}
-            </CardFooter>
           </Card>
         </div>
       </div>
-
-      {/* Histórico de Gerações Salvas no Banco */}
-      {historyOpen && user && isPaidPlan && (
-        <div className="border rounded-2xl p-6 bg-muted/20 space-y-6 pt-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <History className="w-5 h-5 text-pink-500" />
-              Seu Histórico de Gerações Salvas
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              {history.length} roteiro(s) criados
-            </span>
-          </div>
-
-          {history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Você ainda não gerou nenhum roteiro personalizado. Comece agora!
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {history.map((item) => (
-                <Card key={item.id} className="border bg-background shadow-xs">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {NICHE_LABELS[item.niche]}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(item.created).toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                    <CardTitle className="text-base font-bold text-foreground">
-                      {item.product_name}
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Estilo: {STYLE_LABELS[item.style]}
-                    </CardDescription>
-                  </CardHeader>
-                  {(item.generated_image_url ||
-                    item.generated_video_url ||
-                    item.reference_images) && (
-                    <div className="px-6 py-2 space-y-1.5">
-                      {item.reference_images && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-pink-500/10 rounded-lg p-2 border border-pink-500/20">
-                          <ImagePlus className="w-3.5 h-3.5 text-pink-600 shrink-0" />
-                          <span className="truncate flex-1">
-                            {Array.isArray(item.reference_images)
-                              ? `${item.reference_images.length} foto(s) de referência enviada(s)`
-                              : '1 foto de referência enviada'}
-                          </span>
-                        </div>
-                      )}
-                      {item.generated_image_url && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 border">
-                          <ImageIcon className="w-3.5 h-3.5 text-pink-500 shrink-0" />
-                          <span className="truncate flex-1">Imagem gerada (Nano Banana)</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-[10px] px-2 text-pink-600"
-                            onClick={() => {
-                              setCurrentImageUrl(item.generated_image_url || null)
-                              setActiveTab('imagem')
-                            }}
-                          >
-                            Ver foto
-                          </Button>
-                        </div>
-                      )}
-                      {item.generated_video_url && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-purple-500/10 rounded-lg p-2 border border-purple-500/20">
-                          <Film className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                          <span className="truncate flex-1">
-                            Vídeo salvo{' '}
-                            {item.video_engine ? `(${item.video_engine.toUpperCase()})` : ''}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-[10px] px-2 text-purple-600"
-                            onClick={() => {
-                              setCurrentVideoUrl(item.generated_video_url || null)
-                              setCurrentVideoEngine(item.video_engine || null)
-                              setCurrentEngineMode(item.engine_mode || null)
-                              setActiveTab('video')
-                            }}
-                          >
-                            Ver vídeo
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <CardFooter className="pt-2 flex items-center justify-between">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => {
-                        setCurrentPrompt(item.generated_prompt)
-                        setCurrentGenerationId(item.id)
-                        setProductName(item.product_name || '')
-                        setNiche(item.niche)
-                        setStyle(item.style)
-                        if (item.target_audience) setTargetAudience(item.target_audience)
-                        if (item.image_prompt_description) {
-                          setImageDescription(item.image_prompt_description)
-                        }
-                        if (item.generated_image_url) {
-                          setCurrentImageUrl(item.generated_image_url)
-                        }
-                        if (item.generated_video_url) {
-                          setCurrentVideoUrl(item.generated_video_url)
-                          setCurrentVideoEngine(item.video_engine || null)
-                          setCurrentEngineMode(item.engine_mode || null)
-                        }
-                        if (
-                          item.combination_mode === 'fidelity' ||
-                          item.combination_mode === 'artistic'
-                        ) {
-                          setCombinationMode(item.combination_mode)
-                        }
-                        if (item.reference_images) {
-                          const files = Array.isArray(item.reference_images)
-                            ? item.reference_images
-                            : [item.reference_images]
-                          const urls = files.map(
-                            (f) =>
-                              `${import.meta.env.VITE_POCKETBASE_URL}/api/files/generations/${item.id}/${f}`,
-                          )
-                          setCurrentSavedImageUrls(urls)
-                          setReferencePreviews(urls)
-                        }
-                        setActiveTab('roteiro')
-                      }}
-                    >
-                      Visualizar Roteiro
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="text-xs gap-1.5"
-                      onClick={() => handleCopy(item.generated_prompt)}
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      Copiar
-                    </Button>
-                  </CardFooter>{' '}
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
+export default Generator

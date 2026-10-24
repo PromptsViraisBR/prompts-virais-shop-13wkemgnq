@@ -323,12 +323,12 @@ export const Landing: React.FC = () => {
             <CardHeader className="pt-6">
               <CardTitle className="text-2xl font-bold flex items-center justify-between">
                 <span>Plano PRO</span>
-                <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
-                  Com Vídeo IA
+                <Badge className="bg-pink-500/20 text-pink-700 dark:text-pink-300 border-pink-500/30 text-[10px] font-bold">
+                  Com Upload de Fotos
                 </Badge>
               </CardTitle>
               <CardDescription>
-                Acesso total com gerador exclusivo de vídeos curtos de até 10s.
+                Acesso total com gerador personalizado para fotos do catálogo da sua vitrine.
               </CardDescription>
               <div className="pt-2">
                 <span className="text-4xl font-extrabold">R$ 49,90</span>
@@ -336,19 +336,19 @@ export const Landing: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm flex-1">
-              <div className="flex items-center gap-2 bg-purple-500/10 p-2 rounded-lg border border-purple-500/20">
-                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                <span className="font-semibold text-xs text-purple-950 dark:text-purple-200">
-                  Gerador de vídeos de até 10s (9:16 vertical)
+              <div className="flex items-center gap-2 bg-pink-500/10 p-2 rounded-lg border border-pink-500/20">
+                <Sparkles className="w-4 h-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                <span className="font-semibold text-xs text-pink-950 dark:text-pink-200">
+                  Gerador inteligente com upload de até 3 fotos da peça
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Biblioteca de prompts 100% liberada</span>
+                <span>Biblioteca de prompts 100% liberada (30+ roteiros)</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Gerador de roteiros para qualquer roupa do catálogo</span>
+                <span>Personalize qualquer prompt pré-pronto com fotos</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -383,7 +383,7 @@ export const Landing: React.FC = () => {
               <div className="flex items-center gap-2 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                 <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="font-semibold text-xs text-amber-950 dark:text-amber-200">
-                  Tudo do PRO: geração de vídeos (até 10s) incluída
+                  Tudo do PRO: biblioteca completa + gerador com fotos
                 </span>
               </div>
               <div className="flex items-center gap-2">

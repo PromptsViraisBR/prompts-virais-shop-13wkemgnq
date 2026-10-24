@@ -48,9 +48,9 @@ export const Navbar: React.FC = () => {
     }
     if (plan === 'monthly') {
       return (
-        <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 font-semibold gap-1">
-          <Sparkles className="w-3 h-3 text-purple-500" />
-          PRO (Vídeo IA)
+        <Badge className="bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30 font-semibold gap-1">
+          <Sparkles className="w-3 h-3 text-pink-500" />
+          PRO
         </Badge>
       )
     }

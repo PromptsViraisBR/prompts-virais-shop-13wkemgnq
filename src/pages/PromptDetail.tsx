@@ -13,15 +13,25 @@ import {
   ArrowLeft,
   Lock,
   Sparkles,
-  Video,
   ShoppingBag,
-  Share2,
   Crown,
   CheckCircle2,
   Image as ImageIcon,
-  RefreshCw,
+  ImagePlus,
+  Upload,
+  X,
 } from 'lucide-react'
-import { regeneratePromptReferenceImage, regeneratePromptReferenceVideo } from '@/services/prompts'
+import { adaptPromptWithImages } from '@/services/generations'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS, PLATFORM_LABELS } from '@/types'
@@ -39,13 +49,30 @@ export const PromptDetail: React.FC = () => {
   const [isFav, setIsFav] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [videoError, setVideoError] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
+
+  // Estado da Personalização com Fotos
+  const [modalOpen, setModalOpen] = useState(false)
+  const [customFiles, setCustomFiles] = useState<File[]>([])
+  const [customPreviews, setCustomPreviews] = useState<string[]>([])
+  const [customProductName, setCustomProductName] = useState('')
+  const [customVisualDetails, setCustomVisualDetails] = useState('')
+  const [adapting, setAdapting] = useState(false)
+  const [adaptedResult, setAdaptedResult] = useState<string | null>(null)
+  const [copiedAdapted, setCopiedAdapted] = useState(false)
 
   useEffect(() => {
     if (!id) return
 
     loadPrompt(id)
   }, [id, user])
+
+  useEffect(() => {
+    return () => {
+      customPreviews.forEach((url) => {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+      })
+    }
+  }, [customPreviews])
 
   const loadPrompt = async (promptId: string) => {
     setLoading(true)
@@ -133,64 +160,88 @@ export const PromptDetail: React.FC = () => {
 
   const isLocked = !prompt.is_free && !isPaidPlan
 
-  const handleRegenerateVisual = async () => {
+  const openCustomizeModal = () => {
     if (!prompt) return
-    setRegenerating(true)
+    setCustomProductName(prompt.title)
+    setCustomVisualDetails('')
+    setCustomFiles([])
+    setCustomPreviews([])
+    setAdaptedResult(null)
+    setCopiedAdapted(false)
+    setModalOpen(true)
+  }
+
+  const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const incoming = Array.from(files)
+    const availableSlots = 3 - customFiles.length
+    if (availableSlots <= 0) {
+      toast({
+        title: 'Limite atingido',
+        description: 'Você pode subir no máximo 3 fotos da peça.',
+        variant: 'destructive',
+      })
+      e.target.value = ''
+      return
+    }
+
+    const accepted = incoming.slice(0, availableSlots)
+    const newUrls = accepted.map((file) => URL.createObjectURL(file))
+    setCustomFiles((prev) => [...prev, ...accepted])
+    setCustomPreviews((prev) => [...prev, ...newUrls])
+    e.target.value = ''
+  }
+
+  const handleRemoveCustomFile = (index: number) => {
+    const url = customPreviews[index]
+    if (url && url.startsWith('blob:')) URL.revokeObjectURL(url)
+    setCustomFiles((prev) => prev.filter((_, i) => i !== index))
+    setCustomPreviews((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleAdaptPrompt = async () => {
+    if (!prompt) return
+    setAdapting(true)
     try {
-      // 1. Regenerar a imagem de referência via Nano Banana
-      const imgRes = await regeneratePromptReferenceImage(prompt, user?.google_ai_api_key)
-      let newImageUrl = prompt.reference_image_url
-      if (imgRes.success && imgRes.image_url) {
-        newImageUrl = imgRes.image_url
-        setImageError(false)
-      }
+      const res = await adaptPromptWithImages({
+        originalPrompt: prompt.prompt_text,
+        promptTitle: prompt.title,
+        productName: customProductName.trim() || prompt.title,
+        visualDetails: customVisualDetails.trim() || undefined,
+        style: prompt.style,
+        platform: prompt.platform,
+        referenceImages: customFiles,
+        imagesCount: customFiles.length,
+      })
 
-      // 2. Disparar a regeneração do clip animado correspondente
-      const vidRes = await regeneratePromptReferenceVideo(
-        { ...prompt, reference_image_url: newImageUrl },
-        user?.google_ai_api_key,
-        user?.xai_api_key,
-      )
-
-      let newVideoUrl = prompt.reference_video_url
-      if (vidRes.success && vidRes.video_url) {
-        newVideoUrl = vidRes.video_url
-        setVideoError(false)
-      }
-
-      setPrompt((prev) =>
-        prev
-          ? {
-              ...prev,
-              reference_image_url: newImageUrl,
-              reference_video_url: newVideoUrl,
-            }
-          : prev,
-      )
-
-      if (imgRes.success || vidRes.success) {
+      if (res.success && res.adapted_prompt) {
+        setAdaptedResult(res.adapted_prompt)
         toast({
-          title: 'Visual e animação atualizados! ✨',
-          description: vidRes.success
-            ? 'Novo clip animado e imagem gerados com sucesso.'
-            : 'Imagem de referência atualizada com sucesso (preview animado via Ken Burns).',
-        })
-      } else {
-        toast({
-          title: 'Não foi possível gerar novo visual completo',
-          description: imgRes.error || vidRes.error || 'Tente novamente em instantes.',
-          variant: 'destructive',
+          title: 'Roteiro adaptado com sucesso! 📸✨',
+          description: 'O prompt foi calibrado nas fotos da sua vitrine.',
         })
       }
     } catch (err: any) {
       toast({
-        title: 'Erro ao gerar visual',
-        description: err.message,
+        title: 'Erro ao adaptar roteiro',
+        description: err.message || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {
-      setRegenerating(false)
+      setAdapting(false)
     }
+  }
+
+  const handleCopyAdapted = () => {
+    if (!adaptedResult) return
+    navigator.clipboard.writeText(adaptedResult)
+    setCopiedAdapted(true)
+    toast({
+      title: 'Roteiro adaptado copiado! 📋',
+    })
+    setTimeout(() => setCopiedAdapted(false), 2500)
   }
 
   const hasVideo = Boolean(prompt.reference_video_url && !videoError)
@@ -208,18 +259,15 @@ export const PromptDetail: React.FC = () => {
         </Link>
 
         <div className="flex items-center gap-2">
-          {user && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRegenerateVisual}
-              disabled={regenerating}
-              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
-              {regenerating ? 'Regerando Visual...' : 'Regerar Visual'}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openCustomizeModal}
+            className="gap-1.5 text-xs border-pink-500/30 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 font-bold"
+          >
+            <ImagePlus className="w-4 h-4 text-pink-500" />
+            Personalizar com minhas fotos 📸
+          </Button>
 
           <Button variant="outline" size="sm" onClick={handleToggleFav} className="gap-2">
             <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
@@ -495,6 +543,157 @@ export const PromptDetail: React.FC = () => {
           </li>
         </ul>
       </div>
+
+      {/* Modal: Personalizar com Minhas Fotos */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <ImagePlus className="w-5 h-5 text-pink-500" />
+              Personalizar com Minhas Fotos 📸
+            </DialogTitle>
+            <DialogDescription>
+              Suba até 3 fotos da sua peça para que este roteiro seja adaptado com fidelidade às
+              cores, corte e detalhes da sua vitrine.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Upload de até 3 fotos */}
+            <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed bg-muted/20 border-pink-500/30">
+              <div className="flex items-center justify-between text-xs">
+                <Label className="font-bold uppercase tracking-wider text-foreground">
+                  Fotos da Sua Peça ({customFiles.length} de 3)
+                </Label>
+              </div>
+
+              {customPreviews.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {customPreviews.map((preview, i) => (
+                    <div
+                      key={i}
+                      className="relative aspect-square rounded-xl overflow-hidden border bg-background"
+                    >
+                      <img
+                        src={preview}
+                        alt="Foto da peça"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomFile(i)}
+                        className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-black"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {customFiles.length < 3 && (
+                <div>
+                  <label
+                    htmlFor="custom-detail-upload"
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl border border-dashed border-pink-500/40 bg-pink-500/5 hover:bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold text-xs cursor-pointer transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Anexar Fotos da Minha Peça</span>
+                  </label>
+                  <input
+                    id="custom-detail-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleCustomFileUpload}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Nome do Produto Customizado */}
+            <div className="space-y-1.5">
+              <Label htmlFor="custom-detail-prod" className="text-xs font-semibold">
+                Nome da Sua Peça / Roupa
+              </Label>
+              <Input
+                id="custom-detail-prod"
+                value={customProductName}
+                onChange={(e) => setCustomProductName(e.target.value)}
+                placeholder="Ex: Vestido Midi Canelado Terracota"
+                className="text-sm"
+              />
+            </div>
+
+            {/* Detalhes Visuais */}
+            <div className="space-y-1.5">
+              <Label htmlFor="custom-detail-vis" className="text-xs font-semibold">
+                Detalhes Observados nas Fotos (Opcional)
+              </Label>
+              <Textarea
+                id="custom-detail-vis"
+                value={customVisualDetails}
+                onChange={(e) => setCustomVisualDetails(e.target.value)}
+                placeholder="Ex: canelado encorpado, decote quadrado, caimento justo sem transparência..."
+                rows={2}
+                className="text-xs resize-none"
+              />
+            </div>
+
+            {/* Botão de Disparo */}
+            <Button
+              onClick={handleAdaptPrompt}
+              disabled={adapting}
+              className="w-full py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2"
+            >
+              {adapting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Atualizando Roteiro com Suas Fotos...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Atualizar Roteiro com Minhas Fotos 📸</span>
+                </>
+              )}
+            </Button>
+
+            {/* Exibição do Roteiro Adaptado */}
+            {adaptedResult && (
+              <div className="space-y-3 pt-3 border-t">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-pink-600 dark:text-pink-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Roteiro Adaptado com Suas Fotos:
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={handleCopyAdapted}
+                    className="text-xs gap-1 font-bold bg-pink-600 text-white"
+                  >
+                    {copiedAdapted ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        Copiado!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        Copiar Roteiro
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="bg-muted/40 border rounded-xl p-3.5 font-mono text-xs whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed select-all">
+                  {adaptedResult}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

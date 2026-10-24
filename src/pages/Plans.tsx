@@ -109,7 +109,7 @@ export const Plans: React.FC = () => {
       setModalOpen(false)
       toast({
         title: 'Assinatura confirmada com sucesso! 🎉',
-        description: `Seu plano foi atualizado para ${selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (R$ 49,90)'}. Geração de vídeo de até 10s liberada!`,
+        description: `Seu plano foi atualizado para ${selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (R$ 49,90)'}. Biblioteca completa e gerador personalizado liberados!`,
       })
       navigate('/biblioteca')
     } catch (err) {
@@ -225,11 +225,11 @@ export const Plans: React.FC = () => {
 
           <CardHeader>
             <CardTitle className="text-xl font-bold flex items-center justify-between">
-              PRO com Vídeo IA
+              PRO Mensal
               <Zap className="w-5 h-5 text-pink-500" />
             </CardTitle>
             <CardDescription>
-              Acesso total com geração exclusiva de vídeos curtos de até 10s para criadores e lojas.
+              Acesso total à biblioteca e gerador personalizado fiel às fotos da sua vitrine.
             </CardDescription>
             <div className="pt-4">
               <span className="text-4xl font-extrabold">R$ 49,90</span>
@@ -238,22 +238,22 @@ export const Plans: React.FC = () => {
           </CardHeader>
 
           <CardContent className="space-y-3.5 text-sm flex-1">
-            <div className="flex items-start gap-2.5 bg-purple-500/10 p-2.5 rounded-lg border border-purple-500/20">
-              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-              <span className="text-purple-950 dark:text-purple-200 font-semibold text-xs">
-                <strong>Gerador de Vídeo Curto (até 10s)</strong> vertical 9:16 com IA
+            <div className="flex items-start gap-2.5 bg-pink-500/10 p-2.5 rounded-lg border border-pink-500/20">
+              <Sparkles className="w-4 h-4 text-pink-600 dark:text-pink-400 shrink-0 mt-0.5" />
+              <span className="text-pink-950 dark:text-pink-200 font-semibold text-xs">
+                <strong>Gerador Ilimitado com Upload de Fotos:</strong> até 3 fotos da sua peça
               </span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
-                <strong>Biblioteca 100% liberada</strong> de prompts virais
+                <strong>Biblioteca 100% liberada</strong> de prompts virais (30+ roteiros)
               </span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
-                <strong>Gerador Inteligente Ilimitado</strong> de roteiros sob medida
+                <strong>Personalização com Fotos:</strong> adapte qualquer roteiro pronto
               </span>
             </div>
             <div className="flex items-start gap-2.5">
@@ -264,11 +264,11 @@ export const Plans: React.FC = () => {
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Download de MP4 vertical sem marca d'água</span>
+              <span>Ganchos calibrados de 0 a 3 segundos e CTAs para o carrinho</span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Histórico de roteiros, imagens e vídeos na nuvem</span>
+              <span>Histórico completo de roteiros salvos na nuvem</span>
             </div>
           </CardContent>
 
@@ -319,7 +319,7 @@ export const Plans: React.FC = () => {
             <div className="flex items-start gap-2.5 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
               <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <span className="text-amber-950 dark:text-amber-200 font-semibold text-xs">
-                <strong>Tudo do PRO incluído:</strong> Geração de vídeo (até 10s) + Prompts
+                <strong>Tudo do PRO incluído:</strong> Biblioteca 100% + Gerador Ilimitado com Fotos
               </span>
             </div>
             <div className="flex items-start gap-2.5">
@@ -330,7 +330,7 @@ export const Plans: React.FC = () => {
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Fila prioritária para renderização de vídeos com IA</span>
+              <span>Processamento prioritário na IA de adaptação de prompts</span>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />

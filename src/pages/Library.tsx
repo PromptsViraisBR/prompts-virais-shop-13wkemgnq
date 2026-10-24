@@ -27,6 +27,17 @@ import { toast } from '@/hooks/use-toast'
 import type { PromptRecord, NicheType, StyleType } from '@/types'
 import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS } from '@/types'
 import { formatHookTitle, getEstimatedDuration, getPlatformInfo } from '@/lib/promptHooks'
+import { adaptPromptWithImages } from '@/services/generations'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ImagePlus, Upload } from 'lucide-react'
 
 // Lista ordenada de nichos para os chips táteis
 const NICHE_KEYS: NicheType[] = [
@@ -58,6 +69,17 @@ export const Library: React.FC = () => {
   const [selectedStyle, setSelectedStyle] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'all' | 'free' | 'favorites'>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Modal de Personalização com Fotos
+  const [customizePrompt, setCustomizePrompt] = useState<PromptRecord | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [customFiles, setCustomFiles] = useState<File[]>([])
+  const [customPreviews, setCustomPreviews] = useState<string[]>([])
+  const [customProductName, setCustomProductName] = useState('')
+  const [customVisualDetails, setCustomVisualDetails] = useState('')
+  const [adapting, setAdapting] = useState(false)
+  const [adaptedResult, setAdaptedResult] = useState<string | null>(null)
+  const [copiedAdapted, setCopiedAdapted] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -91,6 +113,99 @@ export const Library: React.FC = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    return () => {
+      customPreviews.forEach((url) => {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+      })
+    }
+  }, [customPreviews])
+
+  const openCustomizeModal = (e: React.MouseEvent, prompt: PromptRecord) => {
+    e.stopPropagation()
+    setCustomizePrompt(prompt)
+    setCustomProductName(prompt.title)
+    setCustomVisualDetails('')
+    setCustomFiles([])
+    setCustomPreviews([])
+    setAdaptedResult(null)
+    setCopiedAdapted(false)
+    setModalOpen(true)
+  }
+
+  const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const incoming = Array.from(files)
+    const availableSlots = 3 - customFiles.length
+    if (availableSlots <= 0) {
+      toast({
+        title: 'Limite atingido',
+        description: 'Você pode subir no máximo 3 fotos da peça.',
+        variant: 'destructive',
+      })
+      e.target.value = ''
+      return
+    }
+
+    const accepted = incoming.slice(0, availableSlots)
+    const newUrls = accepted.map((file) => URL.createObjectURL(file))
+    setCustomFiles((prev) => [...prev, ...accepted])
+    setCustomPreviews((prev) => [...prev, ...newUrls])
+    e.target.value = ''
+  }
+
+  const handleRemoveCustomFile = (index: number) => {
+    const url = customPreviews[index]
+    if (url && url.startsWith('blob:')) URL.revokeObjectURL(url)
+    setCustomFiles((prev) => prev.filter((_, i) => i !== index))
+    setCustomPreviews((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleAdaptPrompt = async () => {
+    if (!customizePrompt) return
+    setAdapting(true)
+    try {
+      const res = await adaptPromptWithImages({
+        originalPrompt: customizePrompt.prompt_text,
+        promptTitle: customizePrompt.title,
+        productName: customProductName.trim() || customizePrompt.title,
+        visualDetails: customVisualDetails.trim() || undefined,
+        style: customizePrompt.style,
+        platform: customizePrompt.platform,
+        referenceImages: customFiles,
+        imagesCount: customFiles.length,
+      })
+
+      if (res.success && res.adapted_prompt) {
+        setAdaptedResult(res.adapted_prompt)
+        toast({
+          title: 'Prompt atualizado com suas fotos! 📸✨',
+          description: 'Roteiro adaptado com sucesso para a sua peça física.',
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao adaptar roteiro',
+        description: err.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setAdapting(false)
+    }
+  }
+
+  const handleCopyAdapted = () => {
+    if (!adaptedResult) return
+    navigator.clipboard.writeText(adaptedResult)
+    setCopiedAdapted(true)
+    toast({
+      title: 'Roteiro adaptado copiado! 📋',
+    })
+    setTimeout(() => setCopiedAdapted(false), 2500)
   }
 
   const handleToggleFavorite = async (e: React.MouseEvent, promptId: string) => {
@@ -531,50 +646,223 @@ export const Library: React.FC = () => {
                 </CardContent>
 
                 {/* Rodapé com Ações Claras e Rápidas */}
-                <CardFooter className="pt-3 pb-4 px-4 sm:px-5 border-t flex items-center justify-between gap-2 bg-muted/20">
+                <CardFooter className="pt-3 pb-4 px-4 sm:px-5 border-t flex flex-col gap-2.5 bg-muted/20">
+                  {/* Botão de Personalização com Fotos para Gratuito e PRO */}
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-xs text-muted-foreground group-hover:text-foreground p-0 h-auto font-medium"
-                    onClick={() => navigate(`/prompt/${prompt.id}`)}
+                    onClick={(e) => openCustomizeModal(e, prompt)}
+                    className="w-full text-xs font-semibold gap-1.5 border-pink-500/30 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 hover:text-pink-700"
                   >
-                    Ver Roteiro
-                    <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-0.5" />
+                    <ImagePlus className="w-3.5 h-3.5 text-pink-500" />
+                    Personalizar com minhas fotos 📸
                   </Button>
 
-                  <Button
-                    size="sm"
-                    variant={isLocked ? 'outline' : 'default'}
-                    className={`text-xs gap-1.5 rounded-xl font-bold shadow-xs ${
-                      !isLocked
-                        ? 'bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white hover:opacity-95'
-                        : 'border-amber-500/40 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20'
-                    }`}
-                    onClick={(e) => handleCopyPrompt(e, prompt)}
-                  >
-                    {isLocked ? (
-                      <>
-                        <Lock className="w-3.5 h-3.5 text-amber-500" />
-                        Liberar no PRO 👑
-                      </>
-                    ) : copiedId === prompt.id ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-white" />
-                        Copiado! 🎉
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copiar 1-Toque
-                      </>
-                    )}
-                  </Button>
+                  <div className="w-full flex items-center justify-between gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-muted-foreground group-hover:text-foreground p-0 h-auto font-medium"
+                      onClick={() => navigate(`/prompt/${prompt.id}`)}
+                    >
+                      Ver Roteiro
+                      <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-0.5" />
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant={isLocked ? 'outline' : 'default'}
+                      className={`text-xs gap-1.5 rounded-xl font-bold shadow-xs ${
+                        !isLocked
+                          ? 'bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white hover:opacity-95'
+                          : 'border-amber-500/40 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20'
+                      }`}
+                      onClick={(e) => handleCopyPrompt(e, prompt)}
+                    >
+                      {isLocked ? (
+                        <>
+                          <Lock className="w-3.5 h-3.5 text-amber-500" />
+                          Liberar no PRO 👑
+                        </>
+                      ) : copiedId === prompt.id ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-white" />
+                          Copiado! 🎉
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          Copiar 1-Toque
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardFooter>
               </Card>
             )
           })}
         </div>
       )}
+
+      {/* Modal: Personalizar com Minhas Fotos (Disponível para Grátis e PRO) */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <ImagePlus className="w-5 h-5 text-pink-500" />
+              Personalizar com Minhas Fotos 📸
+            </DialogTitle>
+            <DialogDescription>
+              Suba até 3 fotos da sua peça para que o roteiro pré-pronto se adapte fielmente ao seu
+              produto.
+            </DialogDescription>
+          </DialogHeader>
+
+          {customizePrompt && (
+            <div className="space-y-4 py-2">
+              <div className="p-3 rounded-xl bg-muted/40 border text-xs space-y-1">
+                <span className="font-bold text-muted-foreground uppercase text-[10px]">
+                  Roteiro Base Selecionado:
+                </span>
+                <p className="font-semibold text-foreground">{customizePrompt.title}</p>
+              </div>
+
+              {/* Upload de até 3 fotos */}
+              <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed bg-muted/20 border-pink-500/30">
+                <div className="flex items-center justify-between text-xs">
+                  <Label className="font-bold uppercase tracking-wider text-foreground">
+                    Fotos da Sua Peça ({customFiles.length} de 3)
+                  </Label>
+                </div>
+
+                {customPreviews.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    {customPreviews.map((preview, i) => (
+                      <div
+                        key={i}
+                        className="relative aspect-square rounded-xl overflow-hidden border bg-background"
+                      >
+                        <img
+                          src={preview}
+                          alt="Foto da peça"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomFile(i)}
+                          className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-black"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {customFiles.length < 3 && (
+                  <div>
+                    <label
+                      htmlFor="custom-lib-upload"
+                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl border border-dashed border-pink-500/40 bg-pink-500/5 hover:bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold text-xs cursor-pointer transition-colors"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Anexar Fotos da Minha Peça</span>
+                    </label>
+                    <input
+                      id="custom-lib-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleCustomFileUpload}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Nome do Produto Customizado */}
+              <div className="space-y-1.5">
+                <Label htmlFor="custom-prod" className="text-xs font-semibold">
+                  Nome da Sua Peça / Roupa
+                </Label>
+                <Input
+                  id="custom-prod"
+                  value={customProductName}
+                  onChange={(e) => setCustomProductName(e.target.value)}
+                  placeholder="Ex: Vestido Midi Terracota"
+                  className="text-sm"
+                />
+              </div>
+
+              {/* Detalhes Visuais */}
+              <div className="space-y-1.5">
+                <Label htmlFor="custom-vis" className="text-xs font-semibold">
+                  Detalhes Observados nas Fotos (Opcional)
+                </Label>
+                <Textarea
+                  id="custom-vis"
+                  value={customVisualDetails}
+                  onChange={(e) => setCustomVisualDetails(e.target.value)}
+                  placeholder="Ex: caimento rodado, tecido canelado grosso, cor vibrante..."
+                  rows={2}
+                  className="text-xs resize-none"
+                />
+              </div>
+
+              {/* Botão de Disparo */}
+              <Button
+                onClick={handleAdaptPrompt}
+                disabled={adapting}
+                className="w-full py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2"
+              >
+                {adapting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Atualizando Roteiro com Suas Fotos...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Atualizar Roteiro com Minhas Fotos 📸</span>
+                  </>
+                )}
+              </Button>
+
+              {/* Exibição do Roteiro Adaptado */}
+              {adaptedResult && (
+                <div className="space-y-3 pt-3 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-pink-600 dark:text-pink-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Roteiro Adaptado com Suas Fotos:
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={handleCopyAdapted}
+                      className="text-xs gap-1 font-bold bg-pink-600 text-white"
+                    >
+                      {copiedAdapted ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          Copiado!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          Copiar Roteiro
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="bg-muted/40 border rounded-xl p-3.5 font-mono text-xs whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed select-all">
+                    {adaptedResult}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

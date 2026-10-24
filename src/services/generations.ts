@@ -12,6 +12,9 @@ export interface GeneratePromptInput {
   details?: string
   generatedImageUrl?: string
   generatedVideoUrl?: string
+  referenceImages?: File[]
+  referenceImageUrls?: string[]
+  imagePromptDescription?: string
 }
 
 export interface GenerateImageInput {
@@ -19,8 +22,10 @@ export interface GenerateImageInput {
   niche?: NicheType
   style?: StyleType
   details?: string
+  imageDescription?: string
   prompt?: string
   generationId?: string
+  referenceImageUrls?: string[]
 }
 
 export interface GenerateImageResult {
@@ -29,6 +34,7 @@ export interface GenerateImageResult {
   prompt: string
   model: string
   product_name: string
+  image_description?: string
 }
 
 export interface GenerateVideoInput {
@@ -39,6 +45,7 @@ export interface GenerateVideoInput {
   script?: string
   prompt?: string
   generationId?: string
+  referenceImageUrls?: string[]
 }
 
 export interface GenerateVideoResult {
@@ -62,8 +69,16 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
   const audience =
     input.targetAudience?.trim() ||
     'Compradores que buscam custo-benefício e estilo no TikTok Shop/Shopee'
+  const imageCount = input.referenceImages?.length || input.referenceImageUrls?.length || 0
+  const imageVisualNote =
+    imageCount > 0
+      ? `Baseado nas ${imageCount} foto(s) reais da peça enviada(s) (cor, modelo, caimento e detalhes visuais da galeria)`
+      : ''
   const details =
-    input.details?.trim() || 'Tecido encorpado, acabamento reforçado, caimento perfeito'
+    input.details?.trim() ||
+    (imageVisualNote
+      ? `Visual fiel às fotos de referência da galeria: acabamento real, cores e modelagem idênticas à peça física`
+      : 'Tecido encorpado, acabamento reforçado, caimento perfeito')
 
   if (input.style === 'pov') {
     return `[ROTEIRO VIRAL GERADO - ESTILO POV / ESPELHO]
@@ -157,6 +172,32 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<GenerationRecord> {
   const generatedText = buildPromptScript(input)
 
+  // Suporte a FormData quando arquivos de imagem forem enviados
+  if (input.referenceImages && input.referenceImages.length > 0) {
+    const formData = new FormData()
+    formData.append('user', input.userId)
+    formData.append('product_name', input.productName)
+    formData.append('niche', input.niche)
+    formData.append('style', input.style)
+    formData.append('platform', input.platform || 'ambos')
+    formData.append('target_audience', input.targetAudience || '')
+    formData.append('generated_prompt', generatedText)
+    formData.append('generated_image_url', input.generatedImageUrl || '')
+    formData.append('generated_video_url', input.generatedVideoUrl || '')
+    if (input.imagePromptDescription) {
+      formData.append('image_prompt_description', input.imagePromptDescription)
+    }
+    if (input.referenceImageUrls && input.referenceImageUrls.length > 0) {
+      formData.append('reference_image_urls', JSON.stringify(input.referenceImageUrls))
+    }
+
+    input.referenceImages.slice(0, 3).forEach((file) => {
+      formData.append('reference_images', file)
+    })
+
+    return await pb.collection('generations').create<GenerationRecord>(formData)
+  }
+
   return await pb.collection('generations').create<GenerationRecord>({
     user: input.userId,
     product_name: input.productName,
@@ -167,6 +208,8 @@ export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<G
     generated_prompt: generatedText,
     generated_image_url: input.generatedImageUrl || '',
     generated_video_url: input.generatedVideoUrl || '',
+    image_prompt_description: input.imagePromptDescription || '',
+    reference_image_urls: input.referenceImageUrls || [],
   })
 }
 
@@ -184,8 +227,10 @@ export async function generateProductImage(
       niche: input.niche,
       style: input.style,
       details: input.details,
+      image_description: input.imageDescription,
       prompt: input.prompt,
       generation_id: input.generationId,
+      reference_image_urls: input.referenceImageUrls || [],
     }),
   })
 
@@ -223,6 +268,7 @@ export async function generateProductVideo(
       script: input.script,
       prompt: input.prompt,
       generation_id: input.generationId,
+      reference_image_urls: input.referenceImageUrls || [],
     }),
   })
 

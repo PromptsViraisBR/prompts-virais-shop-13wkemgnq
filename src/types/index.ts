@@ -74,6 +74,9 @@ export interface GenerationRecord {
   generated_prompt: string
   generated_image_url?: string
   generated_video_url?: string
+  reference_images?: string[] | string
+  reference_image_urls?: string[]
+  image_prompt_description?: string
   created: string
   updated: string
 }

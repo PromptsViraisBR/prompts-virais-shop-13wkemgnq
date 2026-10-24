@@ -49,6 +49,10 @@ import {
   AlertCircle,
   Clock,
   Sparkle,
+  Upload,
+  X,
+  ImagePlus,
+  FileImage,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/types'
@@ -66,12 +70,20 @@ export const Generator: React.FC = () => {
   const [targetAudience, setTargetAudience] = useState('')
   const [details, setDetails] = useState('')
 
+  // Reference Images State (Upload da Galeria - até 3 imagens)
+  const [referenceFiles, setReferenceFiles] = useState<File[]>([])
+  const [referencePreviews, setReferencePreviews] = useState<string[]>([])
+
+  // Image Generation Custom Description State
+  const [imageDescription, setImageDescription] = useState('')
+
   // Results State
   const [generating, setGenerating] = useState(false)
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null)
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null)
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null)
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null)
+  const [currentSavedImageUrls, setCurrentSavedImageUrls] = useState<string[]>([])
   const [generatingImage, setGeneratingImage] = useState(false)
   const [generatingVideo, setGeneratingVideo] = useState(false)
   const [videoFallbackMsg, setVideoFallbackMsg] = useState<string | null>(null)
@@ -85,6 +97,66 @@ export const Generator: React.FC = () => {
       loadHistory()
     }
   }, [user, isPaidPlan])
+
+  // Limpeza de Object URLs quando previews mudarem
+  useEffect(() => {
+    return () => {
+      referencePreviews.forEach((previewUrl) => {
+        if (previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(previewUrl)
+        }
+      })
+    }
+  }, [referencePreviews])
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const incoming = Array.from(files)
+    const availableSlots = 3 - referenceFiles.length
+
+    if (availableSlots <= 0) {
+      toast({
+        title: 'Limite de imagens atingido',
+        description: 'Você pode adicionar no máximo 3 imagens de referência.',
+        variant: 'destructive',
+      })
+      e.target.value = ''
+      return
+    }
+
+    const acceptedFiles = incoming.slice(0, availableSlots)
+    const newPreviews = acceptedFiles.map((file) => URL.createObjectURL(file))
+
+    setReferenceFiles((prev) => [...prev, ...acceptedFiles])
+    setReferencePreviews((prev) => [...prev, ...newPreviews])
+
+    if (incoming.length > availableSlots) {
+      toast({
+        title: 'Algumas imagens não foram adicionadas',
+        description: `Limite máximo de 3 imagens. Apenas ${availableSlots} foram adicionada(s).`,
+      })
+    } else {
+      toast({
+        title: 'Foto(s) da peça adicionada(s)! 📸',
+        description: 'Usaremos como referência visual para detalhar o roteiro e a geração.',
+      })
+    }
+
+    // Reset input value to allow re-selecting the same file if desired
+    e.target.value = ''
+  }
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    const removedPreview = referencePreviews[indexToRemove]
+    if (removedPreview && removedPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(removedPreview)
+    }
+
+    setReferenceFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove))
+    setReferencePreviews((prev) => prev.filter((_, idx) => idx !== indexToRemove))
+  }
 
   const loadHistory = async () => {
     if (!user) return
@@ -130,7 +202,7 @@ export const Generator: React.FC = () => {
 
     setGenerating(true)
     try {
-      // Salva no banco de dados através do serviço
+      // Salva no banco de dados através do serviço com suporte às imagens de referência
       const record = await saveGeneratedPrompt({
         userId: user.id,
         productName,
@@ -139,10 +211,28 @@ export const Generator: React.FC = () => {
         platform,
         targetAudience,
         details,
+        referenceImages: referenceFiles.length > 0 ? referenceFiles : undefined,
+        imagePromptDescription: imageDescription || undefined,
       })
+
+      // Extrair URLs salvas no PocketBase para as imagens de referência
+      const savedUrls: string[] = []
+      if (record.reference_images) {
+        const fileNames = Array.isArray(record.reference_images)
+          ? record.reference_images
+          : [record.reference_images]
+        fileNames.forEach((fileName) => {
+          if (fileName) {
+            savedUrls.push(
+              `${import.meta.env.VITE_POCKETBASE_URL}/api/files/generations/${record.id}/${fileName}`,
+            )
+          }
+        })
+      }
 
       setCurrentPrompt(record.generated_prompt)
       setCurrentGenerationId(record.id)
+      setCurrentSavedImageUrls(savedUrls)
       setCurrentImageUrl(record.generated_image_url || null)
       setCurrentVideoUrl(record.generated_video_url || null)
       setHistory((prev) => [record, ...prev])
@@ -150,7 +240,10 @@ export const Generator: React.FC = () => {
 
       toast({
         title: 'Roteiro Gerado com Sucesso! 🚀',
-        description: 'Pronto para você gravar com a sua peça da vitrine.',
+        description:
+          referenceFiles.length > 0
+            ? `Roteiro estruturado com base nas ${referenceFiles.length} foto(s) da peça da sua galeria!`
+            : 'Pronto para você gravar com a sua peça da vitrine.',
       })
     } catch (err) {
       console.error(err)
@@ -164,12 +257,13 @@ export const Generator: React.FC = () => {
     }
   }
 
-  // Geração de Imagem com Nano Banana (Gratuito para todos)
+  // Geração de Imagem com Nano Banana (Gratuito para todos, com campo de escrita/descrição)
   const handleGenerateImage = async () => {
-    if (!productName.trim()) {
+    if (!productName.trim() && !imageDescription.trim()) {
       toast({
-        title: 'Informe o nome da roupa ou produto',
-        description: 'Preencha o nome do produto no formulário para gerar a referência visual.',
+        title: 'Informe o produto ou descreva a imagem',
+        description:
+          'Preencha o nome da peça ou descreva no campo o que deseja ver na imagem gerada.',
         variant: 'destructive',
       })
       return
@@ -178,12 +272,22 @@ export const Generator: React.FC = () => {
     setGeneratingImage(true)
     setActiveTab('imagem')
 
+    // Prioriza URLs já salvas no backend se tiver generationId salvo; se não, usa previews disponíveis
+    const activeRefUrls =
+      currentSavedImageUrls.length > 0
+        ? currentSavedImageUrls
+        : referencePreviews.length > 0
+          ? referencePreviews
+          : []
+
     try {
       const res = await generateProductImage({
-        productName,
+        productName: productName.trim() || 'Peça de moda',
         niche,
         style,
         details,
+        imageDescription: imageDescription.trim() || undefined,
+        referenceImageUrls: activeRefUrls,
         generationId: currentGenerationId || undefined,
       })
 
@@ -259,11 +363,20 @@ export const Generator: React.FC = () => {
     setActiveTab('video')
 
     try {
+      // Para o vídeo PRO, repassa a primeira imagem de referência enviada (ou URLs do PB)
+      const activeRefUrls =
+        currentSavedImageUrls.length > 0
+          ? currentSavedImageUrls
+          : referencePreviews.length > 0
+            ? referencePreviews
+            : []
+
       const res = await generateProductVideo({
         productName,
         niche,
         style,
         details,
+        referenceImageUrls: activeRefUrls,
         script: currentPrompt || undefined,
         generationId: currentGenerationId || undefined,
       })
@@ -544,6 +657,103 @@ export const Generator: React.FC = () => {
                   </div>
                 </div>
 
+                {/* 1. Uploader de Imagens da Galeria (Até 3 imagens como Referência) */}
+                <div className="space-y-2.5 p-4 rounded-xl border-2 border-dashed border-pink-500/30 bg-pink-500/5 hover:border-pink-500/50 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <Label
+                        htmlFor="image-upload"
+                        className="font-bold text-sm flex items-center gap-2 cursor-pointer text-foreground"
+                      >
+                        <ImagePlus className="w-4 h-4 text-pink-500" />
+                        Fotos da Peça da Galeria
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] bg-pink-500/15 text-pink-600 dark:text-pink-400 font-bold ml-1"
+                        >
+                          Até 3 fotos ({referenceFiles.length}/3)
+                        </Badge>
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        Suba fotos reais da roupa/produto para guiar o roteiro e o vídeo PRO (cor,
+                        modelo, caimento).
+                      </p>
+                    </div>
+
+                    {referenceFiles.length < 3 && (
+                      <label
+                        htmlFor="image-upload"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold cursor-pointer shadow-xs transition-colors shrink-0"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Adicionar</span>
+                        <input
+                          id="image-upload"
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageUpload}
+                          className="sr-only"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Previews das Imagens Carregadas com botão de remoção */}
+                  {referencePreviews.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2.5 pt-1">
+                      {referencePreviews.map((preview, index) => (
+                        <div
+                          key={index}
+                          className="relative group rounded-lg overflow-hidden border bg-background shadow-xs aspect-square flex items-center justify-center"
+                        >
+                          <img
+                            src={preview}
+                            alt={`Referência ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(index)}
+                              className="p-1 rounded-full bg-rose-600 text-white hover:bg-rose-700 shadow-md transition-colors"
+                              title="Remover foto"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                            Foto {index + 1}
+                          </span>
+                        </div>
+                      ))}
+
+                      {referenceFiles.length < 3 && (
+                        <label
+                          htmlFor="image-upload"
+                          className="border-2 border-dashed border-muted-foreground/30 hover:border-pink-500/60 rounded-lg aspect-square flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-pink-600 cursor-pointer transition-colors bg-muted/20"
+                        >
+                          <ImagePlus className="w-5 h-5" />
+                          <span className="text-[10px] font-medium">+ Foto</span>
+                        </label>
+                      )}
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="image-upload"
+                      className="mt-1 flex flex-col items-center justify-center py-4 px-3 border border-dashed rounded-lg bg-background/50 hover:bg-background cursor-pointer text-center transition-colors group"
+                    >
+                      <FileImage className="w-6 h-6 text-pink-400 group-hover:scale-110 transition-transform mb-1" />
+                      <span className="text-xs font-semibold text-foreground">
+                        Toque para selecionar fotos da galeria
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        PNG, JPG, WEBP ou HEIC (máx. 3 fotos da peça real)
+                      </span>
+                    </label>
+                  )}
+                </div>
+
                 {/* Nome do Produto */}
                 <div className="space-y-2">
                   <Label htmlFor="product-name" className="font-semibold">
@@ -643,6 +853,36 @@ export const Generator: React.FC = () => {
                     value={targetAudience}
                     onChange={(e) => setTargetAudience(e.target.value)}
                   />
+                </div>
+
+                {/* 2. Campo de escrita para descrever o que a pessoa quer na imagem gerada */}
+                <div className="space-y-2 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label
+                      htmlFor="image-description"
+                      className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-foreground"
+                    >
+                      <ImageIcon className="w-4 h-4 text-amber-500" />
+                      O que você quer ver na Imagem? (Nano Banana)
+                    </Label>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-amber-600 border-amber-500/30"
+                    >
+                      Opcional
+                    </Badge>
+                  </div>
+                  <Input
+                    id="image-description"
+                    placeholder="Ex: Modelo morena no espelho do closet segurando a peça na cor terracota com luz quente..."
+                    value={imageDescription}
+                    onChange={(e) => setImageDescription(e.target.value)}
+                    className="bg-background text-xs sm:text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Descreva detalhes de cenário, pose, iluminação ou modelo que você deseja na
+                    geração visual com Nano Banana.
+                  </p>
                 </div>
               </CardContent>
 
@@ -1077,8 +1317,13 @@ export const Generator: React.FC = () => {
 
                       <div className="text-center space-y-1">
                         <p className="text-xs font-semibold text-foreground">
-                          Referência visual de cena para {productName || 'sua peça'}
+                          Referência visual gerada para {productName || 'sua peça'}
                         </p>
+                        {imageDescription && (
+                          <p className="text-[11px] text-pink-600 dark:text-pink-400 italic">
+                            "{imageDescription}"
+                          </p>
+                        )}
                         <p className="text-[11px] text-muted-foreground">
                           Use como inspiração para o cenário, iluminação e enquadramento do seu
                           vídeo.
@@ -1101,9 +1346,9 @@ export const Generator: React.FC = () => {
                           Gerador de Imagens Nano Banana
                         </h3>
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Gere uma imagem hiper-realista da sua roupa em cena de e-commerce (estilo
-                          POV ou com modelo). Preencha a peça ao lado e clique em{' '}
-                          <strong>"Gerar Imagem de Referência"</strong>.
+                          Gere uma imagem hiper-realista da sua roupa em cena de e-commerce. Você
+                          pode descrever exatamente o que deseja ver na imagem no campo de texto e
+                          usar as fotos da sua galeria de base.
                         </p>
                       </div>
 
@@ -1114,7 +1359,7 @@ export const Generator: React.FC = () => {
                         className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs shadow-md"
                       >
                         <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                        Criar Imagem Grátis Agora
+                        Criar Imagem com Descrição
                       </Button>
                     </div>
                   )}
@@ -1220,12 +1465,24 @@ export const Generator: React.FC = () => {
                       Estilo: {STYLE_LABELS[item.style]}
                     </CardDescription>
                   </CardHeader>
-                  {(item.generated_image_url || item.generated_video_url) && (
+                  {(item.generated_image_url ||
+                    item.generated_video_url ||
+                    item.reference_images) && (
                     <div className="px-6 py-2 space-y-1.5">
+                      {item.reference_images && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-pink-500/10 rounded-lg p-2 border border-pink-500/20">
+                          <ImagePlus className="w-3.5 h-3.5 text-pink-600 shrink-0" />
+                          <span className="truncate flex-1">
+                            {Array.isArray(item.reference_images)
+                              ? `${item.reference_images.length} foto(s) de referência enviada(s)`
+                              : '1 foto de referência enviada'}
+                          </span>
+                        </div>
+                      )}
                       {item.generated_image_url && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 border">
                           <ImageIcon className="w-3.5 h-3.5 text-pink-500 shrink-0" />
-                          <span className="truncate flex-1">Imagem salva</span>
+                          <span className="truncate flex-1">Imagem gerada (Nano Banana)</span>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1258,7 +1515,6 @@ export const Generator: React.FC = () => {
                       )}
                     </div>
                   )}
-
                   <CardFooter className="pt-2 flex items-center justify-between">
                     <Button
                       variant="outline"
@@ -1267,11 +1523,29 @@ export const Generator: React.FC = () => {
                       onClick={() => {
                         setCurrentPrompt(item.generated_prompt)
                         setCurrentGenerationId(item.id)
+                        setProductName(item.product_name || '')
+                        setNiche(item.niche)
+                        setStyle(item.style)
+                        if (item.target_audience) setTargetAudience(item.target_audience)
+                        if (item.image_prompt_description) {
+                          setImageDescription(item.image_prompt_description)
+                        }
                         if (item.generated_image_url) {
                           setCurrentImageUrl(item.generated_image_url)
                         }
                         if (item.generated_video_url) {
                           setCurrentVideoUrl(item.generated_video_url)
+                        }
+                        if (item.reference_images) {
+                          const files = Array.isArray(item.reference_images)
+                            ? item.reference_images
+                            : [item.reference_images]
+                          const urls = files.map(
+                            (f) =>
+                              `${import.meta.env.VITE_POCKETBASE_URL}/api/files/generations/${item.id}/${f}`,
+                          )
+                          setCurrentSavedImageUrls(urls)
+                          setReferencePreviews(urls)
                         }
                         setActiveTab('roteiro')
                       }}
@@ -1286,7 +1560,7 @@ export const Generator: React.FC = () => {
                       <Copy className="w-3.5 h-3.5" />
                       Copiar
                     </Button>
-                  </CardFooter>
+                  </CardFooter>{' '}
                 </Card>
               ))}
             </div>

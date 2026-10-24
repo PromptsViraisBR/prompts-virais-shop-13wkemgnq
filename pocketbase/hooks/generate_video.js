@@ -5,6 +5,7 @@
  *
  * Gera vídeo curto (até 10 segundos) vertical no formato 9:16 para TikTok Shop e Shopee.
  * Exclusivo para assinantes do plano PRO (ou VIP).
+ * Suporta frame de imagem de referência (imagem-para-vídeo).
  *
  * Integra com Skip AI Gateway usando credenciais de ambiente.
  * Se o modelo de vídeo upstream não estiver disponível ou falhar, implementa
@@ -60,6 +61,9 @@ routerAdd('POST', '/backend/v1/generate-video', (e) => {
     const script = (body.script || '').trim()
     const customPrompt = (body.prompt || '').trim()
     const generationId = (body.generation_id || '').trim()
+    const referenceImageUrls = Array.isArray(body.reference_image_urls)
+      ? body.reference_image_urls
+      : []
 
     if (!productName && !customPrompt && !script) {
       return e.badRequestError('Informe o produto, prompt ou roteiro para o vídeo.')
@@ -84,6 +88,9 @@ routerAdd('POST', '/backend/v1/generate-video', (e) => {
         niche ? `Nicho: ${niche}.` : '',
         `Direção de cena: ${styleDirection}.`,
         details ? `Destaque da peça: ${details}.` : '',
+        referenceImageUrls.length > 0
+          ? `Usar a imagem de referência como base visual e fidelidade exata do produto real.`
+          : '',
         `Movimento de câmera fluído, iluminação natural vibrante, alta resolução 4k, textura realista sem artefatos, estética viral pronta para e-commerce.`,
       ]
         .filter(Boolean)
@@ -124,6 +131,20 @@ routerAdd('POST', '/backend/v1/generate-video', (e) => {
         for (let mIdx = 0; mIdx < ep.models.length; mIdx++) {
           const candidateModel = ep.models[mIdx]
           try {
+            const videoPayload = {
+              model: candidateModel,
+              prompt: promptText,
+              duration: 10,
+              aspect_ratio: '9:16',
+              size: '720x1280',
+            }
+
+            // Se o usuário subiu imagens de referência, usar a primeira como frame inicial de image-to-video
+            if (referenceImageUrls.length > 0 && typeof referenceImageUrls[0] === 'string') {
+              videoPayload.image_url = referenceImageUrls[0]
+              videoPayload.input_image = referenceImageUrls[0]
+            }
+
             const res = $http.send({
               url: ep.url,
               method: 'POST',
@@ -131,13 +152,7 @@ routerAdd('POST', '/backend/v1/generate-video', (e) => {
                 'Content-Type': 'application/json',
                 Authorization: 'Bearer ' + gatewayKey,
               },
-              body: JSON.stringify({
-                model: candidateModel,
-                prompt: promptText,
-                duration: 10,
-                aspect_ratio: '9:16',
-                size: '720x1280',
-              }),
+              body: JSON.stringify(videoPayload),
               timeout: 90,
             })
 
@@ -184,10 +199,11 @@ routerAdd('POST', '/backend/v1/generate-video', (e) => {
         fallback: true,
         service_status: 'temporarily_unavailable',
         message:
-          'A renderização de vídeo direto por IA está passando por alta demanda nos servidores (Kling/MiniMax/Luma). Enquanto a fila é liberada, utilize o Gerador de Imagem Grátis com Nano Banana para criar o criativo visual de referência da sua peça.',
+          'A renderização de vídeo direto por IA está passando por alta demanda nos servidores (Kling/MiniMax/Luma). Enquanto a fila é liberada, utilize o Gerador de Imagem Grátis com Nano Banana para criar o criativo visual de referência da sua peça com as imagens que você subiu.',
         prompt_used: promptText,
         recommended_action: 'use_image_generator',
         product_name: productName,
+        reference_images_count: referenceImageUrls.length,
       })
     }
 
@@ -211,6 +227,7 @@ routerAdd('POST', '/backend/v1/generate-video', (e) => {
       model: modelUsed || 'AI Video Engine (PRO)',
       prompt: promptText,
       product_name: productName,
+      reference_images_count: referenceImageUrls.length,
     })
   } catch (err) {
     console.log('[GENERATE_VIDEO_FATAL_ERR] ' + err.message)

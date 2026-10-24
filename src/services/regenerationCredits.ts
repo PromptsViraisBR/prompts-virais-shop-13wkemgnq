@@ -31,10 +31,14 @@ export async function getUserRegenerationCredits(
 export async function purchaseExtraRegenerations(params: {
   userId: string
   quantity: number
-  cardNumber: string
+  cardNumber?: string
+  paymentMethod?: 'saved_card' | 'card' | 'pix'
 }): Promise<RegenerationCreditRecord> {
-  const { userId, quantity = 1, cardNumber } = params
-  const last4 = cardNumber.replace(/\D/g, '').slice(-4) || '4242'
+  const { userId, quantity = 1, cardNumber, paymentMethod = 'card' } = params
+  const last4 =
+    paymentMethod === 'pix'
+      ? 'PIX'
+      : (cardNumber ? cardNumber.replace(/\D/g, '').slice(-4) : '4242') || '4242'
 
   const existing = await getUserRegenerationCredits(userId)
 

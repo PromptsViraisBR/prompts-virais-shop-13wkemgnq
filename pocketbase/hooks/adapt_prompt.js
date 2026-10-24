@@ -4,6 +4,12 @@
  * Hook para adaptar prompt com base em fotos reais do produto OU
  * regenerar 3 variações com ângulos diferentes (Emocional, Urgência/Escassez, Prova Social).
  *
+ * REQUISITOS OBRIGATÓRIOS:
+ * - Idioma: Português Brasileiro (PT-BR)
+ * - Duração máxima: 10 segundos
+ * - Vídeo totalmente liso: SEM legendas, SEM texto na tela, SEM palavras gravadas no vídeo
+ *   (para evitar erros ortográficos/de renderização das IAs de vídeo).
+ *
  * Rotas:
  * - POST /backend/v1/adapt-prompt
  * - POST /backend/v1/regenerate-variations
@@ -42,38 +48,53 @@ routerAdd('POST', '/backend/v1/adapt-prompt', (e) => {
         replaced = replaced.replace(/Bolsa Baguete/gi, productName)
       }
 
+      // Remover textos na tela e garantir cabeçalho de 10s
+      replaced = replaced.replace(/^[ \t]*[-•*]?[ \t]*Texto[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+      replaced = replaced.replace(/^[ \t]*[-•*]?[ \t]*Legenda[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+
       if (visualDetails) {
         replaced += `\n\n📌 NOTAS ESPECÍFICAS PARA GRAVAÇÃO DA SUA PEÇA:`
         replaced += `\n- Foco nos detalhes visuais: ${visualDetails}`
-        replaced += `\n- Close-up nos primeiros 4 segundos destacando o acabamento real mostrado nas fotos anexadas.`
+        replaced += `\n- Close-up nos primeiros 3 segundos destacando o acabamento real mostrado nas fotos anexadas.`
       }
 
       if (photoNotes) {
         replaced = photoNotes + '\n\n' + replaced
       }
-      adaptedPrompt = replaced
+
+      // Garantir diretiva de vídeo liso e 10s
+      adaptedPrompt = `[ROTEIRO VIRAL ADAPTADO TIKTOK SHOP / SHOPEE - MÁXIMO 10 SEGUNDOS]
+📌 DIRETRIZES ESSENCIAIS:
+- Idioma da narração: Português Brasileiro (PT-BR)
+- Duração máxima: 10 segundos
+- Vídeo totalmente liso: SEM legendas, SEM textos, SEM caracteres ou palavras renderizadas na tela (as IAs de vídeo erram palavras visuais).
+
+${replaced}`
     } else {
-      adaptedPrompt = `[ROTEIRO VIRAL ADAPTADO TIKTOK SHOP / SHOPEE - 20 SEGUNDOS]
+      adaptedPrompt = `[ROTEIRO VIRAL ADAPTADO TIKTOK SHOP / SHOPEE - 10 SEGUNDOS]
+📌 DIRETRIZES ESSENCIAIS:
+- Idioma da narração: Português Brasileiro (PT-BR)
+- Duração máxima: 10 segundos
+- Vídeo totalmente liso: SEM legendas, SEM texto na tela, SEM palavras escritas no vídeo.
 ${photoNotes}
 
-🎬 CENA 1 (0-3s) - O GANCHO (HOOK):
-- Enquadramento vertical 9:16: modelo ou POV segurando o ${productName}.
-- Texto na tela: "POV: O caimento da foto vs no corpo real 🔥"
-- Narração empolgada: "Se você viu a foto e ficou na dúvida, olha o caimento desse ${productName} na prática!"
+🎬 CENA 1 (0-3s) - O GANCHO HIPNÓTICO (HOOK):
+- Enquadramento vertical 9:16: modelo ou POV segurando o(a) ${productName}.
+- Vídeo totalmente limpo e liso, sem nenhuma palavra na tela.
+- Narração empolgada (PT-BR): "Se você viu a foto e ficou na dúvida, olha o caimento desse(a) ${productName} na prática!"
 
-🎬 CENA 2 (3-9s) - DETALHES REAIS DA PEÇA:
+🎬 CENA 2 (3-7s) - DETALHES REAIS DA PEÇA:
 - Close nos detalhes mostrados nas fotos: ${visualDetails || 'costura impecável e acabamento resistente'}.
-- Narração: "Material de alta qualidade que veste super bem e tem fidelidade total às fotos da vitrine."
+- Narração (PT-BR): "Material de alta qualidade que veste super bem e tem fidelidade total às fotos da vitrine."
 
-🎬 CENA 3 (9-15s) - CHAMADA DIRETA PARA COMPRA:
-- Apontando para o carrinho ou sacolinha:
-- Narração: "Garante o seu agora mesmo com desconto antes que acabe a promoção!"
-- Texto na tela: "🛒 COMPRE NO CARRINHO ABAIXO 👇"`
+🎬 CENA 3 (7-10s) - CHAMADA DIRETA PARA COMPRA:
+- Apontando para o carrinho amarelo ou sacolinha na tela:
+- Narração (PT-BR): "Garante o seu agora mesmo com desconto antes que acabe a promoção!"`
     }
 
     return e.json(200, {
       success: true,
-      adapted_prompt: adaptedPrompt,
+      adapted_prompt: adaptedPrompt.replace(/\n{3,}/g, '\n\n').trim(),
       product_name: productName,
       visual_details: visualDetails,
       image_count: imageCount,
@@ -105,36 +126,35 @@ routerAdd('POST', '/backend/v1/regenerate-variations', (e) => {
       }
     }
 
-    // Helper inline para montar uma variação
+    // Helper inline para montar uma variação estritamente em até 10s e sem texto na tela
     const makeVariation = (variationType) => {
-      let hookLine = ''
+      let angleTitle = ''
       let hookNarration = ''
+      let bodyNarration = ''
       let ctaNarration = ''
 
       if (variationType === 'emocional') {
-        hookLine = `POV: O momento exato em que você veste o ${productName} e sente sua autoestima ir a 1000%! 💖`
-        hookNarration = `"POV: O dia em que eu cansei de peças sem graça e experimentei esse ${productName}! O caimento no corpo é simplesmente surreal."`
-        ctaNarration = `"Você merece se sentir maravilhosa todos os dias! O link com envio imediato tá no carrinho amarelo aqui embaixo 👇"`
+        angleTitle = '✨ ÂNGULO 1: EMOCIONAL & AUTOESTIMA'
+        hookNarration = `"POV: O dia em que eu cansei de peças sem graça e experimentei esse(a) ${productName}! O caimento no corpo é surreal."`
+        bodyNarration = `"Material premium que valoriza a silhueta, abraça as curvas e dá conforto o dia todo."`
+        ctaNarration = `"Você merece se sentir linda todos os dias! O link com envio imediato tá no carrinho aqui embaixo."`
       } else if (variationType === 'urgencia') {
-        hookLine = `ÚLTIMAS UNIDADES: O ${productName} mais viral do TikTok entrou em queima de estoque! ⚡🔥`
-        hookNarration = `"SE VOCÊ TÁ VENDO ESSE VÍDEO, CORRE! O lote desse ${productName} tá zerando com cupom de desconto hoje!"`
-        ctaNarration = `"Clica agora no carrinho amarelo ou na sacolinha antes que a promoção encerre e volte ao preço normal! 🛒"`
+        angleTitle = '⚡ ÂNGULO 2: URGÊNCIA & ESCASSEZ MÁXIMA'
+        hookNarration = `"SE VOCÊ TÁ VENDO ESSE VÍDEO, CORRE! O lote desse(a) ${productName} tá zerando com cupom hoje!"`
+        bodyNarration = `"Estoque nacional com envio em 24 horas e acabamento reforçado que esgota em minutos."`
+        ctaNarration = `"Clica agora no carrinho amarelo antes que a promoção encerre e volte ao preço normal!"`
       } else {
-        hookLine = `O produto nota 5 estrelas com mais de 3.000 avaliações positivas na Shopee: ${productName}! ⭐⭐⭐⭐⭐`
-        hookNarration = `"Eu comprei esse ${productName} pra ver se todas aquelas avaliações 5 estrelas eram verdade... E olhem esse acabamento!"`
-        ctaNarration = `"Mais de 3.000 pessoas já compraram e aprovaram. Veja as avaliações no link da sacolinha aqui embaixo!"`
+        angleTitle = '⭐ ÂNGULO 3: PROVA SOCIAL & AVALIAÇÕES REAIS'
+        hookNarration = `"Eu comprei esse(a) ${productName} pra ver se as avaliações 5 estrelas eram verdade... E olhem esse acabamento!"`
+        bodyNarration = `"Costura firme, tecido de alta densidade e fidelidade absoluta às fotos da vitrine."`
+        ctaNarration = `"Mais de 3.000 pessoas já compraram e aprovaram. Veja as avaliações no link da sacolinha!"`
       }
 
       if (basePrompt && basePrompt.length > 50) {
         let replaced = basePrompt
-
-        if (variationType === 'emocional') {
-          replaced = `[VARIAÇÃO 1 - ÂNGULO EMOCIONAL & DESEJO ✨]\n` + replaced
-        } else if (variationType === 'urgencia') {
-          replaced = `[VARIAÇÃO 2 - ÂNGULO URGÊNCIA & ESCASSEZ ⚡]\n` + replaced
-        } else {
-          replaced = `[VARIAÇÃO 3 - ÂNGULO PROVA SOCIAL & CONFIANÇA ⭐]\n` + replaced
-        }
+        // Remover texto na tela e legendas
+        replaced = replaced.replace(/^[ \t]*[-•*]?[ \t]*Texto[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+        replaced = replaced.replace(/^[ \t]*[-•*]?[ \t]*Legenda[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
 
         if (productName && productName !== 'peça anunciada') {
           replaced = replaced.replace(/Vestido Midi Canelado/gi, productName)
@@ -148,40 +168,47 @@ routerAdd('POST', '/backend/v1/regenerate-variations', (e) => {
         }
 
         if (visualDetails) {
-          replaced += `\n\n📌 NOTAS ESPECÍFICAS PARA GRAVAÇÃO DA SUA PEÇA:`
-          replaced += `\n- Foco nos detalhes visuais: ${visualDetails}`
-          replaced += `\n- Close-up nos primeiros 4 segundos destacando o acabamento real mostrado nas fotos anexadas.`
+          replaced += `\n\n📌 NOTAS ESPECÍFICAS DA PEÇA: ${visualDetails}`
         }
 
         if (photoNotes) {
           replaced = photoNotes + '\n\n' + replaced
         }
 
-        return replaced
+        return `[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - 10 SEGUNDOS]
+${angleTitle}
+📌 DIRETRIZES ESSENCIAIS:
+- Idioma da narração: Português Brasileiro (PT-BR)
+- Duração máxima: 10 segundos
+- Vídeo totalmente liso: SEM legendas, SEM textos, SEM palavras na tela (as IAs de vídeo erram texto).
+
+${replaced}`
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
       }
 
-      return `[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - 22 SEGUNDOS]
-${variationType === 'emocional' ? '✨ ÂNGULO: EMOCIONAL & AUTOESTIMA' : variationType === 'urgencia' ? '⚡ ÂNGULO: URGÊNCIA & ESCASSEZ MÁXIMA' : '⭐ ÂNGULO: PROVA SOCIAL & AVALIAÇÕES REAIS'}
+      return `[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - 10 SEGUNDOS]
+${angleTitle}
+📌 DIRETRIZES ESSENCIAIS:
+- Idioma da narração: Português Brasileiro (PT-BR)
+- Duração máxima: 10 segundos
+- Vídeo totalmente liso: SEM legendas, SEM texto na tela, SEM palavras na gravação.
 ${photoNotes}
 
 🎬 CENA 1 (0-3s) - O GANCHO PODEROSO (HOOK):
-- Enquadramento vertical 9:16: modelo ou POV segurando o ${productName}.
-- Texto grande e chamativo na tela: "${hookLine}"
-- Narração empolgada: ${hookNarration}
+- Enquadramento vertical 9:16: modelo ou POV segurando o(a) ${productName}.
+- Vídeo 100% liso sem texto.
+- Narração empolgada (PT-BR): ${hookNarration}
 
-🎬 CENA 2 (3-9s) - O TESTE VISUAL E DETALHES REAIS DA PEÇA:
-- Close-up nos acabamentos: costuras, textura do material e firmeza da peça.
-${visualDetails ? `- Destaque especial para: ${visualDetails}` : '- Toque suave com os dedos mostrando a alta qualidade e caimento sem dobras.'}
-- Narração: "Presta atenção na qualidade desse acabamento! Não tem nada a ver com aquelas peças frágeis da concorrência."
+🎬 CENA 2 (3-7s) - DETALHES REAIS DA PEÇA:
+- Close-up nos acabamentos: costuras, textura e firmeza (${visualDetails || 'alta densidade e toque macio'}).
+- Narração (PT-BR): ${bodyNarration}
 
-🎬 CENA 3 (9-16s) - RESOLUÇÃO DE DÚVIDAS & PROVA REAL:
-- Demonstração do produto em uso contínuo (vestido no corpo ou demonstrado em ação rápida).
-- Narração: "Veste perfeitamente no corpo, não aperta e tem exatamente as cores e medidas reais mostradas no vídeo."
-
-🎬 CENA 4 (16-22s) - CHAMADA PARA AÇÃO (CTA DIRETO AO CARRINHO):
-- Apontando diretamente para o carrinho amarelo no canto inferior esquerdo:
-- Narração: ${ctaNarration}
-- Texto na tela: "🛒 COMPRE AGORA NO CARRINHO ABAIXO 👇"`
+🎬 CENA 3 (7-10s) - CHAMADA DIRETA PARA COMPRA (CTA):
+- Apontando diretamente para o carrinho amarelo no canto inferior:
+- Narração (PT-BR): ${ctaNarration}`
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
     }
 
     const variation1 = makeVariation('emocional')

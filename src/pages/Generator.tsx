@@ -303,9 +303,8 @@ export const Generator: React.FC = () => {
       return
     }
 
-    // Se já usou o clique de regeneração gratuito incluído nesta sessão/produto
-    // e não tem créditos extras pagos no saldo, exibe o modal de cobrança
-    if (hasFreeRegenerated && extraCreditsBalance <= 0) {
+    // Se não há créditos extras e já usou a cota gratuita ou não há saldo
+    if (extraCreditsBalance <= 0 && hasFreeRegenerated) {
       setPaymentModalOpen(true)
       return
     }
@@ -716,30 +715,46 @@ export const Generator: React.FC = () => {
                 </div>
               </CardContent>
 
-              <CardFooter className="pt-2 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Flame className="w-3.5 h-3.5 text-pink-500" />
-                  Roteiro de 15 a 22s pronto para o algoritmo
-                </span>
+              <CardFooter className="pt-4 border-t flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Flame className="w-3.5 h-3.5 text-pink-500" />
+                    Roteiro máx 10s • Vídeo 100% liso (PT-BR)
+                  </span>
+                </div>
 
-                <Button
-                  type="submit"
-                  disabled={generating || !isPaidPlan}
-                  size="lg"
-                  className="w-full sm:w-auto bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold shadow-md gap-2"
-                >
-                  {generating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Calibrando Roteiro com as Fotos...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-4 h-4" />
-                      <span>Gerar Meu Prompt 🎬</span>
-                    </>
-                  )}
-                </Button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {/* Botão Regenerar Sempre Visível no Formulário */}
+                  <Button
+                    type="button"
+                    onClick={handleRegenerateClick}
+                    disabled={generating || regenerating}
+                    variant="outline"
+                    className="border-pink-500/40 text-pink-600 dark:text-pink-400 font-bold hover:bg-pink-500/10 gap-1.5 shadow-xs"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+                    <span>Regenerar Prompt ({extraCreditsBalance} disponíveis)</span>
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    disabled={generating || !isPaidPlan}
+                    size="lg"
+                    className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold shadow-md gap-2"
+                  >
+                    {generating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Calibrando Roteiro com as Fotos...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-4 h-4" />
+                        <span>Gerar Meu Prompt 🎬</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardFooter>
             </form>
           </Card>
@@ -819,12 +834,12 @@ export const Generator: React.FC = () => {
                       {regenerating ? (
                         <>
                           <div className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
-                          <span>Gerando 3 Variações...</span>
+                          <span>Regenerando...</span>
                         </>
                       ) : (
                         <>
                           <RefreshCw className="w-4 h-4" />
-                          <span>Regenerar (3 Variações)</span>
+                          <span>Regenerar Prompt ({extraCreditsBalance} disponíveis)</span>
                         </>
                       )}
                     </Button>

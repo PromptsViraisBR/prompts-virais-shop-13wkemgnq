@@ -21,7 +21,16 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { adaptPromptWithImages } from '@/services/generations'
+import {
+  adaptPromptWithImages,
+  regeneratePromptVariations,
+  type PromptVariation,
+} from '@/services/generations'
+import {
+  getUserRegenerationCredits,
+  consumeExtraRegenerationCredit,
+} from '@/services/regenerationCredits'
+import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import {
   Dialog,
   DialogContent,
@@ -36,7 +45,7 @@ import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS, PLATFORM_LABELS } from '@/types'
 import { formatHookTitle, getEstimatedDuration, getPlatformInfo } from '@/lib/promptHooks'
-import { Clock } from 'lucide-react'
+import { Clock, RefreshCw } from 'lucide-react'
 
 export const PromptDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -49,6 +58,15 @@ export const PromptDetail: React.FC = () => {
   const [isFav, setIsFav] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [videoError, setVideoError] = useState(false)
+
+  // Estado de Regeneração e Créditos
+  const [extraCreditsBalance, setExtraCreditsBalance] = useState<number>(0)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [variations, setVariations] = useState<PromptVariation[]>([])
+  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null)
+  const [copiedVarId, setCopiedVarId] = useState<string | null>(null)
+  const [hasFreeRegenerated, setHasFreeRegenerated] = useState(false)
 
   // Estado da Personalização com Fotos
   const [modalOpen, setModalOpen] = useState(false)
@@ -83,6 +101,9 @@ export const PromptDetail: React.FC = () => {
       if (user) {
         const fav = await isPromptFavorited(user.id, promptId)
         setIsFav(fav)
+
+        const credits = await getUserRegenerationCredits(user.id)
+        if (credits) setExtraCreditsBalance(credits.extra_prompts_balance || 0)
       }
     } catch (err) {
       console.error(err)
@@ -244,6 +265,73 @@ export const PromptDetail: React.FC = () => {
     setTimeout(() => setCopiedAdapted(false), 2500)
   }
 
+  const handleRegenerateClick = async () => {
+    if (!prompt) return
+
+    if (!user) {
+      toast({
+        title: 'Faça login para regenerar',
+        description: 'Entre na sua conta para continuar.',
+        variant: 'destructive',
+      })
+      navigate('/login')
+      return
+    }
+
+    if (extraCreditsBalance <= 0 && hasFreeRegenerated) {
+      setPaymentModalOpen(true)
+      return
+    }
+
+    setRegenerating(true)
+    try {
+      const res = await regeneratePromptVariations({
+        basePrompt: prompt.prompt_text,
+        promptTitle: prompt.title,
+        productName: prompt.title,
+        niche: prompt.niche,
+      })
+
+      if (res.success && res.variations?.length) {
+        setVariations(res.variations)
+        setSelectedVariationId(res.variations[0].id)
+
+        if (hasFreeRegenerated && extraCreditsBalance > 0) {
+          await consumeExtraRegenerationCredit(user.id)
+          setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
+          toast({
+            title: '3 Novas Variações Regeneradas! ⚡',
+            description: '1 crédito extra foi utilizado com sucesso.',
+          })
+        } else {
+          setHasFreeRegenerated(true)
+          toast({
+            title: '3 Novas Variações Geradas! 🎨✨',
+            description: '3 abordagens diferentes (Emocional, Urgência e Prova Social) incluídas.',
+          })
+        }
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao regenerar variações',
+        description: err.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const handleCopyVariation = (vId: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedVarId(vId)
+    toast({
+      title: 'Variação copiada! 📋✨',
+      description: 'Roteiro copiado para a área de transferência.',
+    })
+    setTimeout(() => setCopiedVarId(null), 2500)
+  }
+
   const hasVideo = Boolean(prompt.reference_video_url && !videoError)
   const hasImage = Boolean(prompt.reference_image_url && !imageError)
 
@@ -258,7 +346,21 @@ export const PromptDetail: React.FC = () => {
           </Button>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Botão Regenerar Prompt Sempre Visível na Tela de Detalhes */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRegenerateClick}
+            disabled={regenerating}
+            className="gap-1.5 text-xs border-pink-500/40 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 font-bold shadow-xs"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 text-pink-500 ${regenerating ? 'animate-spin' : ''}`}
+            />
+            Regenerar Prompt ({extraCreditsBalance} disponíveis)
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -266,7 +368,7 @@ export const PromptDetail: React.FC = () => {
             className="gap-1.5 text-xs border-pink-500/30 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 font-bold"
           >
             <ImagePlus className="w-4 h-4 text-pink-500" />
-            Personalizar com minhas fotos 📸
+            Personalizar com fotos 📸
           </Button>
 
           <Button variant="outline" size="sm" onClick={handleToggleFav} className="gap-2">
@@ -428,32 +530,47 @@ export const PromptDetail: React.FC = () => {
             Roteiro Completo para Gravação
           </CardTitle>
 
-          <Button
-            size="sm"
-            onClick={handleCopy}
-            className={`gap-1.5 font-semibold text-xs ${
-              isLocked
-                ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                : 'bg-gradient-to-r from-pink-600 to-amber-500 text-white'
-            }`}
-          >
-            {isLocked ? (
-              <>
-                <Lock className="w-3.5 h-3.5" />
-                Desbloquear no PRO
-              </>
-            ) : copied ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                Copiado!
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                Copiar Roteiro Completo
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRegenerateClick}
+              disabled={regenerating}
+              className="gap-1.5 font-bold text-xs border-pink-500/40 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-pink-500 ${regenerating ? 'animate-spin' : ''}`}
+              />
+              Regenerar ({extraCreditsBalance})
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={handleCopy}
+              className={`gap-1.5 font-semibold text-xs ${
+                isLocked
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  : 'bg-gradient-to-r from-pink-600 to-amber-500 text-white'
+              }`}
+            >
+              {isLocked ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  Desbloquear no PRO
+                </>
+              ) : copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copiar Roteiro Completo
+                </>
+              )}
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="p-4 sm:p-6 relative">
@@ -461,19 +578,12 @@ export const PromptDetail: React.FC = () => {
             <div className="space-y-4">
               {/* Blur preview */}
               <div className="filter blur-sm select-none opacity-40 font-mono text-xs sm:text-sm space-y-2 pointer-events-none">
-                <p>[ESTRUTURA DE VÍDEO TIKTOK SHOP / SHOPEE - 18 SEGUNDOS]</p>
+                <p>[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - 10 SEGUNDOS (PT-BR | VÍDEO LISO)]</p>
+                <p>🎬 CENA 1 (0-3s) - O GANCHO HIPNÓTICO: POV ou modelo com a peça...</p>
                 <p>
-                  🎬 CENA 1 (0-3s) - O GANCHO VISUAL (HOOK): Câmera em primeira pessoa se
-                  arrumando...
+                  🎬 CENA 2 (3-7s) - DETALHES DE TECIDO E COSTURA REFORÇADA: Close na textura...
                 </p>
-                <p>
-                  🎬 CENA 2 (3-9s) - DETALHES DE TECIDO E COSTURA REFORÇADA: Close na cintura
-                  modelada...
-                </p>
-                <p>
-                  🎬 CENA 3 (9-14s) - VERSATILIDADE E PROVA SOCIAL: Borrifando perfume e calçado...
-                </p>
-                <p>🎬 CENA 4 (14-18s) - CALL TO ACTION: Apontando para o carrinho amarelo...</p>
+                <p>🎬 CENA 3 (7-10s) - CHAMADA DIRETA AO CARRINHO: Apontando para a sacolinha...</p>
               </div>
 
               {/* Overlay de bloqueio */}
@@ -506,6 +616,81 @@ export const PromptDetail: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Seção das 3 Variações Regeneradas em Abas */}
+      {variations.length > 0 && (
+        <Card className="border shadow-md">
+          <CardHeader className="py-4 border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-pink-500" />3 Variações Regeneradas (10s | Vídeo
+                Liso PT-BR)
+              </CardTitle>
+              <Badge className="bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-xs font-bold">
+                1-Clique
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+              {variations.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setSelectedVariationId(v.id)}
+                  className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                    selectedVariationId === v.id
+                      ? 'border-pink-500 bg-pink-500/10 text-pink-700 dark:text-pink-300 font-bold shadow-xs'
+                      : 'border-border bg-card hover:bg-muted/30 text-muted-foreground'
+                  }`}
+                >
+                  <span className="block truncate text-xs">{v.badge}</span>
+                </button>
+              ))}
+            </div>
+
+            {selectedVariationId &&
+              (() => {
+                const currentVar = variations.find((v) => v.id === selectedVariationId)
+                if (!currentVar) return null
+                const isVarCopied = copiedVarId === currentVar.id
+                return (
+                  <div className="p-4 rounded-2xl border bg-muted/20 space-y-3 animate-in fade-in-50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-foreground">
+                          {currentVar.angle}
+                        </span>
+                        <p className="text-xs text-muted-foreground">{currentVar.description}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleCopyVariation(currentVar.id, currentVar.prompt_text)}
+                        className="h-8 text-xs gap-1 font-bold bg-pink-600 text-white hover:bg-pink-700"
+                      >
+                        {isVarCopied ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            Copiado!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Copiar Variação
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="bg-background border rounded-xl p-4 font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto select-all">
+                      {currentVar.prompt_text}
+                    </div>
+                  </div>
+                )
+              })()}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Dicas de Execução para Criadores */}
       <div className="border rounded-2xl p-6 bg-muted/20 space-y-4">
         <h3 className="font-bold text-base flex items-center gap-2">
@@ -523,8 +708,9 @@ export const PromptDetail: React.FC = () => {
           <li className="flex items-start gap-2">
             <span className="font-bold text-pink-600">•</span>
             <span>
-              <strong>Primeiros 3 segundos:</strong> Não dê "oi galera", comece direto com o gancho
-              visual e texto grande.
+              <strong>Primeiros 3 segundos (Vídeo Liso):</strong> Não dê "oi galera", comece direto
+              com o gancho visual falado em PT-BR e deixe o vídeo totalmente liso sem texto na tela
+              para evitar erros da IA.
             </span>
           </li>
           <li className="flex items-start gap-2">
@@ -694,6 +880,21 @@ export const PromptDetail: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Pagamento Demonstrativo para Regeneração */}
+      {user && (
+        <RegenerationPaymentModal
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          userId={user.id}
+          onPaymentSuccess={(newBalance) => {
+            setExtraCreditsBalance(newBalance)
+            setTimeout(() => {
+              handleRegenerateClick()
+            }, 300)
+          }}
+        />
+      )}
     </div>
   )
 }

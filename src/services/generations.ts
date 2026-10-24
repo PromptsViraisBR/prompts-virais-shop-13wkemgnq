@@ -78,92 +78,64 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
       ? `Cores vibrantes, modelagem e caimento idênticos às fotos enviadas pelo criador/lojista`
       : 'Acabamento premium, costuras reforçadas e caimento perfeito no corpo')
 
-  if (input.style === 'pov') {
-    return `[ROTEIRO VIRAL - ESTILO POV / ESPELHO (FIEL ÀS FOTOS)]
+  const commonHeader = `[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - MÁXIMO 10 SEGUNDOS]
 🎯 PRODUTO: ${input.productName}
 🏷️ NICHO: ${nicheLabel}
 📱 CANAL DE VENDA: ${platformLabel}
 👥 PÚBLICO-ALVO: ${audience}
-✨ DETALHES FIÉIS À PEÇA DAS FOTOS: ${details}
+✨ DETALHES FIÉIS: ${details}
 
-⏱️ DURAÇÃO IDEAL: 15 a 20 segundos
+⏱️ DURAÇÃO MÁXIMA: 10 segundos
+📌 DIRETRIZES ESSENCIAIS:
+- Idioma da narração: Português Brasileiro (PT-BR)
+- Vídeo totalmente liso: SEM legendas, SEM textos na tela, SEM caracteres desenhados no vídeo (as IAs de vídeo erram texto).`
+
+  if (input.style === 'pov') {
+    return `${commonHeader}
 
 🎬 CENA 1 (0-3s) - O GANCHO HIPNÓTICO (HOOK):
-- Câmera em primeira pessoa (POV): Você segurando o celular em frente ao espelho do quarto com look básico/desanimado.
-- Texto grande e chamativo na tela: "POV: Você só queria uma peça coringa e achou ISSO 👀👇"
-- Narração com tom espontâneo: "POV: Você finalmente achou o(a) ${input.productName} que disfarça qualquer imperfeição e veste como se fosse feito sob medida!"
+- Câmera em primeira pessoa (POV): Você em frente ao espelho com o(a) ${input.productName}.
+- Vídeo totalmente liso e limpo, sem nenhuma palavra escrita na tela.
+- Narração empolgada (PT-BR): "POV: Você finalmente achou o(a) ${input.productName} que disfarça qualquer insegurança e veste perfeitamente!"
 
-🎬 CENA 2 (3-8s) - A REVELAÇÃO & TESTE DE QUALIDADE REAL:
-- Transição dinâmica (estalar de dedos ou tapa suave na lente): você agora vestindo o(a) ${input.productName}.
-- Movimento em câmera lenta dando meio giro, mostrando a lateral e as costas.
-- Close na mão tocando o tecido: "${details}."
-- Narração: "Gente, o caimento é bizarro de tão perfeito. Não marca, não fica transparente e o tecido tem aquele peso de peça de shopping de luxo."
+🎬 CENA 2 (3-7s) - TESTE DE CAIMENTO REAL:
+- Meio giro em câmera lenta mostrando lateral e caimento das costas.
+- Close na mão tocando a textura: "${details}."
+- Narração (PT-BR): "Caimento impecável, tecido encorpado que não marca e veste com conforto imediato."
 
-🎬 CENA 3 (8-14s) - VERSATILIDADE NO DIA A DIA:
-- Dois takes rápidos se arrumando: calçando um sapato ou ajeitando o look.
-- Narração: "Dá pra usar tanto de dia com tênis quanto à noite com salto/jaqueta. Parece que custou R$ 300, mas paguei preço de fábrica."
-
-🎬 CENA 4 (14-18s) - CHAMADA DE AÇÃO (CTA DE ALTA CONVERSÃO):
-- Apontando diretamente para o botão do carrinho na tela com um sorriso confiante.
-- Narração: "Deixei o link oficial no carrinho aqui embaixo com frete grátis e cupom de primeira compra ativo hoje. Garanta antes que esgote o seu tamanho!"
-- Texto na tela: "🛒 CLIQUE NO CARRINHO / SACOLINHA 👇"`
+🎬 CENA 3 (7-10s) - CHAMADA DIRETA PARA O CARRINHO (CTA):
+- Apontando para o canto inferior onde fica o carrinho:
+- Narração (PT-BR): "Deixei o link no carrinho amarelo aqui embaixo com desconto ativo hoje. Garanta o seu!"`
   } else if (input.style === 'modelo') {
-    return `[ROTEIRO VIRAL - COM MODELO VESTINDO A PEÇA (FIEL ÀS FOTOS)]
-🎯 PRODUTO: ${input.productName}
-🏷️ NICHO: ${nicheLabel}
-📱 CANAL DE VENDA: ${platformLabel}
-👥 PÚBLICO-ALVO: ${audience}
-✨ DETALHES FIÉIS À PEÇA DAS FOTOS: ${details}
-
-⏱️ DURAÇÃO IDEAL: 18 a 22 segundos
+    return `${commonHeader}
 
 🎬 CENA 1 (0-3s) - GANCHO VISUAL DE ALTO IMPACTO (HOOK):
-- Modelo caminhando com atitude em direção à câmera, olhar confiante, fundo limpo ou estúdio iluminado.
-- Texto na tela: "A peça que todo mundo vai te perguntar de onde é 🔥"
-- Narração: "Se você ama se vestir bem sem gastar rios de dinheiro, pare tudo e olha o caimento desse(a) ${input.productName}!"
+- Modelo caminhando com atitude em direção à câmera, iluminação nítida e olhar confiante.
+- Vídeo 100% limpo, sem texto ou legendas gravadas na imagem.
+- Narração com presença (PT-BR): "Se você ama se vestir bem sem gastar rios de dinheiro, pare tudo e olha o caimento desse(a) ${input.productName}!"
 
-🎬 CENA 2 (3-9s) - O TESTE REAL DO MOVIMENTO:
-- Modelo fazendo um giro suave de 360°, depois dando alguns passos naturais.
-- Close no detalhe: corte, costura e elasticidade (${details}).
-- Narração: "Olha como valoriza a silhueta sem apertar. A modelagem é impecável, não enrola no corpo e abraça perfeitamente cada curva."
+🎬 CENA 2 (3-7s) - O TESTE REAL EM MOVIMENTO:
+- Modelo fazendo giro suave de 360 graus, mostrando silhueta e acabamento (${details}).
+- Narração (PT-BR): "Olha como valoriza a silhueta sem apertar. A modelagem abraça o corpo com perfeição."
 
-🎬 CENA 3 (9-15s) - QUEBRA DE OBJEÇÃO (CONFORTO & TECIDO):
-- Modelo mostrando o forro ou flexibilidade da peça (toque na costura ou caimento em movimento).
-- Narração: "Não amassa fácil, não desbota na máquina e aguenta a rotina inteira sem perder a estrutura."
-
-🎬 CENA 4 (15-20s) - CTA DIRETO PARA COMPRA:
-- Modelo apontando para a vitrine virtual / sacolinha do vídeo com sorriso expressivo.
-- Narração: "Tem do tamanho P até o GG disponível. Corre no link da sacolinha aqui embaixo porque essa cor é a primeira a acabar no estoque!"
-- Texto na tela: "🛍️ DISPONÍVEL NO LINK DA VITRINE 👇"`
+🎬 CENA 3 (7-10s) - CTA DIRETO AO CARRINHO:
+- Modelo apontando diretamente para a sacolinha ou vitrine no canto inferior:
+- Narração (PT-BR): "Tem todos os tamanhos disponíveis no link aqui embaixo. Corre antes que esgote!"`
   } else {
-    return `[ROTEIRO VIRAL - UNBOXING & VITRINE ASMR (FIEL ÀS FOTOS)]
-🎯 PRODUTO: ${input.productName}
-🏷️ NICHO: ${nicheLabel}
-📱 CANAL DE VENDA: ${platformLabel}
-👥 PÚBLICO-ALVO: ${audience}
-✨ DETALHES FIÉIS À PEÇA DAS FOTOS: ${details}
+    return `${commonHeader}
 
-⏱️ DURAÇÃO IDEAL: 18 a 22 segundos
+🎬 CENA 1 (0-3s) - O GANCHO SATISFATÓRIO (HOOK):
+- Câmera superior em ângulo plano mostrando o(a) ${input.productName} sendo retirado da embalagem com som satisfatório.
+- Vídeo totalmente liso, sem palavras ou legendas na tela.
+- Narração (PT-BR): "Será que esse(a) ${input.productName} vale todo o hype da internet? Vamos conferir agora!"
 
-🎬 CENA 1 (0-3s) - O SOM SATISFATÓRIO DO UNBOXING (HOOK ASMR):
-- Câmera superior (flat lay) ou ângulo frontal abrindo o pacote com tesoura e retirando a embalagem transparente.
-- Áudio ambiente nítido: som do plástico e do papel de seda.
-- Texto na tela: "COMPREI O MAIS VIRAL DA SHOPEE / TIKTOK 📦✨"
-- Narração: "Será que esse(a) ${input.productName} vale todo o hype que tá rolando na internet? Vamos conferir agora!"
+🎬 CENA 2 (3-7s) - INSPEÇÃO RÁPIDA DE ACABAMENTO:
+- Close nos detalhes das costuras, toque e firmeza: "${details}."
+- Narração (PT-BR): "Costura reforçada de fábrica, zero defeitos e caimento de peça premium."
 
-🎬 CENA 2 (3-8s) - INSPEÇÃO MINUCIOSA DE ACABAMENTO:
-- Abrindo a peça sobre a mesa ou cabide.
-- Close macro nas costuras, etiquetas e detalhes: "${details}."
-- Narração: "Logo de cara dá pra ver que a costura é reforçada, zero fios soltos e o caimento da peça é surreal."
-
-🎬 CENA 3 (8-14s) - PROVA RÁPIDA NO CORPO OU VITRINE:
-- Transição com o produto pendurado ou vestido com elegância.
-- Narração: "Veste como uma luva e o material é super resistente. O melhor custo-benefício que já encontrei esse ano."
-
-🎬 CENA 4 (14-19s) - CTA COM SENSO DE URGÊNCIA:
-- Apontando para o carrinho amarelo:
-- Narração: "O vendedor despacha no mesmo dia e tá com cupom de desconto rolando hoje. Clica no carrinho amarelo aqui embaixo pra garantir o seu!"
-- Texto na tela: "📦 PEÇA O SEU NO CARRINHO 👇"`
+🎬 CENA 3 (7-10s) - CTA COM SENSO DE URGÊNCIA:
+- Apontando para o carrinho amarelo no canto inferior:
+- Narração (PT-BR): "Envio no mesmo dia com cupom ativo. Clica no carrinho aqui embaixo pra garantir o seu!"`
   }
 }
 
@@ -249,7 +221,7 @@ export async function regeneratePromptVariations(
           angle: 'Emocional & Autoestima',
           badge: '💖 Ângulo Emocional',
           description: 'Focado em sensação, transformação pessoal, elogios e desejo imediato.',
-          prompt_text: `[VARIAÇÃO 1 - ÂNGULO EMOCIONAL & DESEJO ✨]\n\n🎬 CENA 1 (0-3s) - O GANCHO EMOCIONAL (HOOK):\n- POV em frente ao espelho: segurando o(a) ${prod} no corpo com olhar radiante.\n- Texto na tela: "POV: O momento exato em que você veste e se sente maravilhosa! 💖"\n- Narração: "POV: O dia em que eu cansei de peças sem graça e experimentei esse ${prod}! O caimento no corpo é surreal."\n\n🎬 CENA 2 (3-9s) - DETALHES REAIS:\n- Close nos detalhes das fotos: ${visual}.\n- Narração: "Material de extrema qualidade que valoriza as curvas e dá conforto o dia todo."\n\n🎬 CENA 3 (9-15s) - CHAMADA DE DESEJO:\n- Apontando para o carrinho amarelo:\n- Narração: "Você merece se sentir linda todos os dias! O link com envio imediato tá no carrinho amarelo aqui embaixo 👇"`,
+          prompt_text: `[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - 10 SEGUNDOS]\n✨ ÂNGULO 1: EMOCIONAL & AUTOESTIMA\n📌 DIRETRIZES: Narração em PT-BR, máx 10s, vídeo totalmente liso sem texto na tela.\n\n🎬 CENA 1 (0-3s) - O GANCHO EMOCIONAL (HOOK):\n- POV em frente ao espelho: segurando o(a) ${prod} no corpo com olhar radiante.\n- Vídeo 100% liso sem textos ou legendas.\n- Narração (PT-BR): "POV: O dia em que eu cansei de peças sem graça e experimentei esse(a) ${prod}! O caimento no corpo é surreal."\n\n🎬 CENA 2 (3-7s) - DETALHES REAIS:\n- Close nos detalhes das fotos: ${visual}.\n- Narração (PT-BR): "Material de extrema qualidade que valoriza as curvas e dá conforto o dia todo."\n\n🎬 CENA 3 (7-10s) - CHAMADA DE DESEJO:\n- Apontando para o carrinho amarelo:\n- Narração (PT-BR): "Você merece se sentir linda todos os dias! O link com envio imediato tá no carrinho amarelo aqui embaixo."`,
         },
         {
           id: 'v2_urgencia',
@@ -257,7 +229,7 @@ export async function regeneratePromptVariations(
           badge: '⚡ Ângulo Urgência',
           description:
             'Focado em promoção relâmpago, estoque acabando e chamada direta pro carrinho.',
-          prompt_text: `[VARIAÇÃO 2 - ÂNGULO URGÊNCIA & ESCASSEZ ⚡]\n\n🎬 CENA 1 (0-3s) - O GANCHO DE ALERTA (HOOK):\n- Câmera rápida com cortes dinâmicos mostrando o(a) ${prod}.\n- Texto na tela: "ÚLTIMAS UNIDADES EM QUEIMA DE ESTOQUE! ⚡🔥"\n- Narração: "SE VOCÊ TÁ VENDO ESSE VÍDEO, CORRE! O lote desse ${prod} tá zerando com cupom de desconto hoje!"\n\n🎬 CENA 2 (3-9s) - PROVA DO PRODUTO:\n- Destaque nos detalhes observados: ${visual}.\n- Narração: "Estoque nacional que esgota em poucas horas pela procura recorde."\n\n🎬 CENA 3 (9-15s) - CHAMADA URGENTE:\n- Apontando para o carrinho:\n- Narração: "Clica agora no carrinho amarelo ou na sacolinha antes que a promoção encerre e volte ao preço normal! 🛒"`,
+          prompt_text: `[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - 10 SEGUNDOS]\n⚡ ÂNGULO 2: URGÊNCIA & ESCASSEZ MÁXIMA\n📌 DIRETRIZES: Narração em PT-BR, máx 10s, vídeo totalmente liso sem texto na tela.\n\n🎬 CENA 1 (0-3s) - O GANCHO DE ALERTA (HOOK):\n- Câmera rápida com cortes dinâmicos mostrando o(a) ${prod}.\n- Vídeo 100% limpo sem palavras na tela.\n- Narração (PT-BR): "SE VOCÊ TÁ VENDO ESSE VÍDEO, CORRE! O lote desse(a) ${prod} tá zerando com cupom hoje!"\n\n🎬 CENA 2 (3-7s) - PROVA DO PRODUTO:\n- Destaque nos detalhes observados: ${visual}.\n- Narração (PT-BR): "Estoque nacional que esgota em poucas horas pela procura recorde."\n\n🎬 CENA 3 (7-10s) - CHAMADA URGENTE:\n- Apontando para o carrinho:\n- Narração (PT-BR): "Clica agora no carrinho amarelo antes que a promoção encerre e volte ao preço normal!"`,
         },
         {
           id: 'v3_prova_social',
@@ -265,7 +237,7 @@ export async function regeneratePromptVariations(
           badge: '⭐ Ângulo Prova Social',
           description:
             'Focado em avaliações 5 estrelas, durabilidade, caimento real e comparativo.',
-          prompt_text: `[VARIAÇÃO 3 - ÂNGULO PROVA SOCIAL & CONFIANÇA ⭐]\n\n🎬 CENA 1 (0-3s) - O GANCHO DE PROVA REAL (HOOK):\n- POV abrindo o pacote ou mostrando o(a) ${prod} com luz natural.\n- Texto na tela: "NOTA 5 ESTRELAS: MAIS DE 3.000 CLIENTES APROVARAM! ⭐⭐⭐⭐⭐"\n- Narração: "Eu comprei esse ${prod} pra ver se todas aquelas avaliações 5 estrelas eram verdade... E olhem esse acabamento!"\n\n🎬 CENA 2 (3-9s) - COMPROVAÇÃO DE QUALIDADE:\n- Mostrando acabamento fiel às fotos: ${visual}.\n- Narração: "Costuras reforçadas, toque nobre e zero decepção na entrega."\n\n🎬 CENA 3 (9-15s) - CTA CONFIÁVEL:\n- Apontando para o link:\n- Narração: "Mais de 3.000 pessoas já compraram e aprovaram. Veja as fotos e avaliações no link da sacolinha aqui embaixo!"`,
+          prompt_text: `[ROTEIRO VIRAL TIKTOK SHOP / SHOPEE - 10 SEGUNDOS]\n⭐ ÂNGULO 3: PROVA SOCIAL & CONFIANÇA\n📌 DIRETRIZES: Narração em PT-BR, máx 10s, vídeo totalmente liso sem texto na tela.\n\n🎬 CENA 1 (0-3s) - O GANCHO DE PROVA REAL (HOOK):\n- POV abrindo o pacote ou mostrando o(a) ${prod} com luz natural.\n- Vídeo 100% liso sem nenhuma legenda gravada.\n- Narração (PT-BR): "Eu comprei esse(a) ${prod} pra ver se todas aquelas avaliações 5 estrelas eram verdade... E olhem esse acabamento!"\n\n🎬 CENA 2 (3-7s) - COMPROVAÇÃO DE QUALIDADE:\n- Mostrando acabamento fiel às fotos: ${visual}.\n- Narração (PT-BR): "Costuras reforçadas, toque nobre e zero decepção na entrega."\n\n🎬 CENA 3 (7-10s) - CTA CONFIÁVEL:\n- Apontando para o link da sacolinha:\n- Narração (PT-BR): "Mais de 3.000 pessoas já compraram e aprovaram. Veja as avaliações no link da sacolinha aqui embaixo!"`,
         },
       ],
     }
@@ -306,14 +278,22 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
       input.visualDetails || 'Caimento ajustado, cor fiel às fotos e tecido de alta densidade'
     const baseScript = input.originalPrompt || ''
 
+    const sanitizedBase = baseScript
+      .replace(/^[ \t]*[-•*]?[ \t]*Texto[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+      .replace(/^[ \t]*[-•*]?[ \t]*Legenda[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+
     const fallbackAdapted = [
-      `[ROTEIRO ADAPTADO COM AS SUAS FOTOS]`,
+      `[ROTEIRO ADAPTADO COM AS SUAS FOTOS - MÁXIMO 10 SEGUNDOS]`,
+      `📌 DIRETRIZES ESSENCIAIS:`,
+      `- Idioma da narração: Português Brasileiro (PT-BR)`,
+      `- Duração máxima: 10 segundos`,
+      `- Vídeo totalmente liso: SEM legendas, SEM textos na tela, SEM palavras no vídeo.`,
       `🎯 PEÇA DAS FOTOS: ${prod}`,
       `✨ DETALHES VISUAIS FIÉIS: ${visual}`,
       ``,
-      baseScript
-        ? `--- ESTRUTURA BASE ADAPTADA ---\n${baseScript}\n--- DETALHES INCORPORADOS DAS SUAS FOTOS ---\n• Peça física: ${prod}\n• Acabamento & Caimento: ${visual}`
-        : `🎬 GANCHO (0-3s): Mostre a peça das fotos com iluminação frontal. Texto: "POV: O caimento da foto vs no corpo real 🔥"\n🎬 CENA 2 (3-8s): Vista o(a) ${prod} mostrando ${visual}.\n🎬 CENA 3 (8-14s): Destaque a versatilidade no dia a dia.\n🎬 CENA 4 (14-18s): CTA apontando para a sacolinha com cupom!`,
+      sanitizedBase
+        ? `--- ESTRUTURA BASE ADAPTADA (10s) ---\n${sanitizedBase}\n--- DETALHES INCORPORADOS DAS SUAS FOTOS ---\n• Peça física: ${prod}\n• Acabamento & Caimento: ${visual}`
+        : `🎬 CENA 1 (0-3s): Mostre a peça das fotos com iluminação frontal. Vídeo liso sem texto. Narração: "Olha o caimento desse(a) ${prod} na prática!"\n🎬 CENA 2 (3-7s): Mostre os detalhes reais: ${visual}.\n🎬 CENA 3 (7-10s): CTA apontando para a sacolinha ou carrinho com desconto!`,
     ].join('\n\n')
 
     return {
@@ -324,7 +304,6 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
     }
   }
 }
-
 export async function getUserGenerations(userId: string): Promise<GenerationRecord[]> {
   try {
     return await pb.collection('generations').getFullList<GenerationRecord>({

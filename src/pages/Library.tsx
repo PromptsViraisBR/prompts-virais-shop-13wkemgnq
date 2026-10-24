@@ -108,7 +108,12 @@ export const Library: React.FC = () => {
 
   useEffect(() => {
     loadData()
-  }, [searchTerm, selectedNiche, selectedStyle, activeTab])
+    if (user) {
+      getUserRegenerationCredits(user.id).then((c) => {
+        if (c) setExtraCreditsBalance(c.extra_prompts_balance || 0)
+      })
+    }
+  }, [searchTerm, selectedNiche, selectedStyle, activeTab, user])
 
   const loadData = async () => {
     setLoading(true)
@@ -182,8 +187,8 @@ export const Library: React.FC = () => {
   const handleCustomRegenerate = async () => {
     if (!customizePrompt) return
 
-    // Se já usou o primeiro clique gratuito de variações nesta modal e não tem saldo extra
-    if (hasCustomFreeRegenerated && extraCreditsBalance <= 0) {
+    // Se já não há créditos de regeneração e já gerou variações ou usuário sem saldo
+    if (extraCreditsBalance <= 0 && hasCustomFreeRegenerated) {
       if (!user) {
         toast({
           title: 'Faça login para regenerar',
@@ -750,12 +755,23 @@ export const Library: React.FC = () => {
 
                 {/* Rodapé com Ações Claras e Rápidas */}
                 <CardFooter className="pt-3 pb-4 px-4 sm:px-5 border-t flex flex-col gap-2.5 bg-muted/20">
-                  {/* Botão de Personalização com Fotos para Gratuito e PRO */}
+                  {/* Botão Regenerar Prompt Sempre Visível no Card */}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={(e) => openCustomizeModal(e, prompt)}
-                    className="w-full text-xs font-semibold gap-1.5 border-pink-500/30 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 hover:text-pink-700"
+                    className="w-full text-xs font-bold gap-1.5 border-pink-500/40 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 hover:text-pink-700 shadow-xs"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-pink-500" />
+                    Regenerar Prompt ({extraCreditsBalance} disponíveis)
+                  </Button>
+
+                  {/* Botão de Personalização com Fotos para Gratuito e PRO */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => openCustomizeModal(e, prompt)}
+                    className="w-full text-xs font-semibold gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 h-8"
                   >
                     <ImagePlus className="w-3.5 h-3.5 text-pink-500" />
                     Personalizar com minhas fotos 📸
@@ -912,24 +928,46 @@ export const Library: React.FC = () => {
                 />
               </div>
 
-              {/* Botão de Disparo */}
-              <Button
-                onClick={handleAdaptPrompt}
-                disabled={adapting}
-                className="w-full py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2"
-              >
-                {adapting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Atualizando Roteiro com Suas Fotos...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Atualizar Roteiro com Minhas Fotos 📸</span>
-                  </>
-                )}
-              </Button>
+              {/* Botões de Ação no Modal: Regenerar Sempre Visível + Atualizar com Fotos */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Button
+                  type="button"
+                  onClick={handleCustomRegenerate}
+                  disabled={customRegenerating || adapting}
+                  variant="outline"
+                  className="flex-1 py-5 border-pink-500/40 text-pink-600 dark:text-pink-400 font-bold hover:bg-pink-500/10 gap-2 text-xs shadow-xs"
+                >
+                  {customRegenerating ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                      <span>Regenerando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Regenerar Prompt ({extraCreditsBalance} disponíveis)</span>
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={handleAdaptPrompt}
+                  disabled={adapting || customRegenerating}
+                  className="flex-1 py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 text-xs"
+                >
+                  {adapting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Atualizando Roteiro...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Atualizar com Fotos 📸</span>
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {/* Exibição do Roteiro Adaptado e Botão de Regeneração */}
               {adaptedResult && (
@@ -978,7 +1016,7 @@ export const Library: React.FC = () => {
                       ) : (
                         <>
                           <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Regenerar (3 Variações)</span>
+                          <span>Regenerar Prompt ({extraCreditsBalance} disponíveis)</span>
                         </>
                       )}
                     </Button>

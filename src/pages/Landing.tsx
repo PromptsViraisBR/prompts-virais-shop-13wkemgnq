@@ -40,9 +40,29 @@ export const Landing: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
-    // Carrega os 3 primeiros prompts gratuitos como vitrine
+    // Carrega exatamente 3 prompts com ganchos fortes como amostra grátis para visitantes / vitrine
+    const strongHookIds = ['3pp1iid3x7gx6bv', 'gudc14e8frah6e1', 'ssbe8ohn75zzp6t']
+
     getPrompts({ isFreeOnly: true })
-      .then((records) => setSamplePrompts(records.slice(0, 3)))
+      .then((records) => {
+        // Tenta priorizar os 3 ganchos mais fortes fixos, completando com os primeiros caso algum falte
+        const selected: PromptRecord[] = []
+        strongHookIds.forEach((id) => {
+          const found = records.find((r) => r.id === id)
+          if (found) selected.push(found)
+        })
+
+        // Se por ventura faltar algum, completa com os outros
+        if (selected.length < 3) {
+          records.forEach((r) => {
+            if (selected.length < 3 && !selected.some((s) => s.id === r.id)) {
+              selected.push(r)
+            }
+          })
+        }
+
+        setSamplePrompts(selected.slice(0, 3))
+      })
       .catch((err) => console.warn('Erro ao carregar exemplos:', err))
   }, [])
 
@@ -153,81 +173,92 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* EXEMPLOS DE PROMPTS AO VIVO */}
+      {/* EXEMPLOS DE PROMPTS AO VIVO — 3 AMOSTRAS GRÁTIS COM GANCHOS FORTES */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <Badge
-            variant="outline"
-            className="text-pink-600 border-pink-500/30 text-xs font-semibold uppercase"
-          >
-            Amostra Gratuita
-          </Badge>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" />
+            Amostra Gratuita da Vitrine
+          </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Veja como nossos roteiros funcionam na prática
+            3 Roteiros com Ganchos Fortes Liberados
           </h2>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Cada prompt traz uma estrutura completa cena por cena: Gancho visual, Revelação da peça,
-            Quebra de objeções e Chamada para o carrinho.
+            Copie gratuitamente esses 3 roteiros abaixo para testar nos seus vídeos. Para acessar
+            todos os 40+ roteiros da biblioteca e o gerador inteligente com fotos, crie sua conta
+            grátis.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {samplePrompts.map((prompt) => (
+          {samplePrompts.map((prompt, idx) => (
             <Card
               key={prompt.id}
-              onClick={() => navigate(`/prompt/${prompt.id}`)}
-              className="flex flex-col justify-between border cursor-pointer hover:shadow-lg transition-all hover:border-pink-500/50 group"
+              className="flex flex-col justify-between border-2 border-pink-500/20 hover:border-pink-500/50 transition-all hover:shadow-xl rounded-2xl bg-card overflow-hidden group"
             >
-              <CardHeader className="space-y-2 pb-3">
+              <CardHeader className="space-y-2.5 pb-3 bg-muted/20 border-b">
                 <div className="flex items-center justify-between">
                   <Badge variant="secondary" className="text-xs font-semibold">
-                    {NICHE_LABELS[prompt.niche]}
+                    {NICHE_LABELS[prompt.niche] || prompt.niche}
                   </Badge>
                   <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                    Gratuito para Testar
+                    Amostra Grátis #{idx + 1}
                   </Badge>
                 </div>
-                <CardTitle className="text-lg font-bold group-hover:text-pink-600 transition-colors line-clamp-2">
-                  {prompt.title}
+                {/* Gancho Forte em Destaque no Título com Emoji */}
+                <CardTitle className="text-base sm:text-lg font-bold text-foreground leading-snug line-clamp-2">
+                  🎯 "{prompt.hook || prompt.title}"
                 </CardTitle>
-                <CardDescription className="line-clamp-2 text-xs">
-                  {prompt.description}
+                <CardDescription className="line-clamp-1 text-xs font-medium text-muted-foreground">
+                  Peça: {prompt.title}
                 </CardDescription>
               </CardHeader>
 
-              <CardContent className="space-y-3 pb-3 flex-1">
-                {prompt.hook && (
-                  <div className="p-2.5 rounded-lg bg-muted/60 border text-xs space-y-1">
-                    <span className="font-bold text-pink-600 uppercase tracking-wider text-[10px] block">
-                      🎯 Gancho Inicial (0-3s)
-                    </span>
-                    <p className="italic text-foreground line-clamp-2">"{prompt.hook}"</p>
+              <CardContent className="space-y-3.5 py-4 flex-1">
+                {/* Roteiro quase completo ou completo visível */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-pink-600 dark:text-pink-400 uppercase tracking-wider block">
+                    📜 Estrutura do Roteiro Cena a Cena
+                  </span>
+                  <div className="p-3 rounded-xl bg-muted/40 border font-mono text-[11px] leading-relaxed max-h-48 overflow-y-auto text-foreground whitespace-pre-wrap select-all">
+                    {prompt.prompt_text}
                   </div>
-                )}
-                <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Video className="w-3.5 h-3.5 text-pink-500" />
-                  <span>{STYLE_LABELS[prompt.style]}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                  <div className="flex items-center gap-1">
+                    <Video className="w-3.5 h-3.5 text-pink-500" />
+                    <span>{STYLE_LABELS[prompt.style] || prompt.style}</span>
+                  </div>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                    ✓ Cópia liberada mesmo deslogado
+                  </span>
                 </div>
               </CardContent>
 
-              <CardFooter className="pt-2 border-t flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                  Ver detalhes
-                </span>
+              <CardFooter className="pt-3 pb-4 border-t flex items-center justify-between bg-muted/10">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto font-medium"
+                  onClick={() => navigate(`/prompt/${prompt.id}`)}
+                >
+                  Ver Detalhes →
+                </Button>
                 <Button
                   size="sm"
-                  className="text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-amber-500 text-white font-semibold"
+                  className="text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold shadow-xs hover:opacity-95"
                   onClick={(e) => handleCopy(e, prompt)}
                 >
                   {copiedId === prompt.id ? (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      Copiado!
+                      Copiado! 🎉
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      Copiar
+                      Copiar Amostra Grátis
                     </>
                   )}
                 </Button>
@@ -236,13 +267,44 @@ export const Landing: React.FC = () => {
           ))}
         </div>
 
-        <div className="text-center pt-2">
-          <Link to="/biblioteca">
-            <Button variant="outline" className="font-semibold gap-2">
-              Ver todos os roteiros na Biblioteca
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
+        {/* CTA Abaixo dos 3 Cards de Amostra */}
+        <div className="p-6 sm:p-8 rounded-3xl border-2 border-pink-500/30 bg-gradient-to-br from-pink-500/10 via-amber-500/5 to-purple-500/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-sm">
+          <div className="space-y-1">
+            <h3 className="text-lg sm:text-xl font-bold text-foreground flex items-center justify-center sm:justify-start gap-2">
+              <Sparkles className="w-5 h-5 text-pink-600" />
+              Gostou dos ganchos? Desbloqueie todos os outros 40+ roteiros!
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              {user
+                ? 'Você já está conectado. Acesse a biblioteca completa e aproveite!'
+                : 'Crie sua conta grátis em menos de 30 segundos para explorar a biblioteca e o gerador com fotos.'}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {!user ? (
+              <>
+                <Link to="/login">
+                  <Button className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold py-5 px-5 shadow-md">
+                    Criar Conta Grátis
+                    <ArrowRight className="w-4 h-4 ml-1.5" />
+                  </Button>
+                </Link>
+                <Link to="/login">
+                  <Button variant="outline" className="font-semibold py-5">
+                    Fazer Login
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Link to="/biblioteca">
+                <Button className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold py-5 px-5">
+                  Ir para a Biblioteca Completa
+                  <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
       </section>
 

@@ -13,7 +13,8 @@ import {
   consumeExtraRegenerationCredit,
 } from '@/services/regenerationCredits'
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
-import { RefreshCw } from 'lucide-react'
+import { AuthGateModal } from '@/components/AuthGateModal'
+import { RefreshCw, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -78,6 +79,10 @@ export const Generator: React.FC = () => {
   const [history, setHistory] = useState<GenerationRecord[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
 
+  // Auth Gate para deslogados
+  const [authGateOpen, setAuthGateOpen] = useState(false)
+  const [authGateAction, setAuthGateAction] = useState('')
+
   // Estados de Regeneração com 3 Variações e Cobrança de Extras
   const [variations, setVariations] = useState<PromptVariation[]>([])
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null)
@@ -116,6 +121,13 @@ export const Generator: React.FC = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+
+    if (!user) {
+      setAuthGateAction('Fazer upload de fotos da sua peça')
+      setAuthGateOpen(true)
+      e.target.value = ''
+      return
+    }
 
     const incoming = Array.from(files)
     const availableSlots = 3 - referenceFiles.length
@@ -175,11 +187,8 @@ export const Generator: React.FC = () => {
     e.preventDefault()
 
     if (!user) {
-      toast({
-        title: 'Faça login para gerar prompts',
-        description: 'Crie sua conta para acessar o gerador personalizado.',
-      })
-      navigate('/login')
+      setAuthGateAction('Gerar roteiro personalizado com fotos')
+      setAuthGateOpen(true)
       return
     }
 
@@ -263,6 +272,11 @@ export const Generator: React.FC = () => {
 
   const handleCopyPrompt = () => {
     if (!currentPrompt) return
+    if (!user) {
+      setAuthGateAction('Copiar roteiro gerado')
+      setAuthGateOpen(true)
+      return
+    }
     navigator.clipboard.writeText(currentPrompt)
     setCopied(true)
     toast({
@@ -273,6 +287,11 @@ export const Generator: React.FC = () => {
   }
 
   const handleCopyVariation = (vId: string, text: string) => {
+    if (!user) {
+      setAuthGateAction('Copiar variação do roteiro')
+      setAuthGateOpen(true)
+      return
+    }
     navigator.clipboard.writeText(text)
     setCopiedVarId(vId)
     toast({
@@ -284,12 +303,8 @@ export const Generator: React.FC = () => {
 
   const handleRegenerateClick = async () => {
     if (!user) {
-      toast({
-        title: 'Faça login para regenerar',
-        description: 'Entre na sua conta para continuar.',
-        variant: 'destructive',
-      })
-      navigate('/login')
+      setAuthGateAction('Regenerar variações do roteiro')
+      setAuthGateOpen(true)
       return
     }
 
@@ -403,8 +418,40 @@ export const Generator: React.FC = () => {
         )}
       </div>
 
-      {/* Alerta de Plano Gratuito com CTA de Upgrade */}
-      {!isPaidPlan && (
+      {/* Alerta para Visitantes Deslogados ou Usuários no Plano Free */}
+      {!user ? (
+        <Card className="border-2 border-pink-500/30 bg-gradient-to-br from-pink-500/10 via-amber-500/5 to-transparent shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <Badge className="bg-pink-600 text-white font-bold text-xs uppercase">
+                Login Necessário
+              </Badge>
+              <Lock className="w-5 h-5 text-pink-500" />
+            </div>
+            <CardTitle className="text-xl font-bold">
+              Entre ou Crie Sua Conta para Usar o Gerador 👗📸
+            </CardTitle>
+            <CardDescription className="text-sm">
+              Visitantes podem explorar a vitrine na tela inicial com 3 amostras liberadas. Para
+              personalizar roteiros com fotos da sua peça e gerar variações exclusivas, acesse sua
+              conta.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="pt-2 flex flex-wrap gap-2">
+            <Link to="/login">
+              <Button className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 shadow-md">
+                Criar Conta Grátis
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </Link>
+            <Link to="/login">
+              <Button variant="outline" className="font-semibold">
+                Já tenho conta — Entrar
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      ) : !isPaidPlan ? (
         <Card className="border-2 border-pink-500/30 bg-gradient-to-br from-pink-500/5 via-amber-500/5 to-transparent shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -431,7 +478,7 @@ export const Generator: React.FC = () => {
             </Link>
           </CardFooter>
         </Card>
-      )}
+      ) : null}
 
       {/* Histórico Deslizante / Recolhível */}
       {isPaidPlan && historyOpen && history.length > 0 && (
@@ -523,7 +570,7 @@ export const Generator: React.FC = () => {
                     value={productName}
                     onChange={(e) => setProductName(e.target.value)}
                     required
-                    disabled={!isPaidPlan}
+                    disabled={!user || !isPaidPlan}
                     className="py-5"
                   />
                 </div>
@@ -580,7 +627,7 @@ export const Generator: React.FC = () => {
                       <label
                         htmlFor="image-upload-input"
                         className={`inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border border-dashed border-pink-500/40 bg-pink-500/5 hover:bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold text-xs cursor-pointer transition-colors ${
-                          !isPaidPlan ? 'opacity-50 pointer-events-none' : ''
+                          !user || !isPaidPlan ? 'opacity-50 pointer-events-none' : ''
                         }`}
                       >
                         <Upload className="w-4 h-4" />
@@ -593,7 +640,7 @@ export const Generator: React.FC = () => {
                         multiple
                         className="hidden"
                         onChange={handleImageUpload}
-                        disabled={!isPaidPlan || referenceFiles.length >= 3}
+                        disabled={!user || !isPaidPlan || referenceFiles.length >= 3}
                       />
                     </div>
                   )}
@@ -606,7 +653,7 @@ export const Generator: React.FC = () => {
                     <Select
                       value={niche}
                       onValueChange={(val) => setNiche(val as NicheType)}
-                      disabled={!isPaidPlan}
+                      disabled={!user || !isPaidPlan}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o nicho" />
@@ -626,7 +673,7 @@ export const Generator: React.FC = () => {
                     <Select
                       value={style}
                       onValueChange={(val) => setStyle(val as StyleType)}
-                      disabled={!isPaidPlan}
+                      disabled={!user || !isPaidPlan}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o estilo" />
@@ -649,7 +696,7 @@ export const Generator: React.FC = () => {
                     <Select
                       value={platform}
                       onValueChange={(val) => setPlatform(val as PlatformType)}
-                      disabled={!isPaidPlan}
+                      disabled={!user || !isPaidPlan}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o canal" />
@@ -673,7 +720,7 @@ export const Generator: React.FC = () => {
                       placeholder="Ex: Mulheres 20-35 anos, mães, homens streetwear..."
                       value={targetAudience}
                       onChange={(e) => setTargetAudience(e.target.value)}
-                      disabled={!isPaidPlan}
+                      disabled={!user || !isPaidPlan}
                     />
                   </div>
                 </div>
@@ -694,7 +741,7 @@ export const Generator: React.FC = () => {
                     placeholder="Descreva detalhes específicos da foto: cor vinho acetinada, zíper reforçado, cintura com elástico embutido, caimento soltinho..."
                     value={visualDetails}
                     onChange={(e) => setVisualDetails(e.target.value)}
-                    disabled={!isPaidPlan}
+                    disabled={!user || !isPaidPlan}
                     rows={2}
                     className="resize-none"
                   />
@@ -710,7 +757,7 @@ export const Generator: React.FC = () => {
                     placeholder="Ex: Frete grátis hoje, cupom de 1ª compra, envio imediato..."
                     value={details}
                     onChange={(e) => setDetails(e.target.value)}
-                    disabled={!isPaidPlan}
+                    disabled={!user || !isPaidPlan}
                   />
                 </div>
               </CardContent>
@@ -738,7 +785,7 @@ export const Generator: React.FC = () => {
 
                   <Button
                     type="submit"
-                    disabled={generating || !isPaidPlan}
+                    disabled={generating || (!user ? false : !isPaidPlan)}
                     size="lg"
                     className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold shadow-md gap-2"
                   >
@@ -978,6 +1025,15 @@ export const Generator: React.FC = () => {
           }}
         />
       )}
+
+      {/* Auth Gate Modal para Visitantes Não Autenticados */}
+      <AuthGateModal
+        open={authGateOpen}
+        onOpenChange={setAuthGateOpen}
+        actionName={authGateAction}
+        title="Entre para Acessar o Gerador Inteligente"
+        description="Para gerar roteiros sob medida com fotos da sua vitrine, copiar ou regenerar variações, crie sua conta gratuita em poucos segundos."
+      />
     </div>
   )
 }

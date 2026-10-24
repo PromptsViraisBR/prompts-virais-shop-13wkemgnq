@@ -37,6 +37,7 @@ import {
   consumeExtraRegenerationCredit,
 } from '@/services/regenerationCredits'
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
+import { AuthGateModal } from '@/components/AuthGateModal'
 import {
   Dialog,
   DialogContent,
@@ -85,6 +86,10 @@ export const Library: React.FC = () => {
   const [selectedStyle, setSelectedStyle] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'all' | 'free' | 'favorites'>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Auth Gate para deslogados
+  const [authGateOpen, setAuthGateOpen] = useState(false)
+  const [authGateAction, setAuthGateAction] = useState<string>('')
 
   // Modal de Personalização com Fotos e Regeneração com 3 Variações
   const [customizePrompt, setCustomizePrompt] = useState<PromptRecord | null>(null)
@@ -155,6 +160,11 @@ export const Library: React.FC = () => {
 
   const openCustomizeModal = (e: React.MouseEvent, prompt: PromptRecord) => {
     e.stopPropagation()
+    if (!user) {
+      setAuthGateAction('Personalizar roteiro com fotos da sua peça')
+      setAuthGateOpen(true)
+      return
+    }
     setCustomizePrompt(prompt)
     setCustomProductName(prompt.title)
     setCustomVisualDetails('')
@@ -187,17 +197,14 @@ export const Library: React.FC = () => {
   const handleCustomRegenerate = async () => {
     if (!customizePrompt) return
 
+    if (!user) {
+      setAuthGateAction('Regenerar variações do roteiro')
+      setAuthGateOpen(true)
+      return
+    }
+
     // Se já não há créditos de regeneração e já gerou variações ou usuário sem saldo
     if (extraCreditsBalance <= 0 && hasCustomFreeRegenerated) {
-      if (!user) {
-        toast({
-          title: 'Faça login para regenerar',
-          description: 'Entre na sua conta para obter mais variações.',
-          variant: 'destructive',
-        })
-        navigate('/login')
-        return
-      }
       setPaymentModalOpen(true)
       return
     }
@@ -319,11 +326,8 @@ export const Library: React.FC = () => {
   const handleToggleFavorite = async (e: React.MouseEvent, promptId: string) => {
     e.stopPropagation()
     if (!user) {
-      toast({
-        title: 'Faça login para favoritar ❤️',
-        description: 'Salve seus roteiros preferidos na sua conta em 1 clique.',
-      })
-      navigate('/login')
+      setAuthGateAction('Salvar roteiro nos favoritos')
+      setAuthGateOpen(true)
       return
     }
 
@@ -351,6 +355,14 @@ export const Library: React.FC = () => {
   const handleCopyPrompt = (e: React.MouseEvent, prompt: PromptRecord) => {
     e.stopPropagation()
 
+    // 1. Portão de Login: visitantes não autenticados não podem copiar roteiros da biblioteca
+    if (!user) {
+      setAuthGateAction(`Copiar roteiro "${prompt.title}"`)
+      setAuthGateOpen(true)
+      return
+    }
+
+    // 2. Bloqueio de Plano Pago para roteiros não gratuitos
     if (!prompt.is_free && !isPaidPlan) {
       toast({
         title: '🔒 Roteiro Exclusivo do Plano Pago',
@@ -428,7 +440,22 @@ export const Library: React.FC = () => {
             </div>
           </div>
 
-          {!isPaidPlan && (
+          {!user ? (
+            <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2.5">
+              <Link to="/login">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Criar Conta Grátis para Acessar
+                </Button>
+              </Link>
+              <p className="text-[11px] text-center text-muted-foreground">
+                Cadastre-se grátis para desbloquear e copiar roteiros 🔒
+              </p>
+            </div>
+          ) : !isPaidPlan ? (
             <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2.5">
               <Link to="/planos">
                 <Button
@@ -443,7 +470,7 @@ export const Library: React.FC = () => {
                 Planos mensais ou anuais com IA inclusa 🔒
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -475,11 +502,8 @@ export const Library: React.FC = () => {
             <button
               onClick={() => {
                 if (!user) {
-                  toast({
-                    title: 'Faça login para ver favoritos ❤️',
-                    description: 'Entre na sua conta para acessar seus roteiros salvos.',
-                  })
-                  navigate('/login')
+                  setAuthGateAction('Acessar seus roteiros favoritos')
+                  setAuthGateOpen(true)
                   return
                 }
                 setActiveTab('favorites')
@@ -751,6 +775,19 @@ export const Library: React.FC = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* Bloqueio visual para visitante não autenticado sobre o roteiro */}
+                  {!user && (
+                    <div className="mt-2 p-2.5 rounded-xl bg-pink-500/5 border border-pink-500/20 text-[11px] flex items-center justify-between gap-2">
+                      <span className="text-pink-600 dark:text-pink-400 font-medium flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5 shrink-0" />
+                        Faça login para copiar e ver o roteiro completo
+                      </span>
+                      <span className="text-[10px] font-bold text-pink-600 underline shrink-0">
+                        Entrar →
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
 
                 {/* Rodapé com Ações Claras e Rápidas */}
@@ -790,15 +827,22 @@ export const Library: React.FC = () => {
 
                     <Button
                       size="sm"
-                      variant={isLocked ? 'outline' : 'default'}
+                      variant={!user || isLocked ? 'outline' : 'default'}
                       className={`text-xs gap-1.5 rounded-xl font-bold shadow-xs ${
-                        !isLocked
-                          ? 'bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white hover:opacity-95'
-                          : 'border-amber-500/40 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20'
+                        !user
+                          ? 'border-pink-500/40 text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-950/20'
+                          : !isLocked
+                            ? 'bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white hover:opacity-95'
+                            : 'border-amber-500/40 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20'
                       }`}
                       onClick={(e) => handleCopyPrompt(e, prompt)}
                     >
-                      {isLocked ? (
+                      {!user ? (
+                        <>
+                          <Lock className="w-3.5 h-3.5 text-pink-500" />
+                          Entrar para Copiar
+                        </>
+                      ) : isLocked ? (
                         <>
                           <Lock className="w-3.5 h-3.5 text-amber-500" />
                           Liberar no PRO 👑
@@ -1137,6 +1181,15 @@ export const Library: React.FC = () => {
           }}
         />
       )}
+
+      {/* Auth Gate Modal para Visitantes Não Logados */}
+      <AuthGateModal
+        open={authGateOpen}
+        onOpenChange={setAuthGateOpen}
+        actionName={authGateAction}
+        title="Entre ou Crie uma Conta para Acessar"
+        description="Para copiar roteiros, salvá-los nos favoritos, personalizar com fotos e regenerar variações, crie sua conta gratuita em poucos instantes!"
+      />
     </div>
   )
 }

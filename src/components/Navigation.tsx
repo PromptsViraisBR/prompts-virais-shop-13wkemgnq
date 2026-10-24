@@ -22,6 +22,7 @@ import {
   X,
   CheckCircle,
   Video,
+  Flame,
 } from 'lucide-react'
 
 export const Navbar: React.FC = () => {
@@ -92,6 +93,20 @@ export const Navbar: React.FC = () => {
             >
               <BookOpen className="w-4 h-4 text-pink-500" />
               Biblioteca
+            </Button>
+          </Link>
+
+          <Link to="/virais">
+            <Button
+              variant={isActive('/virais') ? 'secondary' : 'ghost'}
+              size="sm"
+              className="gap-2 font-medium relative"
+            >
+              <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
+              Vídeos Virais
+              <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-extrabold rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20 ml-0.5">
+                NOVO
+              </span>
             </Button>
           </Link>
 
@@ -223,6 +238,25 @@ export const Navbar: React.FC = () => {
             </Link>
 
             <Link
+              to="/virais"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center justify-between px-3 py-2 rounded-md font-medium text-sm ${
+                isActive('/virais') ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Flame className="w-4 h-4 text-rose-500" />
+                Vídeos Virais
+              </span>
+              <Badge
+                variant="secondary"
+                className="text-[10px] bg-rose-500/15 text-rose-600 font-bold"
+              >
+                NOVO
+              </Badge>
+            </Link>
+
+            <Link
               to="/gerador"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center justify-between px-3 py-2 rounded-md font-medium text-sm ${
@@ -334,7 +368,15 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <Link to="/biblioteca" className="hover:text-foreground transition-colors">
-                  Biblioteca de Prompts
+                  Biblioteca de Vendas
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/virais"
+                  className="hover:text-foreground transition-colors text-pink-600 dark:text-pink-400 font-semibold"
+                >
+                  Vídeos Virais (Criadores)
                 </Link>
               </li>
               <li>
@@ -356,9 +398,9 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>Moda Feminina & Vestidos</li>
-              <li>Streetwear & Casual Masculino</li>
-              <li>Fitness & Moda Academia</li>
-              <li>Moda Praia & Acessórios</li>
+              <li>Frutas Humanoides & ASMR</li>
+              <li>Troca de Rosto (Face Swap)</li>
+              <li>Terror 3AM & Comédia Viral</li>
             </ul>
           </div>
         </div>

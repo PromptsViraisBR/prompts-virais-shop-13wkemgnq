@@ -1,6 +1,8 @@
 export type PlanType = 'free' | 'monthly' | 'annual'
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired'
 
+export type PromptCategoryType = 'ecommerce' | 'virais'
+
 export type NicheType =
   | 'moda_feminina'
   | 'moda_masculina'
@@ -17,6 +19,14 @@ export type NicheType =
   | 'pet_acessorios'
   | 'cozinha_utilidades'
   | 'relogios_bijus'
+  // Nichos de Vídeos Virais para Criadores de Conteúdo
+  | 'historinhas_frutas'
+  | 'infantil_historinhas'
+  | 'terror_suspense'
+  | 'comedia_engracado'
+  | 'face_swap'
+  | 'asmr_sensorial'
+  | 'animais_falantes'
 
 export type StyleType = 'pov' | 'modelo' | 'unboxing_vitrine'
 export type PlatformType = 'tiktok_shop' | 'shopee' | 'ambos'
@@ -49,6 +59,7 @@ export interface PromptRecord {
   id: string
   title: string
   description?: string
+  category?: PromptCategoryType
   niche: NicheType
   style: StyleType
   prompt_text: string
@@ -189,6 +200,14 @@ export const NICHE_LABELS: Record<NicheType, string> = {
   pet_acessorios: 'Pet & Acessórios',
   cozinha_utilidades: 'Cozinha & Utilidades',
   relogios_bijus: 'Relógios & Bijus',
+  // Nichos de Vídeos Virais
+  historinhas_frutas: 'Historinhas de Frutas Humanoides',
+  infantil_historinhas: 'Conteúdo Infantil & Fábulas',
+  terror_suspense: 'Terror & Suspense 3AM',
+  comedia_engracado: 'Comédia & Situações Engraçadas',
+  face_swap: 'Troca de Rosto (Face Swap)',
+  asmr_sensorial: 'ASMR Sons & Visual Sensorial',
+  animais_falantes: 'Animais Falantes & Pets Cômicos',
 }
 
 export const NICHE_EMOJIS: Record<NicheType, string> = {
@@ -207,7 +226,25 @@ export const NICHE_EMOJIS: Record<NicheType, string> = {
   pet_acessorios: '🧸',
   cozinha_utilidades: '🏠',
   relogios_bijus: '⌚',
+  // Nichos de Vídeos Virais
+  historinhas_frutas: '🍓',
+  infantil_historinhas: '🎈',
+  terror_suspense: '🕯️',
+  comedia_engracado: '😂',
+  face_swap: '🎭',
+  asmr_sensorial: '🫧',
+  animais_falantes: '🐶',
 }
+
+export const VIRAL_NICHE_KEYS: NicheType[] = [
+  'historinhas_frutas',
+  'infantil_historinhas',
+  'terror_suspense',
+  'comedia_engracado',
+  'face_swap',
+  'asmr_sensorial',
+  'animais_falantes',
+]
 
 export interface RegenerationCreditRecord {
   id: string

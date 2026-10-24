@@ -1,15 +1,24 @@
 import pb from '@/lib/pocketbase/client'
-import type { PromptRecord, NicheType, StyleType } from '@/types'
+import type { PromptRecord, NicheType, StyleType, PromptCategoryType } from '@/types'
 
 export interface PromptFilterOptions {
   search?: string
   niche?: NicheType | 'all'
   style?: StyleType | 'all'
   isFreeOnly?: boolean
+  category?: PromptCategoryType | 'all'
 }
 
 export async function getPrompts(options: PromptFilterOptions = {}): Promise<PromptRecord[]> {
   const filters: string[] = []
+
+  if (options.category && options.category !== 'all') {
+    if (options.category === 'ecommerce') {
+      filters.push(`(category = 'ecommerce' || category = '' || category = null)`)
+    } else {
+      filters.push(`category = '${options.category}'`)
+    }
+  }
 
   if (options.niche && options.niche !== 'all') {
     filters.push(`niche = '${options.niche}'`)

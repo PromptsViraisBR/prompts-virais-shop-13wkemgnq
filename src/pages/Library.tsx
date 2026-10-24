@@ -125,6 +125,7 @@ export const Library: React.FC = () => {
     try {
       const isFreeOnly = activeTab === 'free'
       const items = await getPrompts({
+        category: 'ecommerce',
         search: searchTerm,
         niche: selectedNiche === 'all' ? undefined : (selectedNiche as NicheType),
         style: selectedStyle === 'all' ? undefined : (selectedStyle as StyleType),

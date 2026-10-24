@@ -11,6 +11,7 @@ import Index from './pages/Index'
 import { Login } from './pages/Login'
 import { Plans } from './pages/Plans'
 import { Library } from './pages/Library'
+import { ViralVideos } from './pages/ViralVideos'
 import { PromptDetail } from './pages/PromptDetail'
 import { Generator } from './pages/Generator'
 import { Profile } from './pages/Profile'
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/planos" element={<Plans />} />
             <Route path="/biblioteca" element={<Library />} />
+            <Route path="/virais" element={<ViralVideos />} />
             <Route path="/prompt/:id" element={<PromptDetail />} />
             <Route path="/gerador" element={<Generator />} />
             <Route path="/perfil" element={<Profile />} />

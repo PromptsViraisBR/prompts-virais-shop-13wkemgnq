@@ -41,3 +41,37 @@ export async function getPrompts(options: PromptFilterOptions = {}): Promise<Pro
 export async function getPromptById(id: string): Promise<PromptRecord> {
   return await pb.collection('prompts').getOne<PromptRecord>(id)
 }
+
+/**
+ * Regenera ou preenche a imagem de referência do prompt usando o pipeline Nano Banana existente
+ */
+export async function regeneratePromptReferenceImage(
+  prompt: PromptRecord,
+  userGoogleKey?: string,
+): Promise<{ success: boolean; image_url?: string; error?: string }> {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-image`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(pb.authStore.token ? { Authorization: `Bearer ${pb.authStore.token}` } : {}),
+      },
+      body: JSON.stringify({
+        prompt_id: prompt.id,
+        product_name: prompt.title,
+        niche: prompt.niche,
+        style: prompt.style,
+        description: prompt.description || prompt.title,
+        google_ai_api_key: userGoogleKey,
+      }),
+    })
+
+    const data = await res.json()
+    if (data.success && data.image_url) {
+      return { success: true, image_url: data.image_url }
+    }
+    return { success: false, error: data.error || 'Falha ao gerar imagem' }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro de conexão' }
+  }
+}

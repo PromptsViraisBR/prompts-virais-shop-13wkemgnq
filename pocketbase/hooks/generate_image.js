@@ -255,6 +255,20 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
       }
     }
 
+    // Salvar no prompt da biblioteca se prompt_id estiver presente
+    const promptId = (body.prompt_id || '').trim()
+    if (promptId) {
+      try {
+        const promptRec = $app.findRecordById('prompts', promptId)
+        if (promptRec) {
+          promptRec.set('reference_image_url', imageResultUrl)
+          $app.save(promptRec)
+        }
+      } catch (pErr) {
+        console.log('[SAVE_IMAGE_TO_PROMPT_ERR] ' + pErr.message)
+      }
+    }
+
     return e.json(200, {
       success: true,
       image_url: imageResultUrl,

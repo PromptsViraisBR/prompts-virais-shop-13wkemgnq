@@ -18,7 +18,10 @@ import {
   Share2,
   Crown,
   CheckCircle2,
+  Image as ImageIcon,
+  RefreshCw,
 } from 'lucide-react'
+import { regeneratePromptReferenceImage } from '@/services/prompts'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
@@ -32,6 +35,8 @@ export const PromptDetail: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [isFav, setIsFav] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -125,6 +130,38 @@ export const PromptDetail: React.FC = () => {
 
   const isLocked = !prompt.is_free && !isPaidPlan
 
+  const handleRegenerateImage = async () => {
+    if (!prompt) return
+    setRegenerating(true)
+    try {
+      const res = await regeneratePromptReferenceImage(prompt, user?.google_ai_api_key)
+      if (res.success && res.image_url) {
+        setPrompt({ ...prompt, reference_image_url: res.image_url })
+        setImageError(false)
+        toast({
+          title: 'Referência visual atualizada! ✨',
+          description: 'Nova imagem gerada pelo motor Nano Banana.',
+        })
+      } else {
+        toast({
+          title: 'Não foi possível gerar nova imagem',
+          description: res.error || 'Tente novamente em instantes.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao gerar',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const hasImage = Boolean(prompt.reference_image_url && !imageError)
+
   return (
     <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-8">
       {/* Botão voltar */}
@@ -136,13 +173,110 @@ export const PromptDetail: React.FC = () => {
           </Button>
         </Link>
 
-        <Button variant="outline" size="sm" onClick={handleToggleFav} className="gap-2">
-          <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
-          {isFav ? 'Favoritado' : 'Favoritar'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {user && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRegenerateImage}
+              disabled={regenerating}
+              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
+              {regenerating ? 'Gerando...' : 'Regerar Visual'}
+            </Button>
+          )}
+
+          <Button variant="outline" size="sm" onClick={handleToggleFav} className="gap-2">
+            <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+            {isFav ? 'Favoritado' : 'Favoritar'}
+          </Button>
+        </div>
       </div>
 
-      {/* Header do Prompt */}
+      {/* Hero Visual de Referência (Cena 9:16 ou formato editorial com preview) */}
+      <div className="relative rounded-3xl overflow-hidden border bg-muted/30 shadow-lg">
+        <div className="grid grid-cols-1 md:grid-cols-12 items-center">
+          {/* Imagem Vertical de Referência em destaque */}
+          <div className="md:col-span-5 relative aspect-[9/14] sm:aspect-[9/13] max-h-[460px] w-full overflow-hidden bg-black/5 dark:bg-black/20 flex items-center justify-center border-b md:border-b-0 md:border-r">
+            {hasImage ? (
+              <img
+                src={prompt.reference_image_url}
+                alt={prompt.title}
+                onError={() => setImageError(true)}
+                className="w-full h-full object-cover object-center"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-6 text-center space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-pink-500/10 text-pink-500 flex items-center justify-center">
+                  <ImageIcon className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-sm">Visual de Referência</p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Demonstração da cena, corte e caimento do produto para a gravação.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-white text-[11px] font-semibold flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+              Cena de Referência 9:16 (Visual do Vídeo)
+            </div>
+          </div>
+
+          {/* Contexto do Visual ao lado */}
+          <div className="md:col-span-7 p-6 sm:p-8 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="font-semibold text-xs">
+                {NICHE_LABELS[prompt.niche] || prompt.niche}
+              </Badge>
+              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                <Video className="w-3 h-3 text-pink-500" />
+                {STYLE_LABELS[prompt.style] || prompt.style}
+              </Badge>
+              {prompt.platform && (
+                <Badge variant="outline" className="text-xs">
+                  {PLATFORM_LABELS[prompt.platform]}
+                </Badge>
+              )}
+              {prompt.is_free ? (
+                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold">
+                  Gratuito
+                </Badge>
+              ) : (
+                <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-bold">
+                  Premium PRO
+                </Badge>
+              )}
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground leading-snug">
+              {prompt.title}
+            </h1>
+
+            {prompt.description && (
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                {prompt.description}
+              </p>
+            )}
+
+            <div className="p-3.5 rounded-xl bg-background/80 border text-xs space-y-1">
+              <span className="font-bold text-pink-600 dark:text-pink-400 uppercase tracking-wider text-[10px] block">
+                💡 O que este visual demonstra
+              </span>
+              <p className="text-muted-foreground leading-relaxed">
+                Mostra o estilo de gravação ({STYLE_LABELS[prompt.style] || prompt.style}),
+                iluminação e postura ideais para reter o público nos primeiros segundos do TikTok
+                Shop e Shopee Vídeo.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Header do Prompt (informações adicionais) */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className="font-semibold text-xs">

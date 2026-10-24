@@ -50,6 +50,7 @@ export interface PromptRecord {
   platform?: PlatformType
   is_free?: boolean
   tags?: string
+  reference_image_url?: string
   created: string
   updated: string
 }

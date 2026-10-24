@@ -29,6 +29,9 @@ import {
 import {
   getUserRegenerationCredits,
   consumeExtraRegenerationCredit,
+  VIRAL_REGENERATION_LIMIT,
+  getViralRegenerationsUsed,
+  recordViralRegenerationUsed,
 } from '@/services/regenerationCredits'
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
@@ -287,9 +290,21 @@ export const PromptDetail: React.FC = () => {
       return
     }
 
-    if (extraCreditsBalance <= 0 && hasFreeRegenerated) {
-      setPaymentModalOpen(true)
-      return
+    const isViral = prompt.category === 'virais'
+    const viralKey = `detail_${prompt.id}`
+    const usedViral = isViral ? getViralRegenerationsUsed(user.id, viralKey) : 0
+    const hasFreeViralAvailable = isViral && usedViral < VIRAL_REGENERATION_LIMIT
+
+    if (isViral) {
+      if (!hasFreeViralAvailable && extraCreditsBalance <= 0) {
+        setPaymentModalOpen(true)
+        return
+      }
+    } else {
+      if (extraCreditsBalance <= 0 && hasFreeRegenerated) {
+        setPaymentModalOpen(true)
+        return
+      }
     }
 
     setRegenerating(true)
@@ -299,25 +314,44 @@ export const PromptDetail: React.FC = () => {
         promptTitle: prompt.title,
         productName: prompt.title,
         niche: prompt.niche,
+        category: prompt.category || 'ecommerce',
       })
 
       if (res.success && res.variations?.length) {
         setVariations(res.variations)
         setSelectedVariationId(res.variations[0].id)
 
-        if (hasFreeRegenerated && extraCreditsBalance > 0) {
-          await consumeExtraRegenerationCredit(user.id)
-          setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
-          toast({
-            title: '3 Novas Variações Regeneradas! ⚡',
-            description: '1 crédito extra foi utilizado com sucesso.',
-          })
+        if (isViral) {
+          if (hasFreeViralAvailable) {
+            const recorded = recordViralRegenerationUsed(user.id, viralKey)
+            toast({
+              title: '3 Novas Variações Virais (~60s) Geradas! 🎬✨',
+              description: `Regeneração ${recorded.used} de ${VIRAL_REGENERATION_LIMIT} gratuitas utilizadas. (${recorded.remainingFree} restante${recorded.remainingFree === 1 ? '' : 's'})`,
+            })
+          } else if (extraCreditsBalance > 0) {
+            await consumeExtraRegenerationCredit(user.id)
+            setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
+            toast({
+              title: '3 Novas Variações Virais Regeneradas! ⚡',
+              description: '1 crédito extra (R$ 1,99) foi utilizado com sucesso.',
+            })
+          }
         } else {
-          setHasFreeRegenerated(true)
-          toast({
-            title: '3 Novas Variações Geradas! 🎨✨',
-            description: '3 abordagens diferentes (Emocional, Urgência e Prova Social) incluídas.',
-          })
+          if (hasFreeRegenerated && extraCreditsBalance > 0) {
+            await consumeExtraRegenerationCredit(user.id)
+            setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
+            toast({
+              title: '3 Novas Variações Regeneradas! ⚡',
+              description: '1 crédito extra foi utilizado com sucesso.',
+            })
+          } else {
+            setHasFreeRegenerated(true)
+            toast({
+              title: '3 Novas Variações Geradas! 🎨✨',
+              description:
+                '3 abordagens diferentes (Emocional, Urgência e Prova Social) incluídas.',
+            })
+          }
         }
       }
     } catch (err: any) {
@@ -372,7 +406,11 @@ export const PromptDetail: React.FC = () => {
             <RefreshCw
               className={`w-3.5 h-3.5 text-pink-500 ${regenerating ? 'animate-spin' : ''}`}
             />
-            Regenerar Prompt ({extraCreditsBalance} disponíveis)
+            Regenerar Prompt (
+            {prompt?.category === 'virais' && user
+              ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `detail_${prompt.id}`))} grátis + ${extraCreditsBalance} extras`
+              : `${extraCreditsBalance} disponíveis`}
+            )
           </Button>
 
           <Button
@@ -555,7 +593,11 @@ export const PromptDetail: React.FC = () => {
               <RefreshCw
                 className={`w-3.5 h-3.5 text-pink-500 ${regenerating ? 'animate-spin' : ''}`}
               />
-              Regenerar ({extraCreditsBalance})
+              Regenerar (
+              {prompt?.category === 'virais' && user
+                ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `detail_${prompt.id}`))} grátis`
+                : extraCreditsBalance}
+              )
             </Button>
 
             <Button

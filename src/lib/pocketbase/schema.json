@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T21:54:28.850Z",
+  "generatedAt": "2026-10-24T22:07:03.739Z",
   "collections": [
     {
       "name": "users",
@@ -358,7 +358,14 @@
             "moda_fitness_plus_size",
             "pet_acessorios",
             "cozinha_utilidades",
-            "relogios_bijus"
+            "relogios_bijus",
+            "historinhas_frutas",
+            "infantil_historinhas",
+            "terror_suspense",
+            "comedia_engracado",
+            "face_swap",
+            "asmr_sensorial",
+            "animais_falantes"
           ]
         },
         {

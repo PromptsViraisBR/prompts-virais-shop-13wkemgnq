@@ -76,6 +76,16 @@ export function formatHookTitle(prompt: PromptRecord): {
 export function getEstimatedDuration(prompt: PromptRecord): string {
   const text = prompt.prompt_text || ''
 
+  // Se for da categoria virais ou contiver 60s
+  if (
+    prompt.category === 'virais' ||
+    text.includes('60 SEGUNDOS') ||
+    text.includes('60s') ||
+    text.includes('CENA 6')
+  ) {
+    return '~60s (cenas de 10s)'
+  }
+
   // Se o prompt já indica explicitamente 10s ou menos
   if (text.includes('10 SEGUNDOS') || text.includes('10s') || text.includes('10 segundos')) {
     return '10s'
@@ -83,14 +93,14 @@ export function getEstimatedDuration(prompt: PromptRecord): string {
 
   const matchRange = text.match(/(\d{1,2})\s*(?:a|-)\s*(\d{1,2})\s*segundos/i)
   if (matchRange) {
-    const end = Math.min(10, parseInt(matchRange[2], 10))
-    const start = Math.min(end, parseInt(matchRange[1], 10))
+    const end = parseInt(matchRange[2], 10)
+    const start = parseInt(matchRange[1], 10)
     return `${start}-${end}s`
   }
 
   const matchSingle = text.match(/(\d{1,2})\s*segundos/i)
   if (matchSingle) {
-    const s = Math.min(10, parseInt(matchSingle[1], 10))
+    const s = parseInt(matchSingle[1], 10)
     return `${s}s`
   }
 

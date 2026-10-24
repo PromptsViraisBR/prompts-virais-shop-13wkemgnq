@@ -98,10 +98,11 @@ export const PromptHowToUseModal: React.FC<PromptHowToUseModalProps> = ({
                 1
               </div>
               <div className="space-y-1 text-xs">
-                <p className="font-bold text-foreground">Copie o Roteiro / Prompt</p>
+                <p className="font-bold text-foreground">Copie o Roteiro Completo</p>
                 <p className="text-muted-foreground leading-relaxed">
-                  Copie o texto completo com o botão abaixo. Ele já está otimizado em Português
-                  (PT-BR), com gancho de 0-3 segundos e duração máxima de 10 segundos.
+                  Copie o texto completo com o botão abaixo. Ele já está estruturado em Português
+                  (PT-BR), com roteiro de ~60 segundos dividido em 6 cenas de até 10 segundos cada e
+                  vídeo 100% limpo sem texto gravado na tela.
                 </p>
               </div>
             </div>

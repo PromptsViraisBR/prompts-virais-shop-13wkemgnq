@@ -13,6 +13,7 @@ export interface GeneratePromptInput {
   referenceImages?: File[]
   referenceImageUrls?: string[]
   visualDetails?: string
+  category?: 'ecommerce' | 'virais'
 }
 
 export interface AdaptPromptInput {
@@ -24,6 +25,28 @@ export interface AdaptPromptInput {
   platform?: PlatformType
   referenceImages?: File[]
   imagesCount?: number
+  category?: 'ecommerce' | 'virais'
+}
+
+export interface GenerateViralSceneInput {
+  userId?: string
+  themeName: string
+  niche: NicheType
+  visualDetails?: string
+  referenceImages?: File[]
+  imagesCount?: number
+}
+
+export interface GenerateViralSceneResult {
+  success: boolean
+  theme_name: string
+  niche: NicheType
+  niche_label: string
+  scene_concept: string
+  optional_script: string
+  image_count: number
+  record_id?: string
+  error?: string
 }
 
 export interface PromptVariation {
@@ -41,6 +64,7 @@ export interface RegenerateVariationsInput {
   visualDetails?: string
   niche?: string
   imagesCount?: number
+  category?: 'ecommerce' | 'virais'
 }
 
 export interface RegenerateVariationsResult {
@@ -179,6 +203,7 @@ export async function regeneratePromptVariations(
   input: RegenerateVariationsInput,
 ): Promise<RegenerateVariationsResult> {
   const imagesCount = input.imagesCount || 1
+  const category = input.category || 'ecommerce'
 
   try {
     const response = await fetch(
@@ -194,8 +219,9 @@ export async function regeneratePromptVariations(
           prompt_title: input.promptTitle,
           product_name: input.productName,
           visual_details: input.visualDetails,
-          niche: input.niche || 'moda_feminina',
+          niche: input.niche || (category === 'virais' ? 'historinhas_frutas' : 'moda_feminina'),
           images_count: imagesCount,
+          category,
         }),
       },
     )
@@ -208,6 +234,38 @@ export async function regeneratePromptVariations(
     return (await response.json()) as RegenerateVariationsResult
   } catch (err: any) {
     console.warn('Erro na rota de regeneração, usando fallback local com 3 variações:', err)
+    const fallbackProd = input.productName || input.promptTitle || 'peça em destaque'
+    const fallbackVisual = input.visualDetails || 'detalhes fiéis e acabamento premium'
+
+    if (category === 'virais') {
+      return {
+        success: true,
+        product_name: fallbackProd,
+        variations: [
+          {
+            id: 'v_humor_60s',
+            angle: 'Humor & Situações Cômicas',
+            badge: '😂 Ângulo Humor (60s)',
+            description: 'Roteiro de 60s em 6 cenas de 10s focado em perrengue divertido.',
+            prompt_text: `[ROTEIRO VIRAL CRIADORES - 60 SEGUNDOS EM CENAS DE 10S]\n✨ ÂNGULO 1: NARRATIVA CÔMICA & HUMOR\n⏱️ DURAÇÃO ALVO: ~60s (6 Cenas de até 10s)\n📌 DIRETRIZES: Narração PT-BR cômica, vídeo 100% limpo sem texto na tela.\n\n🎬 CENA 1 (0-10s) - O FLAGRA INESPERADO (HOOK):\n- Visual: Close cômico em ${fallbackProd}.\n- Narração (PT-BR): "Eu jurei que ninguém tava olhando, até que o pior aconteceu na minha frente!"\n\n🎬 CENA 2 (10-20s) - A TENTATIVA DE DISFARÇAR:\n- Visual: Movimento desajeitado tentando esconder a bagunça (${fallbackVisual}).\n- Narração (PT-BR): "Tentei disfarçar, mas a cara de culpa entregou tudo em dois segundos!"\n\n🎬 CENA 3 (20-30s) - A REAÇÃO DOS OUTROS:\n- Visual: Outros personagens encarando a cena.\n- Narração (PT-BR): "Quem tava por perto parou tudo pra rir da minha desgraça!"\n\n🎬 CENA 4 (30-40s) - O CLÍMAX DA TRAPALHADA:\n- Visual: O desfecho mais atrapalhado.\n- Narração (PT-BR): "Quando achei que ia dar certo, o desastre foi completo!"\n\n🎬 CENA 5 (40-50s) - A CONFORMAÇÃO:\n- Visual: O personagem aceitando a derrota.\n- Narração (PT-BR): "Rir da própria vergonha é a única saída digna nesse momento!"\n\n🎬 CENA 6 (50-60s) - CTA:\n- Visual: Piscadela para a câmera.\n- Narração (PT-BR): "Marca aquele amigo que vive passando por isso e deixa seu like!"`,
+          },
+          {
+            id: 'v_suspense_60s',
+            angle: 'Suspense & Curiosidade',
+            badge: '🕯️ Ângulo Suspense (60s)',
+            description: 'Roteiro de 60s em 6 cenas de 10s focado em mistério e retenção alta.',
+            prompt_text: `[ROTEIRO VIRAL CRIADORES - 60 SEGUNDOS EM CENAS DE 10S]\n⚡ ÂNGULO 2: SUSPENSE & CURIOSIDADE MÁXIMA\n⏱️ DURAÇÃO ALVO: ~60s (6 Cenas de até 10s)\n📌 DIRETRIZES: Narração PT-BR misteriosa, vídeo 100% limpo sem texto na tela.\n\n🎬 CENA 1 (0-10s) - O DETALHE QUE NINGUÉM NOTOU (HOOK):\n- Visual: Enquadramento escuro em ${fallbackProd}.\n- Narração (PT-BR): "Olhe com muita atenção para este detalhe antes que o vídeo acabe..."\n\n🎬 CENA 2 (10-20s) - A PISTA ESCONDIDA:\n- Visual: Câmera revelando sombras e texturas (${fallbackVisual}).\n- Narração (PT-BR): "Quase todo mundo passa reto, mas quem repara nos olhos percebe o mistério."\n\n🎬 CENA 3 (20-30s) - APROXIMAÇÃO GRADUAL:\n- Visual: Traveling contínuo com som ambiente tenso.\n- Narração (PT-BR): "Quanto mais você olha, mais a história ganha um sentido bizarro..."\n\n🎬 CENA 4 (30-40s) - O PONTO DE VIRADA:\n- Visual: Corte de luz revelando o elemento chave.\n- Narração (PT-BR): "Foi exatamente aqui que a gravação registrou algo inexplicável."\n\n🎬 CENA 5 (40-50s) - A DESCOBERTA FINAL:\n- Visual: Clímax do mistério em 4K.\n- Narração (PT-BR): "Agora me diz: você percebeu o que estava acontecendo desde o início?"\n\n🎬 CENA 6 (50-60s) - CTA:\n- Visual: Enquadramento final estático.\n- Narração (PT-BR): "Compartilhe este vídeo com quem é curioso e comente sua teoria aqui embaixo!"`,
+          },
+          {
+            id: 'v_emocao_60s',
+            angle: 'Emoção & Fofura',
+            badge: '💖 Ângulo Emoção (60s)',
+            description: 'Roteiro de 60s em 6 cenas de 10s focado em acolhimento e conexão.',
+            prompt_text: `[ROTEIRO VIRAL CRIADORES - 60 SEGUNDOS EM CENAS DE 10S]\n💖 ÂNGULO 3: EMOÇÃO, FOFURA & TRANSFORMAÇÃO\n⏱️ DURAÇÃO ALVO: ~60s (6 Cenas de até 10s)\n📌 DIRETRIZES: Narração PT-BR calorosa, vídeo 100% limpo sem texto na tela.\n\n🎬 CENA 1 (0-10s) - O INÍCIO DE UMA JORNADA DOCE (HOOK):\n- Visual: Luz dourada envolvendo ${fallbackProd}.\n- Narração (PT-BR): "Essa é a história mais fofa e inspiradora que vai passar no seu feed hoje!"\n\n🎬 CENA 2 (10-20s) - O DESAFIO INICIAL:\n- Visual: Personagem encarando um pequeno desafio com olhos curiosos.\n- Narração (PT-BR): "Parecia um obstáculo gigante para alguém tão pequenininho..."\n\n🎬 CENA 3 (20-30s) - A AJUDA INESPERADA:\n- Visual: Gesto de carinho com cores vibrantes.\n- Narração (PT-BR): "Mas quando a coragem vem do coração, nenhum sonho é grande demais."\n\n🎬 CENA 4 (30-40s) - A CONQUISTA BRILHANTE:\n- Visual: Momento triunfante com estrelinhas e luz suave.\n- Narração (PT-BR): "E com paciência e persistência, a mágica finalmente aconteceu!"\n\n🎬 CENA 5 (40-50s) - O ABRAÇO DE GRATIDÃO:\n- Visual: Expressão de pura felicidade (${fallbackVisual}).\n- Narração (PT-BR): "Momentos assim mostram que a beleza da vida está nos pequenos gestos."\n\n🎬 CENA 6 (50-60s) - CTA:\n- Visual: Agradecimento com sorriso doce.\n- Narração (PT-BR): "Mande esse vídeo para iluminar o dia de alguém especial e deixe um coraçãozinho!"`,
+          },
+        ],
+      }
+    }
     const prod = input.productName || input.promptTitle || 'peça em destaque'
     const visual = input.visualDetails || 'caimento fiel e acabamento premium'
     const baseScript = input.basePrompt || ''
@@ -262,6 +320,7 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
         style: input.style || 'pov',
         platform: input.platform || 'ambos',
         images_count: imagesCount,
+        category: input.category || 'ecommerce',
       }),
     })
 
@@ -304,6 +363,146 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
     }
   }
 }
+/**
+ * Gerador Específico para Vídeos Virais a partir de fotos criadas.
+ * Devolve:
+ * 1. Ideia de Cena (conceito curto e direto)
+ * 2. Roteiro Opcional (~60 segundos dividido em 6 cenas de 10s)
+ * Opcionalmente persiste o registro no histórico de gerações.
+ */
+export async function generateViralSceneWithImages(
+  input: GenerateViralSceneInput,
+): Promise<GenerateViralSceneResult> {
+  const imagesCount = input.referenceImages?.length || input.imagesCount || 1
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-viral-scene`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+        },
+        body: JSON.stringify({
+          theme_name: input.themeName,
+          niche: input.niche,
+          visual_details: input.visualDetails,
+          images_count: imagesCount,
+        }),
+      },
+    )
+
+    let backendResult: GenerateViralSceneResult | null = null
+    if (response.ok) {
+      backendResult = (await response.json()) as GenerateViralSceneResult
+    }
+
+    const theme = input.themeName.trim()
+    const nicheLabel = NICHE_LABELS[input.niche] || 'Vídeos Virais'
+    const sceneConcept =
+      backendResult?.scene_concept ||
+      `💡 IDEIA DE CENA VIRAL:\n${theme} vivendo uma situação marcante no nicho de ${nicheLabel}, com enquadramento frontal dinâmico e retenção alta nos primeiros 3 segundos.\n${input.visualDetails ? `🔍 Detalhes da sua imagem: ${input.visualDetails}` : ''}`
+
+    const optionalScript =
+      backendResult?.optional_script ||
+      `[ROTEIRO OPCIONAL SUGERIDO - ~60 SEGUNDOS EM 6 CENAS DE 10S]
+⏱️ DURAÇÃO ALVO: ~60 Segundos (6 Cenas de até 10s cada)
+🏷️ NICHO: ${nicheLabel}
+🎯 PERSONAGEM/CENA: ${theme}
+📌 DIRETRIZES: Narração PT-BR contínua, vídeo 100% limpo sem texto ou legendas na tela. Roteiro opcional para seguir ou adaptar livremente.
+
+🎬 CENA 1 (0-10s) - GANCHO HIPNÓTICO (HOOK):
+- Visual: Enquadramento direto baseado na sua imagem de ${theme}.
+- Narração (PT-BR): "Se você acha que já viu de tudo na internet, para tudo e olha o que acabou de acontecer aqui!"
+
+🎬 CENA 2 (10-20s) - DESENVOLVIMENTO DO CONTEXTO:
+- Visual: Movimento fluido revelando os detalhes observados (${input.visualDetails || 'ambientação viva'}).
+- Narração (PT-BR): "Ninguém esperava que exatamente hoje esse detalhe fosse descoberto por todo mundo..."
+
+🎬 CENA 3 (20-30s) - REVIRAVOLTA PARTE 1:
+- Visual: O elemento central reage à situação com expressividade.
+- Narração (PT-BR): "E foi aí que o segredo começou a vir à tona diante de quem estava assistindo!"
+
+🎬 CENA 4 (30-40s) - O CLÍMAX DA CENA:
+- Visual: Câmera lenta suave capturando o ápice visual e a dramaticidade.
+- Narração (PT-BR): "Olha a expressão, olha cada detalhe acontecendo em tempo real!"
+
+🎬 CENA 5 (40-50s) - A RESOLUÇÃO DA HISTÓRIA:
+- Visual: Desfecho estético harmonioso.
+- Narração (PT-BR): "No final das contas, ficou provado que essa cena merecia ficar gravada pra sempre!"
+
+🎬 CENA 6 (50-60s) - FECHAMENTO E ENGAGEMENT (CTA):
+- Visual: O personagem se despede com carisma e a imagem se fecha com suavidade.
+- Narração (PT-BR): "O que você faria no lugar dele? Comente aqui embaixo e siga para o próximo episódio!"`
+
+    // Persiste no banco de dados se houver userId logado
+    let createdRecordId: string | undefined = undefined
+    if (input.userId) {
+      try {
+        const fullGeneratedText = `${sceneConcept}\n\n${optionalScript}`
+
+        if (input.referenceImages && input.referenceImages.length > 0) {
+          const formData = new FormData()
+          formData.append('user', input.userId)
+          formData.append('product_name', theme)
+          formData.append('niche', input.niche)
+          formData.append('style', 'pov')
+          formData.append('platform', 'ambos')
+          formData.append('target_audience', 'Criadores de Conteúdo para TikTok, Shorts e Reels')
+          formData.append('generated_prompt', fullGeneratedText)
+          if (input.visualDetails) {
+            formData.append('image_prompt_description', input.visualDetails)
+          }
+          input.referenceImages.slice(0, 3).forEach((file) => {
+            formData.append('reference_images', file)
+          })
+
+          const rec = await pb.collection('generations').create<GenerationRecord>(formData)
+          createdRecordId = rec.id
+        } else {
+          const rec = await pb.collection('generations').create<GenerationRecord>({
+            user: input.userId,
+            product_name: theme,
+            niche: input.niche,
+            style: 'pov',
+            platform: 'ambos',
+            target_audience: 'Criadores de Conteúdo para TikTok, Shorts e Reels',
+            generated_prompt: fullGeneratedText,
+            image_prompt_description: input.visualDetails || '',
+          })
+          createdRecordId = rec.id
+        }
+      } catch (saveErr) {
+        console.warn('Erro ao salvar geração viral no banco:', saveErr)
+      }
+    }
+
+    return {
+      success: true,
+      theme_name: theme,
+      niche: input.niche,
+      niche_label: nicheLabel,
+      scene_concept: sceneConcept,
+      optional_script: optionalScript,
+      image_count: imagesCount,
+      record_id: createdRecordId,
+    }
+  } catch (err: any) {
+    console.warn('Erro ao gerar cena viral:', err)
+    return {
+      success: false,
+      theme_name: input.themeName,
+      niche: input.niche,
+      niche_label: NICHE_LABELS[input.niche] || 'Vídeos Virais',
+      scene_concept: '',
+      optional_script: '',
+      image_count: imagesCount,
+      error: err.message || 'Erro desconhecido ao gerar cena viral.',
+    }
+  }
+}
+
 export async function getUserGenerations(userId: string): Promise<GenerationRecord[]> {
   try {
     return await pb.collection('generations').getFullList<GenerationRecord>({

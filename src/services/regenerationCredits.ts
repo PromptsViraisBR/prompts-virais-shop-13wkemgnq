@@ -84,3 +84,60 @@ export async function consumeExtraRegenerationCredit(userId: string): Promise<bo
     return false
   }
 }
+
+/**
+ * Limite de regenerações gratuitas/incluídas por contexto:
+ * - 'virais': máximo de 2 regenerações gratuitas por usuário/item
+ * - 'ecommerce': comportamento padrão (1 regeneração gratuita/base)
+ */
+export const VIRAL_REGENERATION_LIMIT = 2
+
+const VIRAL_REGEN_STORAGE_KEY = 'viral_regeneration_counts'
+
+/**
+ * Obtém quantas regenerações gratuitas já foram utilizadas pelo usuário em vídeos virais.
+ */
+export function getViralRegenerationsUsed(userId: string, targetKey: string = 'global'): number {
+  if (!userId) return 0
+  try {
+    const raw = localStorage.getItem(`${VIRAL_REGEN_STORAGE_KEY}_${userId}`)
+    if (!raw) return 0
+    const parsed = JSON.parse(raw)
+    return typeof parsed[targetKey] === 'number' ? parsed[targetKey] : parsed.total || 0
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Incrementa o contador de regeneração para a categoria virais.
+ */
+export function recordViralRegenerationUsed(
+  userId: string,
+  targetKey: string = 'global',
+): { used: number; remainingFree: number } {
+  if (!userId) return { used: 0, remainingFree: VIRAL_REGENERATION_LIMIT }
+  try {
+    const key = `${VIRAL_REGEN_STORAGE_KEY}_${userId}`
+    const raw = localStorage.getItem(key)
+    const data = raw ? JSON.parse(raw) : {}
+    const current = typeof data[targetKey] === 'number' ? data[targetKey] : 0
+    const next = current + 1
+    data[targetKey] = next
+    data.total = (data.total || 0) + 1
+    localStorage.setItem(key, JSON.stringify(data))
+    const remainingFree = Math.max(0, VIRAL_REGENERATION_LIMIT - next)
+    return { used: next, remainingFree }
+  } catch {
+    return { used: 1, remainingFree: Math.max(0, VIRAL_REGENERATION_LIMIT - 1) }
+  }
+}
+
+/**
+ * Verifica se o usuário ainda pode regenerar gratuitamente na categoria virais (máx 2 vezes).
+ */
+export function canViralRegenerateFree(userId: string, targetKey: string = 'global'): boolean {
+  if (!userId) return false
+  const used = getViralRegenerationsUsed(userId, targetKey)
+  return used < VIRAL_REGENERATION_LIMIT
+}

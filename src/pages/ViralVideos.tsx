@@ -37,9 +37,13 @@ import {
 import {
   getUserRegenerationCredits,
   consumeExtraRegenerationCredit,
+  VIRAL_REGENERATION_LIMIT,
+  getViralRegenerationsUsed,
+  recordViralRegenerationUsed,
 } from '@/services/regenerationCredits'
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
+import { ViralGenerator } from '@/components/ViralGenerator'
 import {
   Dialog,
   DialogContent,
@@ -217,7 +221,11 @@ export const ViralVideos: React.FC = () => {
       return
     }
 
-    if (extraCreditsBalance <= 0 && hasCustomFreeRegenerated) {
+    const viralKey = `customize_${customizePrompt.id}`
+    const usedViral = getViralRegenerationsUsed(user.id, viralKey)
+    const canFree = usedViral < VIRAL_REGENERATION_LIMIT
+
+    if (!canFree && extraCreditsBalance <= 0) {
       setPaymentModalOpen(true)
       return
     }
@@ -231,24 +239,26 @@ export const ViralVideos: React.FC = () => {
         visualDetails: customVisualDetails.trim() || undefined,
         niche: customizePrompt.niche,
         imagesCount: customFiles.length,
+        category: 'virais',
       })
 
       if (res.success && res.variations?.length) {
         setCustomVariations(res.variations)
         setSelectedCustomVarId(res.variations[0].id)
 
-        if (hasCustomFreeRegenerated && extraCreditsBalance > 0 && user) {
+        if (canFree) {
+          const recorded = recordViralRegenerationUsed(user.id, viralKey)
+          setHasCustomFreeRegenerated(true)
+          toast({
+            title: '3 Novas Variações Virais (~60s) Geradas! 🎬✨',
+            description: `Regeneração ${recorded.used} de ${VIRAL_REGENERATION_LIMIT} gratuitas utilizadas. (${recorded.remainingFree} restante${recorded.remainingFree === 1 ? '' : 's'})`,
+          })
+        } else if (extraCreditsBalance > 0) {
           await consumeExtraRegenerationCredit(user.id)
           setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
           toast({
-            title: '3 Novas Variações Regeneradas! ⚡',
-            description: '1 crédito extra foi utilizado com sucesso.',
-          })
-        } else {
-          setHasCustomFreeRegenerated(true)
-          toast({
-            title: '3 Novas Variações Geradas! 🎨✨',
-            description: '3 abordagens diferentes incluídas.',
+            title: '3 Novas Variações Virais Regeneradas! ⚡',
+            description: '1 crédito extra (R$ 1,99) foi utilizado com sucesso.',
           })
         }
       }
@@ -306,6 +316,7 @@ export const ViralVideos: React.FC = () => {
         platform: customizePrompt.platform,
         referenceImages: customFiles,
         imagesCount: customFiles.length,
+        category: 'virais',
       })
 
       if (res.success && res.adapted_prompt) {
@@ -442,7 +453,7 @@ export const ViralVideos: React.FC = () => {
                 🇧🇷 Roteiros em PT-BR
               </span>
               <span className="inline-flex items-center gap-1 bg-background/80 px-2.5 py-1 rounded-full border">
-                ⏱️ Duração máxima de 10s
+                ⏱️ Roteiro ~60s (Cenas de 10s)
               </span>
               <span className="inline-flex items-center gap-1 bg-background/80 px-2.5 py-1 rounded-full border">
                 ✨ Vídeo 100% limpo sem texto na tela
@@ -486,6 +497,11 @@ export const ViralVideos: React.FC = () => {
           ) : null}
         </div>
       </div>
+
+      {/* NOVO GERADOR EXCLUSIVO DE VÍDEOS VIRAIS */}
+      <section id="gerador-viral" className="scroll-mt-20">
+        <ViralGenerator />
+      </section>
 
       {/* 2. Barra de Busca e Abas */}
       <div className="space-y-4">
@@ -809,7 +825,7 @@ export const ViralVideos: React.FC = () => {
                     <span>Como usar este prompt</span>
                   </Button>
 
-                  {/* Botão Regenerar Prompt */}
+                  {/* Botão Regenerar Prompt (com limite de até 2 gratuitas para virais) */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -817,7 +833,13 @@ export const ViralVideos: React.FC = () => {
                     className="w-full text-xs font-semibold gap-1.5 border-pink-500/30 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 hover:text-pink-700 shadow-xs h-8"
                   >
                     <RefreshCw className="w-3.5 h-3.5 text-pink-500" />
-                    <span>Regenerar Prompt ({extraCreditsBalance} disp.)</span>
+                    <span>
+                      Regenerar Prompt (
+                      {user
+                        ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `customize_${prompt.id}`))} grátis`
+                        : '2 grátis'}
+                      )
+                    </span>
                   </Button>
 
                   {/* Botões Inferiores: Ver Roteiro + Copiar */}
@@ -1013,7 +1035,13 @@ export const ViralVideos: React.FC = () => {
                   ) : (
                     <>
                       <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Regenerar Prompt ({extraCreditsBalance} disp.)</span>
+                      <span>
+                        Regenerar Prompt (
+                        {user && customizePrompt
+                          ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `customize_${customizePrompt.id}`))} grátis`
+                          : '2 grátis'}
+                        )
+                      </span>
                     </>
                   )}
                 </Button>

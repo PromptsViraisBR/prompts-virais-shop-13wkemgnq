@@ -24,7 +24,9 @@ import {
 import { regeneratePromptReferenceImage, regeneratePromptReferenceVideo } from '@/services/prompts'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
-import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
+import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS, PLATFORM_LABELS } from '@/types'
+import { formatHookTitle, getEstimatedDuration, getPlatformInfo } from '@/lib/promptHooks'
+import { Clock } from 'lucide-react'
 
 export const PromptDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -277,32 +279,52 @@ export const PromptDetail: React.FC = () => {
           {/* Contexto do Visual ao lado */}
           <div className="md:col-span-7 p-6 sm:p-8 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="font-semibold text-xs">
-                {NICHE_LABELS[prompt.niche] || prompt.niche}
+              <Badge variant="secondary" className="font-semibold text-xs gap-1">
+                <span>{NICHE_EMOJIS[prompt.niche] || '👗'}</span>
+                <span>{NICHE_LABELS[prompt.niche] || prompt.niche}</span>
               </Badge>
               <Badge variant="outline" className="text-xs flex items-center gap-1">
-                <Video className="w-3 h-3 text-pink-500" />
-                {STYLE_LABELS[prompt.style] || prompt.style}
+                <span>{STYLE_EMOJIS[prompt.style] || '🎬'}</span>
+                <span>{STYLE_LABELS[prompt.style] || prompt.style}</span>
               </Badge>
               {prompt.platform && (
-                <Badge variant="outline" className="text-xs">
-                  {PLATFORM_LABELS[prompt.platform]}
+                <Badge variant="outline" className="text-xs gap-1">
+                  <span>{getPlatformInfo(prompt.platform).emoji}</span>
+                  <span>{PLATFORM_LABELS[prompt.platform]}</span>
                 </Badge>
               )}
+              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                <Clock className="w-3 h-3" />
+                {getEstimatedDuration(prompt)}
+              </span>
               {prompt.is_free ? (
                 <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold">
-                  Gratuito
+                  🎁 Gratuito
                 </Badge>
               ) : (
                 <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-bold">
-                  Premium PRO
+                  👑 Premium PRO
                 </Badge>
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground leading-snug">
-              {prompt.title}
-            </h1>
+            {/* Gancho em destaque no título com emojis */}
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-pink-600 dark:text-pink-400 uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Gancho Viral (0-3s)
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground leading-snug">
+                {formatHookTitle(prompt).fullDisplay}
+              </h1>
+            </div>
+
+            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+              <span>{NICHE_EMOJIS[prompt.niche] || '👗'}</span>
+              <span>
+                Peça do Catálogo: <strong>{prompt.title}</strong>
+              </span>
+            </p>
 
             {prompt.description && (
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
@@ -322,41 +344,6 @@ export const PromptDetail: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Header do Prompt (informações adicionais) */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="font-semibold text-xs">
-            {NICHE_LABELS[prompt.niche] || prompt.niche}
-          </Badge>
-          <Badge variant="outline" className="text-xs flex items-center gap-1">
-            <Video className="w-3 h-3 text-pink-500" />
-            {STYLE_LABELS[prompt.style] || prompt.style}
-          </Badge>
-          {prompt.platform && (
-            <Badge variant="outline" className="text-xs">
-              {PLATFORM_LABELS[prompt.platform]}
-            </Badge>
-          )}
-          {prompt.is_free ? (
-            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold">
-              Gratuito
-            </Badge>
-          ) : (
-            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-bold">
-              Premium PRO
-            </Badge>
-          )}
-        </div>
-
-        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-          {prompt.title}
-        </h1>
-
-        {prompt.description && (
-          <p className="text-base text-muted-foreground leading-relaxed">{prompt.description}</p>
-        )}
       </div>
 
       {/* Destaques: Gancho e Chamada de Ação */}

@@ -177,6 +177,23 @@ export const NICHE_LABELS: Record<NicheType, string> = {
   lingerie_pijamas: 'Lingerie & Pijamas',
 }
 
+export const NICHE_EMOJIS: Record<NicheType, string> = {
+  moda_feminina: '👗',
+  moda_masculina: '👔',
+  fitness_academia: '💪',
+  moda_praia: '🌊',
+  acessorios_calcados: '👟',
+  streetwear_casual: '🧢',
+  infantil_kids: '🧸',
+  lingerie_pijamas: '✨',
+}
+
+export const STYLE_EMOJIS: Record<StyleType, string> = {
+  pov: '🪞',
+  modelo: '💃',
+  unboxing_vitrine: '📦',
+}
+
 export const STYLE_LABELS: Record<StyleType, string> = {
   pov: 'POV (Primeira Pessoa / Espelho)',
   modelo: 'Com Modelo Usando a Peça',

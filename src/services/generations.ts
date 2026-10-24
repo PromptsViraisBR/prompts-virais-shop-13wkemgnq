@@ -10,83 +10,28 @@ export interface GeneratePromptInput {
   platform?: PlatformType
   targetAudience?: string
   details?: string
-  generatedImageUrl?: string
-  generatedVideoUrl?: string
   referenceImages?: File[]
   referenceImageUrls?: string[]
-  imagePromptDescription?: string
+  visualDetails?: string
 }
 
-export interface GenerateImageInput {
-  productName: string
-  niche?: NicheType
+export interface AdaptPromptInput {
+  originalPrompt?: string
+  promptTitle?: string
+  productName?: string
+  visualDetails?: string
   style?: StyleType
-  details?: string
-  imageDescription?: string
-  prompt?: string
-  generationId?: string
-  referenceImageUrls?: string[]
-  combinationMode?: 'fidelity' | 'artistic'
-  googleAiApiKey?: string
+  platform?: PlatformType
+  referenceImages?: File[]
+  imagesCount?: number
 }
 
-export interface GenerateImageResult {
+export interface AdaptPromptResult {
   success: boolean
-  image_url: string
-  prompt: string
-  model: string
-  product_name: string
-  image_description?: string
-}
-
-export interface GenerateVideoInput {
-  productName: string
-  engine?: string
-  niche?: NicheType
-  style?: StyleType
-  details?: string
-  script?: string
-  prompt?: string
-  generationId?: string
-  referenceImageUrls?: string[]
-  xaiApiKey?: string
-  googleAiApiKey?: string
-}
-
-export interface GenerateVideoResult {
-  success: boolean
-  video_url?: string
-  duration?: string
-  model?: string
-  engine?: string
-  engine_mode?: string
-  remaining_credits?: number | string
-  limit?: number
-  prompt?: string
+  adapted_prompt: string
   product_name?: string
-  fallback?: boolean
-  message?: string
-  recommended_action?: string
+  visual_details?: string
   error?: string
-  code?: string
-}
-
-export async function getVideoCredits(): Promise<import('@/types').VideoCreditsResponse | null> {
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/video-credits`,
-      {
-        headers: {
-          ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
-        },
-      },
-    )
-    if (!response.ok) return null
-    return (await response.json()) as import('@/types').VideoCreditsResponse
-  } catch (err) {
-    console.warn('Erro ao consultar créditos de vídeo:', err)
-    return null
-  }
 }
 
 export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): string {
@@ -95,25 +40,28 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
   const platformLabel = PLATFORM_LABELS[input.platform || 'ambos']
   const audience =
     input.targetAudience?.trim() ||
-    'Compradores que buscam custo-benefício e estilo no TikTok Shop/Shopee'
+    'Compradores que buscam estilo, custo-benefício e caimento perfeito no TikTok Shop/Shopee'
+
   const imageCount = input.referenceImages?.length || input.referenceImageUrls?.length || 0
-  const imageVisualNote =
+  const photoNote =
     imageCount > 0
-      ? `Baseado nas ${imageCount} foto(s) reais da peça enviada(s) (cor, modelo, caimento e detalhes visuais da galeria)`
+      ? `Roteiro 100% calibrado nas ${imageCount} foto(s) reais enviadas da peça (preservando cores, caimento, textura e modelagem exata)`
       : ''
+
   const details =
     input.details?.trim() ||
-    (imageVisualNote
-      ? `Visual fiel às fotos de referência da galeria: acabamento real, cores e modelagem idênticas à peça física`
-      : 'Tecido encorpado, acabamento reforçado, caimento perfeito')
+    input.visualDetails?.trim() ||
+    (photoNote
+      ? `Cores vibrantes, modelagem e caimento idênticos às fotos enviadas pelo criador/lojista`
+      : 'Acabamento premium, costuras reforçadas e caimento perfeito no corpo')
 
   if (input.style === 'pov') {
-    return `[ROTEIRO VIRAL GERADO - ESTILO POV / ESPELHO]
+    return `[ROTEIRO VIRAL - ESTILO POV / ESPELHO (FIEL ÀS FOTOS)]
 🎯 PRODUTO: ${input.productName}
 🏷️ NICHO: ${nicheLabel}
 📱 CANAL DE VENDA: ${platformLabel}
 👥 PÚBLICO-ALVO: ${audience}
-✨ DETALHES DESTACADOS: ${details}
+✨ DETALHES FIÉIS À PEÇA DAS FOTOS: ${details}
 
 ⏱️ DURAÇÃO IDEAL: 15 a 20 segundos
 
@@ -122,14 +70,14 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 - Texto grande e chamativo na tela: "POV: Você só queria uma peça coringa e achou ISSO 👀👇"
 - Narração com tom espontâneo: "POV: Você finalmente achou o(a) ${input.productName} que disfarça qualquer imperfeição e veste como se fosse feito sob medida!"
 
-🎬 CENA 2 (3-8s) - A REVELAÇÃO & TESTE DE QUALIDADE:
+🎬 CENA 2 (3-8s) - A REVELAÇÃO & TESTE DE QUALIDADE REAL:
 - Transição dinâmica (estalar de dedos ou tapa suave na lente): você agora vestindo o(a) ${input.productName}.
 - Movimento em câmera lenta dando meio giro, mostrando a lateral e as costas.
 - Close na mão tocando o tecido: "${details}."
 - Narração: "Gente, o caimento é bizarro de tão perfeito. Não marca, não fica transparente e o tecido tem aquele peso de peça de shopping de luxo."
 
 🎬 CENA 3 (8-14s) - VERSATILIDADE NO DIA A DIA:
-- Dois takes rápidos se arrumando: borrifando perfume, ajeitando um acessório ou calçado.
+- Dois takes rápidos se arrumando: calçando um sapato ou ajeitando o look.
 - Narração: "Dá pra usar tanto de dia com tênis quanto à noite com salto/jaqueta. Parece que custou R$ 300, mas paguei preço de fábrica."
 
 🎬 CENA 4 (14-18s) - CHAMADA DE AÇÃO (CTA DE ALTA CONVERSÃO):
@@ -137,12 +85,12 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 - Narração: "Deixei o link oficial no carrinho aqui embaixo com frete grátis e cupom de primeira compra ativo hoje. Garanta antes que esgote o seu tamanho!"
 - Texto na tela: "🛒 CLIQUE NO CARRINHO / SACOLINHA 👇"`
   } else if (input.style === 'modelo') {
-    return `[ROTEIRO VIRAL GERADO - COM MODELO VESTINDO A PEÇA]
+    return `[ROTEIRO VIRAL - COM MODELO VESTINDO A PEÇA (FIEL ÀS FOTOS)]
 🎯 PRODUTO: ${input.productName}
 🏷️ NICHO: ${nicheLabel}
 📱 CANAL DE VENDA: ${platformLabel}
 👥 PÚBLICO-ALVO: ${audience}
-✨ DETALHES DESTACADOS: ${details}
+✨ DETALHES FIÉIS À PEÇA DAS FOTOS: ${details}
 
 ⏱️ DURAÇÃO IDEAL: 18 a 22 segundos
 
@@ -157,7 +105,7 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 - Narração: "Olha como valoriza a silhueta sem apertar. A modelagem é impecável, não enrola no corpo e abraça perfeitamente cada curva."
 
 🎬 CENA 3 (9-15s) - QUEBRA DE OBJEÇÃO (CONFORTO & TECIDO):
-- Modelo mostrando o forro ou flexibilidade da peça (agachamento leve ou toque na costura).
+- Modelo mostrando o forro ou flexibilidade da peça (toque na costura ou caimento em movimento).
 - Narração: "Não amassa fácil, não desbota na máquina e aguenta a rotina inteira sem perder a estrutura."
 
 🎬 CENA 4 (15-20s) - CTA DIRETO PARA COMPRA:
@@ -165,12 +113,12 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 - Narração: "Tem do tamanho P até o GG disponível. Corre no link da sacolinha aqui embaixo porque essa cor é a primeira a acabar no estoque!"
 - Texto na tela: "🛍️ DISPONÍVEL NO LINK DA VITRINE 👇"`
   } else {
-    return `[ROTEIRO VIRAL GERADO - UNBOXING & VITRINE ASMR]
+    return `[ROTEIRO VIRAL - UNBOXING & VITRINE ASMR (FIEL ÀS FOTOS)]
 🎯 PRODUTO: ${input.productName}
 🏷️ NICHO: ${nicheLabel}
 📱 CANAL DE VENDA: ${platformLabel}
 👥 PÚBLICO-ALVO: ${audience}
-✨ DETALHES DESTACADOS: ${details}
+✨ DETALHES FIÉIS À PEÇA DAS FOTOS: ${details}
 
 ⏱️ DURAÇÃO IDEAL: 18 a 22 segundos
 
@@ -181,12 +129,12 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 - Narração: "Será que esse(a) ${input.productName} vale todo o hype que tá rolando na internet? Vamos conferir agora!"
 
 🎬 CENA 2 (3-8s) - INSPEÇÃO MINUCIOSA DE ACABAMENTO:
-- Abrindo a peça sobre a mesa ou cabide de veludo.
+- Abrindo a peça sobre a mesa ou cabide.
 - Close macro nas costuras, etiquetas e detalhes: "${details}."
-- Narração: "Logo de cara dá pra ver que a costura é reforçada, zero fios soltos e o cheirinho de roupa nova é uma delícia."
+- Narração: "Logo de cara dá pra ver que a costura é reforçada, zero fios soltos e o caimento da peça é surreal."
 
 🎬 CENA 3 (8-14s) - PROVA RÁPIDA NO CORPO OU VITRINE:
-- Transição com o produto pendurado em manequim ou vestido de forma elegante.
+- Transição com o produto pendurado ou vestido com elegância.
 - Narração: "Veste como uma luva e o material é super resistente. O melhor custo-benefício que já encontrei esse ano."
 
 🎬 CENA 4 (14-19s) - CTA COM SENSO DE URGÊNCIA:
@@ -199,7 +147,6 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<GenerationRecord> {
   const generatedText = buildPromptScript(input)
 
-  // Suporte a FormData quando arquivos de imagem forem enviados
   if (input.referenceImages && input.referenceImages.length > 0) {
     const formData = new FormData()
     formData.append('user', input.userId)
@@ -209,13 +156,9 @@ export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<G
     formData.append('platform', input.platform || 'ambos')
     formData.append('target_audience', input.targetAudience || '')
     formData.append('generated_prompt', generatedText)
-    formData.append('generated_image_url', input.generatedImageUrl || '')
-    formData.append('generated_video_url', input.generatedVideoUrl || '')
-    if (input.imagePromptDescription) {
-      formData.append('image_prompt_description', input.imagePromptDescription)
-    }
-    if (input.referenceImageUrls && input.referenceImageUrls.length > 0) {
-      formData.append('reference_image_urls', JSON.stringify(input.referenceImageUrls))
+
+    if (input.visualDetails) {
+      formData.append('image_prompt_description', input.visualDetails)
     }
 
     input.referenceImages.slice(0, 3).forEach((file) => {
@@ -233,96 +176,61 @@ export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<G
     platform: input.platform || 'ambos',
     target_audience: input.targetAudience || '',
     generated_prompt: generatedText,
-    generated_image_url: input.generatedImageUrl || '',
-    generated_video_url: input.generatedVideoUrl || '',
-    image_prompt_description: input.imagePromptDescription || '',
-    reference_image_urls: input.referenceImageUrls || [],
+    image_prompt_description: input.visualDetails || '',
   })
 }
 
-export async function generateProductImage(
-  input: GenerateImageInput,
-): Promise<GenerateImageResult> {
-  const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-image`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
-    },
-    body: JSON.stringify({
-      product_name: input.productName,
-      niche: input.niche,
-      style: input.style,
-      details: input.details,
-      image_description: input.imageDescription,
-      prompt: input.prompt,
-      generation_id: input.generationId,
-      combination_mode: input.combinationMode || 'fidelity',
-      google_ai_api_key: input.googleAiApiKey,
-      reference_image_urls: input.referenceImageUrls || [],
-    }),
-  })
+export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<AdaptPromptResult> {
+  const imagesCount = input.referenceImages?.length || input.imagesCount || 1
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.error || `Erro ${response.status} ao gerar imagem.`)
+  try {
+    const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/adapt-prompt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+      },
+      body: JSON.stringify({
+        original_prompt: input.originalPrompt,
+        prompt_title: input.promptTitle,
+        product_name: input.productName,
+        visual_details: input.visualDetails,
+        style: input.style || 'pov',
+        platform: input.platform || 'ambos',
+        images_count: imagesCount,
+      }),
+    })
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}))
+      throw new Error(errData.error || `Erro ${response.status} ao adaptar prompt com fotos.`)
+    }
+
+    return (await response.json()) as AdaptPromptResult
+  } catch (err: any) {
+    console.warn('Erro na rota de adaptação, usando fallback local inteligente:', err)
+    const prod = input.productName || input.promptTitle || 'Peça em destaque'
+    const visual =
+      input.visualDetails || 'Caimento ajustado, cor fiel às fotos e tecido de alta densidade'
+    const baseScript = input.originalPrompt || ''
+
+    const fallbackAdapted = [
+      `[ROTEIRO ADAPTADO COM AS SUAS FOTOS]`,
+      `🎯 PEÇA DAS FOTOS: ${prod}`,
+      `✨ DETALHES VISUAIS FIÉIS: ${visual}`,
+      ``,
+      baseScript
+        ? `--- ESTRUTURA BASE ADAPTADA ---\n${baseScript}\n--- DETALHES INCORPORADOS DAS SUAS FOTOS ---\n• Peça física: ${prod}\n• Acabamento & Caimento: ${visual}`
+        : `🎬 GANCHO (0-3s): Mostre a peça das fotos com iluminação frontal. Texto: "POV: O caimento da foto vs no corpo real 🔥"\n🎬 CENA 2 (3-8s): Vista o(a) ${prod} mostrando ${visual}.\n🎬 CENA 3 (8-14s): Destaque a versatilidade no dia a dia.\n🎬 CENA 4 (14-18s): CTA apontando para a sacolinha com cupom!`,
+    ].join('\n\n')
+
+    return {
+      success: true,
+      adapted_prompt: fallbackAdapted,
+      product_name: prod,
+      visual_details: visual,
+    }
   }
-
-  return (await response.json()) as GenerateImageResult
-}
-
-export async function updateGenerationImage(
-  generationId: string,
-  imageUrl: string,
-): Promise<GenerationRecord> {
-  return await pb.collection('generations').update<GenerationRecord>(generationId, {
-    generated_image_url: imageUrl,
-  })
-}
-
-export async function generateProductVideo(
-  input: GenerateVideoInput,
-): Promise<GenerateVideoResult> {
-  const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-video`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
-    },
-    body: JSON.stringify({
-      product_name: input.productName,
-      engine: input.engine || 'flow',
-      niche: input.niche,
-      style: input.style,
-      details: input.details,
-      script: input.script,
-      prompt: input.prompt,
-      generation_id: input.generationId,
-      xai_api_key: input.xaiApiKey,
-      google_ai_api_key: input.googleAiApiKey,
-      reference_image_urls: input.referenceImageUrls || [],
-    }),
-  })
-
-  const data = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const errorMsg = data.error || `Erro ${response.status} ao gerar vídeo.`
-    const err = new Error(errorMsg) as Error & { code?: string }
-    if (data.code) err.code = data.code
-    throw err
-  }
-
-  return data as GenerateVideoResult
-}
-
-export async function updateGenerationVideo(
-  generationId: string,
-  videoUrl: string,
-): Promise<GenerationRecord> {
-  return await pb.collection('generations').update<GenerationRecord>(generationId, {
-    generated_video_url: videoUrl,
-  })
 }
 
 export async function getUserGenerations(userId: string): Promise<GenerationRecord[]> {

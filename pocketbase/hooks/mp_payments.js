@@ -22,21 +22,43 @@ routerAdd('GET', '/backend/v1/mp/config-status', (e) => {
     const webhookSecret = ($os.getenv('MERCADO_PAGO_WEBHOOK_SECRET') || '').trim()
     const isConfigured = Boolean(token)
 
+    // Detecção da validade do formato do token:
+    // Token real do Mercado Pago começa com APP_USR- (produção) ou TEST- (sandbox) e tem 70~80 chars
+    const isTestToken = token.startsWith('TEST-')
+    const isProductionToken = token.startsWith('APP_USR-')
+    const isValidFormat = (isTestToken || isProductionToken) && token.length >= 35
+
+    let message = ''
+    if (!token) {
+      message =
+        'Pagamentos em configuração: o administrador precisa inserir MERCADO_PAGO_ACCESS_TOKEN nas variáveis de ambiente do Skip Cloud.'
+    } else if (!isValidFormat) {
+      message =
+        `Atenção: o Access Token salvo no painel é inválido ou incompleto (apenas ${token.length} caracteres). ` +
+        'O Mercado Pago exige um Access Token completo que começa com "APP_USR-" (produção) ou "TEST-" (testes). ' +
+        'Acesse o portal Mercado Pago Developers -> Suas Integrações -> Credenciais para copiar o Access Token completo.'
+    } else if (isTestToken) {
+      message = 'Mercado Pago conectado em Modo de Teste (Token Sandbox TEST-).'
+    } else {
+      message = 'Mercado Pago conectado e pronto para processamento real em produção.'
+    }
+
     return e.json(200, {
       success: true,
-      configured: isConfigured,
+      configured: isConfigured && isValidFormat,
       has_token: Boolean(token),
       has_webhook_secret: Boolean(webhookSecret),
+      token_valid_format: isValidFormat,
+      token_length: token.length,
+      is_test_token: isTestToken,
+      is_production_token: isProductionToken,
       webhook_url: 'https://prompts-virais-shop-16b33.goskip.app/backend/v1/mp/webhook',
-      message: isConfigured
-        ? 'Mercado Pago pronto para processamento real.'
-        : 'Pagamentos em configuração: o administrador precisa inserir MERCADO_PAGO_ACCESS_TOKEN nas variáveis de ambiente do Skip Cloud.',
+      message: message,
     })
   } catch (err) {
     return e.json(500, { success: false, error: err.message || String(err) })
   }
 })
-
 // -------------------------------------------------------------
 // ROTA 2: POST /backend/v1/mp/create-checkout
 // -------------------------------------------------------------
@@ -57,6 +79,20 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
         code: 'PAYMENTS_NOT_CONFIGURED',
         error:
           'O sistema de pagamentos está em configuração. As credenciais oficiais do Mercado Pago ainda não foram configuradas.',
+      })
+    }
+
+    // Validação preventiva do formato do token
+    const isTokenFormatValid =
+      (token.startsWith('APP_USR-') || token.startsWith('TEST-')) && token.length >= 35
+    if (!isTokenFormatValid) {
+      return e.json(400, {
+        success: false,
+        code: 'INVALID_ACCESS_TOKEN',
+        error:
+          'O Access Token do Mercado Pago configurado no sistema está incompleto ou inválido. ' +
+          'O token deve começar com "APP_USR-" (produção) ou "TEST-" (sandbox) e conter a chave completa (~80 caracteres). ' +
+          'Por favor, atualize o segredo MERCADO_PAGO_ACCESS_TOKEN nas configurações do Skip Cloud.',
       })
     }
 
@@ -230,25 +266,56 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
     const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
     const webhookSecret = ($os.getenv('MERCADO_PAGO_WEBHOOK_SECRET') || '').trim()
 
-    if (!token) {
-      console.warn('[mp-webhook] MERCADO_PAGO_ACCESS_TOKEN ausente. Ignorando evento.')
-      return e.json(503, { success: false, error: 'Mercado Pago não configurado.' })
-    }
-
     const reqInfo = e.requestInfo()
     const headers = reqInfo.headers || {}
     const query = reqInfo.query || {}
     const body = reqInfo.body || {}
 
-    // 1. Validação de Assinatura se MERCADO_PAGO_WEBHOOK_SECRET estiver configurado
+    // 1. Validação obrigatória de Assinatura HMAC via MERCADO_PAGO_WEBHOOK_SECRET
+    // Qualquer requisição sem a assinatura correta é rejeitada imediatamente com 401
     if (webhookSecret) {
       const xSignature = headers['x-signature'] || headers['X-Signature'] || ''
       const xRequestId = headers['x-request-id'] || headers['X-Request-Id'] || ''
 
       if (!xSignature) {
-        console.warn('[mp-webhook] Cabeçalho x-signature ausente.')
+        console.warn('[mp-webhook] Rejeitado: Cabeçalho x-signature ausente.')
         return e.json(401, { success: false, error: 'Assinatura x-signature ausente.' })
       }
+
+      let ts = ''
+      let hashV1 = ''
+      const parts = xSignature.split(',')
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i].trim()
+        if (p.startsWith('ts=')) ts = p.substring(3)
+        if (p.startsWith('v1=')) hashV1 = p.substring(3)
+      }
+
+      const dataIdRaw = query['data.id'] || (body.data && body.data.id) || query['id'] || ''
+      const dataIdLower = String(dataIdRaw).toLowerCase().trim()
+
+      let manifest = ''
+      if (dataIdLower) {
+        manifest += `id:${dataIdLower};`
+      }
+      if (xRequestId) {
+        manifest += `request-id:${xRequestId};`
+      }
+      if (ts) {
+        manifest += `ts:${ts};`
+      }
+
+      const calculatedHash = $security.hs256(manifest, webhookSecret)
+      if (calculatedHash !== hashV1) {
+        console.warn('[mp-webhook] Rejeitado: Assinatura inválida HMAC.')
+        return e.json(401, { success: false, error: 'Assinatura do webhook inválida.' })
+      }
+    }
+
+    if (!token) {
+      console.warn('[mp-webhook] MERCADO_PAGO_ACCESS_TOKEN ausente. Ignorando evento.')
+      return e.json(503, { success: false, error: 'Mercado Pago não configurado.' })
+    }
 
       let ts = ''
       let hashV1 = ''
@@ -783,3 +850,4 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
     return e.json(500, { success: false, error: err.message || String(err) })
   }
 })
+

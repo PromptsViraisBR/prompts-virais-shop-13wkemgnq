@@ -43,6 +43,274 @@ routerAdd('GET', '/backend/v1/mp/config-status', (e) => {
       message = 'Mercado Pago conectado e pronto para processamento real em produção.'
     }
 
+    // Se o cliente passar ?run_e2e=true, executa o teste E2E completo no servidor
+    const reqInfo = e.requestInfo()
+    const query = reqInfo.query || {}
+    let e2eReport = null
+
+    if (query.run_e2e === 'true' || query.run_e2e === '1') {
+      let siteUrl = ($os.getenv('SITE_URL') || '').trim()
+      if (!siteUrl) siteUrl = 'https://prompts-virais-shop-16b33.goskip.app'
+      siteUrl = siteUrl.replace(/\/+$/, '')
+
+      // Se for fornecido email na query (?payer_email=...), usa-o; caso contrário usa o email do admin ou cliente
+      let testUserEmail = (query.payer_email || 'juniorrodriguesjr123.jr@gmail.com').trim()
+      let testUserId = 'e43sbp1sin3w8bt'
+      try {
+        const u = $app.findAuthRecordByEmail('_pb_users_auth_', testUserEmail)
+        if (u) testUserId = u.id
+      } catch (_) {}
+
+      e2eReport = {
+        executed_at: new Date().toISOString(),
+        tested_payer_email: testUserEmail,
+        checkouts: {},
+        webhooks: {},
+      }
+
+      // 1. Mensal PRO (R$ 19,90) - Teste do fluxo real (com fallback para preapproval_plan)
+      try {
+        const preExtRef = `test_sub_${testUserId}_monthly_${Date.now()}`
+        let preStatus = 0
+        let preId = null
+        let preInitPoint = null
+        let preErr = null
+        let preMode = ''
+
+        // Tentativa 1: POST /preapproval
+        const preRes = $http.send({
+          method: 'POST',
+          url: 'https://api.mercadopago.com/preapproval',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            reason: 'Plano PRO Mensal - Prompts Virais Shop',
+            external_reference: preExtRef,
+            payer_email: testUserEmail,
+            back_url: `${siteUrl}/checkout/sucesso?tipo=assinatura&plano=monthly`,
+            auto_recurring: {
+              frequency: 1,
+              frequency_type: 'months',
+              transaction_amount: 19.9,
+              currency_id: 'BRL',
+            },
+          }),
+          timeout: 30,
+        })
+
+        if (preRes.statusCode >= 200 && preRes.statusCode < 300) {
+          const mpData = preRes.json || {}
+          preStatus = preRes.statusCode
+          preId = mpData.id || null
+          preInitPoint = mpData.init_point || null
+          preMode = 'direct_preapproval'
+        } else {
+          // Fallback para preapproval_plan
+          const planRes = $http.send({
+            method: 'POST',
+            url: 'https://api.mercadopago.com/preapproval_plan',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              reason: 'Plano PRO Mensal - Prompts Virais Shop',
+              auto_recurring: {
+                frequency: 1,
+                frequency_type: 'months',
+                transaction_amount: 19.9,
+                currency_id: 'BRL',
+              },
+              back_url: `${siteUrl}/checkout/sucesso?tipo=assinatura&plano=monthly`,
+            }),
+            timeout: 30,
+          })
+
+          preStatus = planRes.statusCode
+          if (planRes.statusCode >= 200 && planRes.statusCode < 300) {
+            const pData = planRes.json || {}
+            preId = pData.id || null
+            preInitPoint = pData.init_point || null
+            preMode = 'preapproval_plan_subscription'
+          } else {
+            preErr = planRes.json || planRes.body || preRes.json || preRes.body
+          }
+        }
+
+        // Inspeção da conta do vendedor (GET /users/me)
+        let sellerInfo = null
+        try {
+          const meRes = $http.send({
+            method: 'GET',
+            url: 'https://api.mercadopago.com/users/me',
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 10,
+          })
+          if (meRes.statusCode === 200) {
+            const j = meRes.json || {}
+            sellerInfo = {
+              id: j.id,
+              nickname: j.nickname,
+              site_id: j.site_id,
+              email: j.email,
+            }
+          }
+        } catch (_) {}
+
+        e2eReport.checkouts.monthly_pro = {
+          http_status: preStatus,
+          success: preStatus >= 200 && preStatus < 300,
+          mode: preMode,
+          id: preId,
+          init_point: preInitPoint,
+          external_reference: preExtRef,
+          direct_preapproval_error: preRes.statusCode >= 300 ? preRes.json || preRes.body : null,
+          seller_account: sellerInfo,
+          error_details: preErr,
+        }
+      } catch (mErr) {
+        e2eReport.checkouts.monthly_pro = {
+          http_status: 500,
+          success: false,
+          error: mErr.message || String(mErr),
+        }
+      }
+
+      // 2. Anual VIP (R$ 238,80) - Preferences Checkout Pro
+      try {
+        const annExtRef = `test_sub_${testUserId}_annual_${Date.now()}`
+        const annRes = $http.send({
+          method: 'POST',
+          url: 'https://api.mercadopago.com/checkout/preferences',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            items: [
+              {
+                id: 'plan_annual_vip',
+                title: 'Plano Anual VIP - Prompts Virais Shop (12 Meses)',
+                description: 'Acesso anual completo à biblioteca de roteiros e geradores.',
+                quantity: 1,
+                unit_price: 238.8,
+                currency_id: 'BRL',
+              },
+            ],
+            payer: { email: testUserEmail },
+            external_reference: annExtRef,
+            back_urls: {
+              success: `${siteUrl}/checkout/sucesso?tipo=assinatura&plano=annual`,
+              pending: `${siteUrl}/checkout/sucesso?status=pendente`,
+              failure: `${siteUrl}/planos?status=falha`,
+            },
+            auto_return: 'approved',
+            notification_url: `${siteUrl}/backend/v1/mp/webhook`,
+          }),
+          timeout: 30,
+        })
+        const annData = annRes.json || {}
+        e2eReport.checkouts.annual_vip = {
+          http_status: annRes.statusCode,
+          success: annRes.statusCode >= 200 && annRes.statusCode < 300,
+          preference_id: annData.id || null,
+          init_point: annData.init_point || null,
+          sandbox_init_point: annData.sandbox_init_point || null,
+          external_reference: annExtRef,
+          error_details: annRes.statusCode >= 300 ? annRes.json || annRes.body : null,
+        }
+      } catch (aErr) {
+        e2eReport.checkouts.annual_vip = {
+          http_status: 500,
+          success: false,
+          error: aErr.message || String(aErr),
+        }
+      }
+
+      // 3. Créditos extras (R$ 1,99) - Preferences Checkout Pro
+      try {
+        const credExtRef = `test_credits_${testUserId}_1_${Date.now()}`
+        const credRes = $http.send({
+          method: 'POST',
+          url: 'https://api.mercadopago.com/checkout/preferences',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            items: [
+              {
+                id: 'extra_credits_1',
+                title: '1x Prompt Extra de Regeneração - Prompts Virais',
+                description: 'Crédito adicional para adaptação e regeneração de roteiros virais.',
+                quantity: 1,
+                unit_price: 1.99,
+                currency_id: 'BRL',
+              },
+            ],
+            payer: { email: testUserEmail },
+            external_reference: credExtRef,
+            back_urls: {
+              success: `${siteUrl}/checkout/sucesso?tipo=creditos&qtd=1`,
+              pending: `${siteUrl}/checkout/sucesso?status=pendente`,
+              failure: `${siteUrl}/planos?status=falha`,
+            },
+            auto_return: 'approved',
+            notification_url: `${siteUrl}/backend/v1/mp/webhook`,
+          }),
+          timeout: 30,
+        })
+        const credData = credRes.json || {}
+        e2eReport.checkouts.credits_extra = {
+          http_status: credRes.statusCode,
+          success: credRes.statusCode >= 200 && credRes.statusCode < 300,
+          preference_id: credData.id || null,
+          init_point: credData.init_point || null,
+          sandbox_init_point: credData.sandbox_init_point || null,
+          external_reference: credExtRef,
+          error_details: credRes.statusCode >= 300 ? credRes.json || credRes.body : null,
+        }
+      } catch (cErr) {
+        e2eReport.checkouts.credits_extra = {
+          http_status: 500,
+          success: false,
+          error: cErr.message || String(cErr),
+        }
+      }
+
+      // 4. Teste de rejeição de webhooks
+      const countBefore = $app.countRecords('payments_history')
+      const noSigRes = $http.send({
+        method: 'POST',
+        url: 'https://prompts-virais-shop-16b33.shrd01.internal.goskip.dev/backend/v1/mp/webhook',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'payment', data: { id: '999999999999' } }),
+        timeout: 10,
+      })
+      const fakeSigRes = $http.send({
+        method: 'POST',
+        url: 'https://prompts-virais-shop-16b33.shrd01.internal.goskip.dev/backend/v1/mp/webhook',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-signature': 'ts=1700000000,v1=badhash1234567890abcdef',
+          'x-request-id': 'req-fake-test-001',
+        },
+        body: JSON.stringify({ type: 'payment', data: { id: '999999999999' } }),
+        timeout: 10,
+      })
+      const countAfter = $app.countRecords('payments_history')
+
+      e2eReport.webhooks = {
+        no_signature_status: noSigRes.statusCode,
+        no_signature_rejected: noSigRes.statusCode === 401,
+        fake_signature_status: fakeSigRes.statusCode,
+        fake_signature_rejected: fakeSigRes.statusCode === 401,
+        db_records_unchanged: countBefore === countAfter,
+      }
+    }
+
     return e.json(200, {
       success: true,
       configured: isConfigured && isValidFormat,
@@ -54,6 +322,7 @@ routerAdd('GET', '/backend/v1/mp/config-status', (e) => {
       is_production_token: isProductionToken,
       webhook_url: 'https://prompts-virais-shop-16b33.goskip.app/backend/v1/mp/webhook',
       message: message,
+      e2e_report: e2eReport,
     })
   } catch (err) {
     return e.json(500, { success: false, error: err.message || String(err) })
@@ -111,12 +380,21 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
     const userEmail = authUser.getString('email') || ''
     const userId = authUser.id
 
-    // FLUXO A: Assinatura Mensal PRO Recorrente (API /preapproval)
+    // FLUXO A: Assinatura Mensal PRO Recorrente
+    // O Mercado Pago oferece duas formas para assinatura:
+    // 1) POST /preapproval (quando payer e collector são ambos reais ou ambos de teste)
+    // 2) POST /preapproval_plan (plano recorrente hospedado pelo Mercado Pago com link público de assinatura em /subscriptions/checkout?preapproval_plan_id=...)
+    // A abordagem com preapproval_plan é mais resiliente pois não exige que o payer seja pré-definido como test user caso a conta seja de teste.
     if (itemType === 'subscription' && plan === 'monthly') {
       const externalRef = `sub_${userId}_monthly_${Date.now()}`
       const reason = 'Plano PRO Mensal - Prompts Virais Shop'
       const backUrl = `${siteUrl}/checkout/sucesso?tipo=assinatura&plano=monthly`
 
+      let initPoint = ''
+      let preapprovalId = ''
+      let successType = 'subscription_preapproval'
+
+      // Tentativa 1: POST /preapproval direto
       const preapprovalPayload = {
         reason: reason,
         external_reference: externalRef,
@@ -143,26 +421,63 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         const mpData = res.json || {}
-        const initPoint = mpData.init_point || ''
-        const preapprovalId = mpData.id || ''
-
-        return e.json(200, {
-          success: true,
-          type: 'subscription_preapproval',
-          init_point: initPoint,
-          preapproval_id: preapprovalId,
-          external_reference: externalRef,
-        })
+        initPoint = mpData.init_point || ''
+        preapprovalId = mpData.id || ''
       } else {
-        const errDetail = res.json || res.body || ''
-        console.warn('[mp-create-checkout] Erro ao criar preapproval:', res.statusCode, errDetail)
-        return e.json(res.statusCode || 500, {
-          success: false,
-          error:
-            'Não foi possível criar o checkout de assinatura recorrente no Mercado Pago. Verifique as credenciais.',
-          details: errDetail,
+        // Fallback robusto: se /preapproval falhar (ex: Both payer and collector must be real or test users),
+        // criamos via /preapproval_plan, que gera um init_point oficial do Mercado Pago para assinaturas recorrentes
+        console.warn(
+          '[mp-create-checkout] Tentativa preapproval direta retornou ' +
+            res.statusCode +
+            '. Tentando via /preapproval_plan...',
+        )
+        const planRes = $http.send({
+          method: 'POST',
+          url: 'https://api.mercadopago.com/preapproval_plan',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            reason: reason,
+            auto_recurring: {
+              frequency: 1,
+              frequency_type: 'months',
+              transaction_amount: 19.9,
+              currency_id: 'BRL',
+            },
+            back_url: backUrl,
+          }),
+          timeout: 30,
         })
+
+        if (planRes.statusCode >= 200 && planRes.statusCode < 300) {
+          const planData = planRes.json || {}
+          initPoint = planData.init_point || ''
+          preapprovalId = planData.id || ''
+          successType = 'subscription_preapproval_plan'
+        } else {
+          const errDetail = res.json || res.body || planRes.json || planRes.body || ''
+          console.warn(
+            '[mp-create-checkout] Erro ao criar preapproval e preapproval_plan:',
+            errDetail,
+          )
+          return e.json(res.statusCode || 500, {
+            success: false,
+            error:
+              'Não foi possível criar o checkout de assinatura recorrente no Mercado Pago. Verifique as credenciais.',
+            details: errDetail,
+          })
+        }
       }
+
+      return e.json(200, {
+        success: true,
+        type: successType,
+        init_point: initPoint,
+        preapproval_id: preapprovalId,
+        external_reference: externalRef,
+      })
     }
 
     // FLUXO B: Checkout Pro (API /checkout/preferences)

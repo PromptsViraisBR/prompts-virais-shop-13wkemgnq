@@ -17,6 +17,8 @@ export interface GenerateImageResponse {
   source?: string
   prompt?: string
   notice?: string
+  is_fallback?: boolean
+  reference_images_count?: number
   generationId?: string
   error?: string
   code?: string
@@ -24,6 +26,8 @@ export interface GenerateImageResponse {
 
 export interface ImageEnginesResponse {
   success: boolean
+  has_google_key?: boolean
+  has_openai_key?: boolean
   engines: ImageEngineMeta[]
 }
 
@@ -140,10 +144,19 @@ export async function generateViralImage(
   const imageUrl = data.image_url || ''
   let createdGenId: string | undefined
 
-  // Salvar no histórico (coleção generations)
+  // Salvar no histórico (coleção generations) para auditoria completa
   if (input.saveToHistory !== false && input.userId && imageUrl) {
     try {
       const niche = input.niche || 'historinhas_frutas'
+      const auditDetails = [
+        `[AUDITORIA GERADOR DE IMAGENS PRO]`,
+        `Motor: ${engine}`,
+        `Origem: ${data.source || (imageUrl.startsWith('data:') ? 'api_real' : 'fallback')}`,
+        `Modo Demonstrativo: ${data.is_fallback ? 'SIM' : 'NÃO'}`,
+        `Qtd Fotos de Referência: ${input.referenceFiles ? input.referenceFiles.length : 0}`,
+        `Descrição Exata do Usuário:\n${input.prompt}`,
+      ].join('\n')
+
       if (input.referenceFiles && input.referenceFiles.length > 0) {
         const formData = new FormData()
         formData.append('user', input.userId)
@@ -152,10 +165,7 @@ export async function generateViralImage(
         formData.append('style', 'pov')
         formData.append('platform', 'ambos')
         formData.append('target_audience', 'Vídeo Viral Criadores')
-        formData.append(
-          'generated_prompt',
-          `[IMAGEM VIRAL PRO GERADA]\nMotor: ${engine}\nIdeia/Prompt: ${input.prompt}`,
-        )
+        formData.append('generated_prompt', auditDetails)
         formData.append('generated_image_url', imageUrl)
         formData.append('image_prompt_description', input.prompt)
         formData.append('video_engine', engine)
@@ -175,7 +185,7 @@ export async function generateViralImage(
           style: 'pov',
           platform: 'ambos',
           target_audience: 'Vídeo Viral Criadores',
-          generated_prompt: `[IMAGEM VIRAL PRO GERADA]\nMotor: ${engine}\nIdeia/Prompt: ${input.prompt}`,
+          generated_prompt: auditDetails,
           generated_image_url: imageUrl,
           image_prompt_description: input.prompt,
           video_engine: engine,
@@ -195,6 +205,9 @@ export async function generateViralImage(
     source: data.source,
     prompt: input.prompt,
     notice: data.notice,
+    is_fallback: Boolean(data.is_fallback),
+    reference_images_count:
+      data.reference_images_count || (input.referenceFiles ? input.referenceFiles.length : 0),
     generationId: createdGenId,
   }
 }

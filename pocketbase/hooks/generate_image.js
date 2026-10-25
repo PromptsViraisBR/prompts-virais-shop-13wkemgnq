@@ -16,18 +16,22 @@ routerAdd('GET', '/backend/v1/image-engines', (e) => {
     const envGoogleKey = $os.getenv('GEMINI_API_KEY') || ''
     const hasGoogleKey = Boolean(userGoogleKey || envGoogleKey)
 
-    const envOpenAIKey = $os.getenv('OPENAI_API_KEY') || $os.getenv('SKIP_AI_GATEWAY_API_KEY') || ''
+    // OpenAI dedicado (OPENAI_API_KEY)
+    const envOpenAIKey = $os.getenv('OPENAI_API_KEY') || ''
     const hasOpenAIKey = Boolean(envOpenAIKey)
 
     return e.json(200, {
       success: true,
+      has_google_key: hasGoogleKey,
+      has_openai_key: hasOpenAIKey,
       engines: [
         {
           id: 'nano_banana',
           name: 'Nano Banana (Gemini)',
           provider: 'google',
-          description: 'Fidelidade facial e de detalhes com suporte a fotos de referência.',
-          is_available: true, // sempre disponível (com API key ou fallback de alta fidelidade)
+          description:
+            'Fidelidade facial e de detalhes estrita com suporte a fotos de referência (Gemini / Imagen 3).',
+          is_available: true,
           has_key: hasGoogleKey,
           badge: 'Recomendado',
         },
@@ -35,8 +39,8 @@ routerAdd('GET', '/backend/v1/image-engines', (e) => {
           id: 'chatgpt',
           name: 'ChatGPT (OpenAI)',
           provider: 'openai',
-          description: 'Geração estética fotorrealista via IA avançada.',
-          is_available: true, // suportado via API ou fallback inteligente
+          description: 'Geração estética fotorrealista via IA avançada (DALL-E 3).',
+          is_available: true,
           has_key: hasOpenAIKey,
           badge: 'Novo',
         },
@@ -99,95 +103,10 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
       })
     }
 
-    // 4. Se o motor for ChatGPT (OpenAI)
-    if (engine === 'chatgpt' || engine === 'openai') {
-      const openAiKey = $os.getenv('OPENAI_API_KEY') || $os.getenv('SKIP_AI_GATEWAY_API_KEY') || ''
-
-      let openAiImageUrl = null
-      if (openAiKey) {
-        try {
-          // Tentativa com API de Imagem OpenAI (DALL-E 3)
-          let enhancedPrompt = promptText
-          if (referenceImages.length > 0) {
-            enhancedPrompt = `Baseado nas características visuais informadas e preservando a fidelidade ao tema: ${promptText}. Fotografia realista vertical 9:16, iluminação profissional cinematográfica, alta resolução sem texto impresso.`
-          } else {
-            enhancedPrompt = `${promptText}. Fotografia fotorrealista vertical 9:16, altíssima definição, iluminação de estúdio profissional, estilo cinematográfico sem texto ou marcas na imagem.`
-          }
-
-          const res = $http.send({
-            method: 'POST',
-            url: 'https://api.openai.com/v1/images/generations',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${openAiKey}`,
-            },
-            body: JSON.stringify({
-              model: 'dall-e-3',
-              prompt: enhancedPrompt.slice(0, 1000),
-              n: 1,
-              size: '1024x1792', // vertical
-              quality: 'standard',
-            }),
-            timeout: 60,
-          })
-
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            const data = res.json || {}
-            if (data.data && data.data[0] && data.data[0].url) {
-              openAiImageUrl = data.data[0].url
-            } else if (data.data && data.data[0] && data.data[0].b64_json) {
-              openAiImageUrl = `data:image/png;base64,${data.data[0].b64_json}`
-            }
-          }
-        } catch (openAiErr) {
-          console.warn('[generate-image] Falha na API OpenAI:', openAiErr)
-        }
-      }
-
-      if (openAiImageUrl) {
-        return e.json(200, {
-          success: true,
-          image_url: openAiImageUrl,
-          engine: 'chatgpt',
-          source: 'openai',
-          prompt: promptText,
-          notice: 'Imagem fotorrealista gerada via motor ChatGPT (OpenAI).',
-        })
-      }
-
-      // Fallback gracioso para ChatGPT via CDN do Skip
-      const queryKeywords = encodeURIComponent(
-        (promptText || 'cinematic viral creator character')
-          .replace(/[^a-zA-Z0-9\s]/g, ' ')
-          .split(/\s+/)
-          .slice(0, 4)
-          .join('+') || 'creator+viral',
-      )
-      const fallbackUrl = `https://img.usecurling.com/p/720/1280?q=${queryKeywords}&color=purple`
-
-      return e.json(200, {
-        success: true,
-        image_url: fallbackUrl,
-        engine: 'chatgpt',
-        source: 'fallback',
-        prompt: promptText,
-        notice: openAiKey
-          ? 'Imagem gerada com sucesso via motor ChatGPT.'
-          : 'Motor ChatGPT processou sua ideia com fidelidade visual. Conecte sua chave OpenAI para geração direta.',
-      })
-    }
-
-    // 5. Motor Nano Banana (Google Gemini) - Padrão com Fidelidade Facial e de Referência
-    let apiKey = authUser.getString('google_ai_api_key') || ''
-    if (!apiKey) {
-      apiKey = $os.getenv('GEMINI_API_KEY') || ''
-    }
-
-    // 4. Preparar as partes de conteúdo para a API do Gemini
-    const parts = []
-
-    // Adiciona imagens de referência (até 3)
+    // 4. Preparação das imagens de referência (até 3)
+    const normalizedReferenceImages = []
     const maxImages = Math.min(referenceImages.length, 3)
+
     for (let i = 0; i < maxImages; i++) {
       const imgItem = referenceImages[i]
       if (!imgItem) continue
@@ -213,83 +132,170 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
       }
 
       if (base64Data) {
-        parts.push({
-          inlineData: {
-            mimeType: mimeType,
-            data: base64Data,
-          },
+        normalizedReferenceImages.push({
+          mimeType,
+          data: base64Data,
         })
       }
     }
 
-    // Montar texto de instrução com fidelidade visual
-    let promptWithFidelity = promptText
-    if (parts.length > 0) {
-      promptWithFidelity = `Preserve com fidelidade estrita o rosto, traços faciais, tom de pele e/ou o produto e roupas das imagens anexadas. ${promptText ? `Descrição: ${promptText}.` : ''} Imagem nítida de altíssima definição, iluminação de estúdio profissional, proporção 9:16 ou fotorrealista sem texto impresso.`
+    // 5. Montagem do prompt com instrução de FIDELIDADE ESTRITA ao pedido do usuário
+    // Regra mandatória: o pedido do usuário deve ser mantido literalmente em posição de destaque absoluto,
+    // sem substituição ou eliminação dos elementos citados.
+    let strictFidelityPrompt = ''
+    if (normalizedReferenceImages.length > 0) {
+      strictFidelityPrompt = `[DIRETIVA DE FIDELIDADE ABSOLUTA - OBRIGATÓRIO]
+Siga EXATAMENTE e LITERALMENTE a descrição informada pelo usuário. Cada elemento, personagem, ação, cor e objeto citado DEVE aparecer na imagem gerada. Não omita nenhum detalhe solicitado e não adicione elementos arbitrários que alterem a ideia.
+Preserve com fidelidade estrita o rosto, traços faciais, tom de pele, proporções anatômicas, cores, vestimentas e detalhes das ${normalizedReferenceImages.length} imagem(ns) de referência anexada(s).
+
+DESCRIÇÃO EXATA DO USUÁRIO:
+"""
+${promptText}
+"""
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Formato vertical 9:16 (enquadramento cinematográfico para TikTok, Shorts e Reels)
+- Fotografia em altíssima definição (estilo hiper-realista, iluminação de estúdio profissional, foco nítido)
+- Imagem 100% limpa: ZERO texto impresso, ZERO legendas, ZERO caracteres ou marcas d'água.`
     } else {
-      promptWithFidelity = `${promptText}. Imagem fotorrealista em altíssima definição, proporção 9:16, iluminação de estúdio profissional.`
+      strictFidelityPrompt = `[DIRETIVA DE FIDELIDADE ABSOLUTA - OBRIGATÓRIO]
+Siga EXATAMENTE e LITERALMENTE a descrição informada pelo usuário. Cada elemento, personagem, ação, cor e objeto citado DEVE aparecer na imagem gerada. Não omita nenhum detalhe solicitado e não adicione elementos arbitrários.
+
+DESCRIÇÃO EXATA DO USUÁRIO:
+"""
+${promptText}
+"""
+
+ESPECIFICAÇÕES TÉCNICAS:
+- Formato vertical 9:16 (enquadramento cinematográfico para TikTok, Shorts e Reels)
+- Fotografia em altíssima definição (estilo hiper-realista, iluminação de estúdio profissional, foco nítido)
+- Imagem 100% limpa: ZERO texto impresso, ZERO legendas, ZERO caracteres ou marcas d'água.`
     }
 
-    parts.push({
-      text: promptWithFidelity,
-    })
+    // 6. MOTOR: ChatGPT (OpenAI - DALL-E 3)
+    if (engine === 'chatgpt' || engine === 'openai') {
+      const openAiKey = $os.getenv('OPENAI_API_KEY') || ''
 
-    // 5. Tentativa com a API do Google Gemini
+      let openAiImageUrl = null
+      let openAiError = null
+
+      if (openAiKey) {
+        try {
+          const res = $http.send({
+            method: 'POST',
+            url: 'https://api.openai.com/v1/images/generations',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${openAiKey}`,
+            },
+            body: JSON.stringify({
+              model: 'dall-e-3',
+              prompt: strictFidelityPrompt.slice(0, 4000),
+              n: 1,
+              size: '1024x1792', // vertical 9:16
+              quality: 'standard',
+            }),
+            timeout: 60,
+          })
+
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            const data = res.json || {}
+            if (data.data && data.data[0] && data.data[0].url) {
+              openAiImageUrl = data.data[0].url
+            } else if (data.data && data.data[0] && data.data[0].b64_json) {
+              openAiImageUrl = `data:image/png;base64,${data.data[0].b64_json}`
+            }
+          } else {
+            openAiError = `OpenAI API HTTP ${res.statusCode}: ${JSON.stringify(res.json || res.body || '')}`
+            console.warn('[generate-image] OpenAI erro:', openAiError)
+          }
+        } catch (openAiErr) {
+          openAiError = openAiErr.message || String(openAiErr)
+          console.warn('[generate-image] Falha na API OpenAI:', openAiErr)
+        }
+      }
+
+      if (openAiImageUrl) {
+        return e.json(200, {
+          success: true,
+          image_url: openAiImageUrl,
+          engine: 'chatgpt',
+          source: 'openai',
+          prompt: promptText,
+          is_fallback: false,
+          reference_images_count: normalizedReferenceImages.length,
+          notice:
+            'Imagem gerada diretamente pela API DALL-E 3 com fidelidade estrita à sua descrição.',
+        })
+      }
+
+      // Fallback para ChatGPT com sinalização explícita de limitação
+      const queryKeywords = encodeURIComponent(
+        (promptText || 'cinematic viral creator character')
+          .replace(/[^a-zA-Z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .slice(0, 4)
+          .join('+') || 'creator+viral',
+      )
+      const fallbackUrl = `https://img.usecurling.com/p/720/1280?q=${queryKeywords}&color=purple`
+
+      return e.json(200, {
+        success: true,
+        image_url: fallbackUrl,
+        engine: 'chatgpt',
+        source: 'fallback',
+        prompt: promptText,
+        is_fallback: true,
+        reference_images_count: normalizedReferenceImages.length,
+        notice: openAiKey
+          ? 'Serviço OpenAI temporariamente indisponível. Exibindo pré-visualização demonstrativa.'
+          : 'Modo Demonstração PRO: O servidor não possui chave OpenAI (DALL-E 3) configurada no ambiente. Esta imagem é uma prévia ilustrativa e não reflete fielmente o texto ou fotos de referência.',
+      })
+    }
+
+    // 7. MOTOR: Nano Banana (Google Gemini / Imagen 3)
+    let googleApiKey = authUser.getString('google_ai_api_key') || ''
+    if (!googleApiKey) {
+      googleApiKey = $os.getenv('GEMINI_API_KEY') || ''
+    }
+
     let generatedImageBase64 = null
     let generatedMimeType = 'image/png'
+    let usedProviderSource = ''
 
-    if (apiKey) {
+    if (googleApiKey) {
+      // Montagem das partes no padrão Gemini (multimodal)
+      const geminiParts = []
+      for (let i = 0; i < normalizedReferenceImages.length; i++) {
+        geminiParts.push({
+          inlineData: {
+            mimeType: normalizedReferenceImages[i].mimeType,
+            data: normalizedReferenceImages[i].data,
+          },
+        })
+      }
+      geminiParts.push({
+        text: strictFidelityPrompt,
+      })
+
+      // Ordem prioritária de endpoints oficiais:
+      // 1. interactions v1beta gemini-nano-banana-2.1 (modelo mais novo do Nano Banana)
+      // 2. interactions v1beta gemini-2.5-flash-image
+      // 3. interactions v1beta gemini-3.1-flash-image
+      // 4. generateContent v1beta gemini-2.5-flash-image com responseModalities
+      // 5. imagen-3.0-generate-002:predict (caso seja text-to-image de alta fidelidade 9:16)
+      // 6. imagen-3.0-generate-001:predict
       const candidateEndpoints = [
-        // Endpoint 1: generateContent v1beta com gemini-2.5-flash-image e responseModalities
         {
-          url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
-          headers: { 'Content-Type': 'application/json' },
-          body: {
-            contents: [{ parts: parts }],
-            generationConfig: {
-              responseModalities: ['TEXT', 'IMAGE'],
-            },
-          },
-        },
-        // Endpoint 2: generateContent v1 com gemini-2.5-flash-image
-        {
-          url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
-          headers: { 'Content-Type': 'application/json' },
-          body: {
-            contents: [{ parts: parts }],
-          },
-        },
-        // Endpoint 3: interactions v1beta com gemini-2.5-flash-image
-        {
+          name: 'interactions:gemini-nano-banana-2.1',
           url: 'https://generativelanguage.googleapis.com/v1beta/interactions',
           headers: {
-            'x-goog-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
-          body: {
-            model: 'gemini-2.5-flash-image',
-            input: parts.map((p) => {
-              if (p.inlineData) {
-                return {
-                  type: 'image',
-                  mime_type: p.inlineData.mimeType,
-                  data: p.inlineData.data,
-                }
-              }
-              return { type: 'text', text: p.text }
-            }),
-          },
-        },
-        // Endpoint 4: interactions v1beta com gemini-nano-banana-2.1
-        {
-          url: 'https://generativelanguage.googleapis.com/v1beta/interactions',
-          headers: {
-            'x-goog-api-key': apiKey,
+            'x-goog-api-key': googleApiKey,
             'Content-Type': 'application/json',
           },
           body: {
             model: 'gemini-nano-banana-2.1',
-            input: parts.map((p) => {
+            input: geminiParts.map((p) => {
               if (p.inlineData) {
                 return {
                   type: 'image',
@@ -299,13 +305,104 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
               }
               return { type: 'text', text: p.text }
             }),
+          },
+          parser: (data) => {
+            const outImg =
+              data.output_image ||
+              (data.interaction && data.interaction.output_image) ||
+              data.outputImage
+            if (outImg && outImg.data) {
+              return { data: outImg.data, mime: outImg.mime_type || outImg.mimeType || 'image/png' }
+            }
+            return null
+          },
+        },
+        {
+          name: 'interactions:gemini-2.5-flash-image',
+          url: 'https://generativelanguage.googleapis.com/v1beta/interactions',
+          headers: {
+            'x-goog-api-key': googleApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: {
+            model: 'gemini-2.5-flash-image',
+            input: geminiParts.map((p) => {
+              if (p.inlineData) {
+                return {
+                  type: 'image',
+                  mime_type: p.inlineData.mimeType,
+                  data: p.inlineData.data,
+                }
+              }
+              return { type: 'text', text: p.text }
+            }),
+          },
+          parser: (data) => {
+            const outImg =
+              data.output_image ||
+              (data.interaction && data.interaction.output_image) ||
+              data.outputImage
+            if (outImg && outImg.data) {
+              return { data: outImg.data, mime: outImg.mime_type || outImg.mimeType || 'image/png' }
+            }
+            return null
+          },
+        },
+        {
+          name: 'generateContent:gemini-2.5-flash-image',
+          url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${googleApiKey}`,
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            contents: [{ parts: geminiParts }],
+            generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE'],
+            },
+          },
+          parser: (data) => {
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+              const respParts = data.candidates[0].content.parts || []
+              for (let j = 0; j < respParts.length; j++) {
+                const pt = respParts[j]
+                if (pt.inlineData && pt.inlineData.data) {
+                  return { data: pt.inlineData.data, mime: pt.inlineData.mimeType || 'image/png' }
+                }
+              }
+            }
+            return null
+          },
+        },
+        {
+          name: 'imagen-3.0-generate-002:predict',
+          url: `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleApiKey}`,
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            instances: [
+              {
+                prompt: `${promptText}. Retrato vertical 9:16 hiper-realista, iluminação profissional cinematográfica, altíssima definição, vídeo limpo sem texto ou marcas.`,
+              },
+            ],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: '9:16',
+              outputMimeType: 'image/jpeg',
+            },
+          },
+          parser: (data) => {
+            if (data.predictions && data.predictions[0]) {
+              const pred = data.predictions[0]
+              const b64 = pred.bytesBase64Encoded || pred.data
+              if (b64) {
+                return { data: b64, mime: pred.mimeType || 'image/jpeg' }
+              }
+            }
+            return null
           },
         },
       ]
 
       for (let i = 0; i < candidateEndpoints.length; i++) {
+        const ep = candidateEndpoints[i]
         try {
-          const ep = candidateEndpoints[i]
           const res = $http.send({
             method: 'POST',
             url: ep.url,
@@ -316,43 +413,26 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
 
           if (res.statusCode >= 200 && res.statusCode < 300) {
             const data = res.json || {}
-
-            // Formato generateContent (candidates[0].content.parts)
-            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-              const respParts = data.candidates[0].content.parts || []
-              for (let j = 0; j < respParts.length; j++) {
-                const pt = respParts[j]
-                if (pt.inlineData && pt.inlineData.data) {
-                  generatedImageBase64 = pt.inlineData.data
-                  generatedMimeType = pt.inlineData.mimeType || 'image/png'
-                  break
-                }
-              }
-            }
-
-            // Formato interactions (output_image)
-            if (!generatedImageBase64) {
-              const outImg =
-                data.output_image ||
-                (data.interaction && data.interaction.output_image) ||
-                data.outputImage
-              if (outImg && outImg.data) {
-                generatedImageBase64 = outImg.data
-                generatedMimeType = outImg.mime_type || outImg.mimeType || 'image/png'
-              }
-            }
-
-            if (generatedImageBase64) {
+            const parsed = ep.parser(data)
+            if (parsed && parsed.data) {
+              generatedImageBase64 = parsed.data
+              generatedMimeType = parsed.mime || 'image/png'
+              usedProviderSource = ep.name
               break
             }
+          } else {
+            console.warn(
+              `[generate-image] endpoint ${ep.name} retornou status ${res.statusCode}:`,
+              res.body ? String(res.body).slice(0, 200) : '',
+            )
           }
         } catch (callErr) {
-          console.warn(`[generate-image] endpoint ${i} falhou:`, callErr)
+          console.warn(`[generate-image] endpoint ${ep.name} falhou:`, callErr.message || callErr)
         }
       }
     }
 
-    // 6. Se gerou imagem com o Gemini, retorna em base64
+    // 8. Se gerou imagem real com a API do Google Gemini / Imagen
     if (generatedImageBase64) {
       const dataUri = `data:${generatedMimeType};base64,${generatedImageBase64}`
       return e.json(200, {
@@ -362,12 +442,17 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
         mime_type: generatedMimeType,
         prompt: promptText,
         source: 'gemini',
-        notice: 'Imagem gerada com alta fidelidade visual via Nano Banana (Gemini).',
+        endpoint: usedProviderSource,
+        is_fallback: false,
+        reference_images_count: normalizedReferenceImages.length,
+        notice:
+          'Imagem gerada com sucesso pela API oficial Nano Banana (Gemini) com fidelidade total à sua descrição e referências.',
       })
     }
 
-    // 7. Fallback inteligente quando a chave não estiver configurada no backend
-    // Gera imagem em alta resolução coerente com o texto/nicho via CDN permitida do Skip
+    // 9. Modo Demonstrativo (Fallback CDN do Skip)
+    // Quando nem o usuário nem o servidor possuem chave externa configurada.
+    // IMPORTANTE: Deixa claro que este modo NÃO tem fidelidade de IA e orienta a conexão da chave.
     const queryKeywords = encodeURIComponent(
       (promptText || 'product photography viral creator character')
         .replace(/[^a-zA-Z0-9\s]/g, ' ')
@@ -383,9 +468,11 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
       engine: 'nano_banana',
       prompt: promptText,
       source: 'fallback',
-      notice: apiKey
-        ? 'Imagem gerada com fidelidade visual baseada nos detalhes informados.'
-        : 'Imagem gerada com sucesso! Você também pode adicionar sua chave do Google AI no perfil para conexões dedicadas.',
+      is_fallback: true,
+      reference_images_count: normalizedReferenceImages.length,
+      notice: googleApiKey
+        ? 'A API Nano Banana (Google AI) retornou sem imagem no momento. Exibindo pré-visualização demonstrativa.'
+        : 'Modo Demonstração PRO: Nenhuma chave da API Google AI Studio (Gemini/Nano Banana) foi configurada no seu perfil. Por isso, a imagem exibida é uma prévia demonstrativa e NÃO corresponde à sua descrição nem às fotos enviadas. Para fidelidade 100%, adicione sua chave gratuita do Google AI Studio em "Meu Perfil"!',
     })
   } catch (err) {
     console.error('[generate-image] Erro geral:', err)

@@ -378,8 +378,8 @@ export const Landing: React.FC = () => {
           {/* MENSAL PRO */}
           <Card className="flex flex-col justify-between border-2 border-pink-500 shadow-xl relative">
             <div className="absolute -top-3 left-6">
-              <Badge className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs uppercase">
-                Novo • Mais Escolhido 🔥
+              <Badge className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow animate-pulse">
+                🔥 OFERTA DE LANÇAMENTO
               </Badge>
             </div>
             <CardHeader className="pt-6">
@@ -392,9 +392,22 @@ export const Landing: React.FC = () => {
               <CardDescription>
                 Acesso total com gerador personalizado para fotos do catálogo da sua vitrine.
               </CardDescription>
-              <div className="pt-2">
-                <span className="text-4xl font-extrabold">R$ 49,90</span>
-                <span className="text-muted-foreground text-sm font-medium"> /mês</span>
+              <div className="pt-2 space-y-1">
+                <div className="flex items-baseline gap-2.5 flex-wrap">
+                  <span className="text-lg font-semibold text-muted-foreground line-through decoration-rose-500 decoration-2 opacity-80">
+                    R$ 49,90
+                  </span>
+                  <span className="text-4xl font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
+                    R$ 19,90
+                  </span>
+                  <span className="text-muted-foreground text-sm font-bold"> /mês</span>
+                </div>
+                <p className="text-xs font-semibold text-pink-600 dark:text-pink-400">
+                  Preço promocional por tempo limitado — para os primeiros assinantes do site
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Cobrança mensal, sem fidelidade • Cancele quando quiser
+                </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm flex-1">
@@ -420,7 +433,7 @@ export const Landing: React.FC = () => {
             <CardFooter>
               <Link to="/planos" className="w-full">
                 <Button className="w-full bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold py-5">
-                  Assinar PRO (R$ 49,90)
+                  Assinar PRO (R$ 19,90/mês)
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
@@ -432,13 +445,20 @@ export const Landing: React.FC = () => {
             <CardHeader className="pt-6">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl font-bold">Anual VIP</CardTitle>
-                <Badge className="bg-amber-500 text-white text-xs font-bold">Economize 35%</Badge>
+                <Badge className="bg-amber-500 text-white text-xs font-bold">12 Meses VIP</Badge>
               </div>
               <CardDescription>Para lojas e afiliados com visão de longo prazo.</CardDescription>
-              <div className="pt-2">
-                <span className="text-4xl font-extrabold">R$ 19,90</span>
-                <span className="text-muted-foreground text-sm font-medium"> /mês</span>
-                <p className="text-xs text-amber-600 font-medium">R$ 238,80 faturado anualmente</p>
+              <div className="pt-2 space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-extrabold">R$ 19,90</span>
+                  <span className="text-muted-foreground text-sm font-medium"> /mês</span>
+                </div>
+                <p className="text-xs text-amber-600 font-bold">
+                  Faturado anualmente: R$ 238,80/ano
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  12 meses de acesso contínuo com suporte prioritário
+                </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm flex-1">

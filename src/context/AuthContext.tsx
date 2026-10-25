@@ -112,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Determina plano: se não tem assinatura ou expirou, fallback para 'free'
   const plan: PlanType = subscription?.status === 'active' ? subscription.plan : 'free'
   const isPaidPlan = plan === 'monthly' || plan === 'annual'
-  const isProOrVip = isPaidPlan // Plano PRO (R$ 49,90) e Anual VIP têm acesso à geração de vídeo
+  const isProOrVip = isPaidPlan // Plano PRO (R$ 19,90 em promoção de lançamento) e Anual VIP têm acesso à geração de vídeo
 
   return (
     <AuthContext.Provider

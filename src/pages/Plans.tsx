@@ -109,7 +109,7 @@ export const Plans: React.FC = () => {
       setModalOpen(false)
       toast({
         title: 'Assinatura confirmada com sucesso! 🎉',
-        description: `Seu plano foi atualizado para ${selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (R$ 49,90)'}. Biblioteca completa e gerador personalizado liberados!`,
+        description: `Seu plano foi atualizado para ${selectedPlanForModal === 'annual' ? 'Anual VIP (R$ 238,80/ano)' : 'PRO Promocional (R$ 19,90/mês)'}. Biblioteca completa e gerador personalizado liberados!`,
       })
       navigate('/biblioteca')
     } catch (err) {
@@ -209,7 +209,7 @@ export const Plans: React.FC = () => {
           </CardFooter>
         </Card>
 
-        {/* PLANO MENSAL (DESTAQUE) */}
+        {/* PLANO MENSAL (DESTAQUE COM PROMOÇÃO DE LANÇAMENTO) */}
         <Card
           className={`flex flex-col justify-between border-2 transition-all relative shadow-xl ${
             plan === 'monthly'
@@ -217,26 +217,37 @@ export const Plans: React.FC = () => {
               : 'border-pink-500/60 hover:border-pink-500'
           }`}
         >
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-            <Badge className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow">
-              {plan === 'monthly' ? 'Seu Plano Ativo' : 'Mais Popular 🔥'}
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">
+            <Badge className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow animate-pulse">
+              {plan === 'monthly' ? 'Seu Plano Ativo' : '🔥 OFERTA DE LANÇAMENTO'}
             </Badge>
           </div>
-
           <CardHeader>
             <CardTitle className="text-xl font-bold flex items-center justify-between">
-              PRO Mensal
+              <span>PRO Mensal</span>
               <Zap className="w-5 h-5 text-pink-500" />
             </CardTitle>
             <CardDescription>
               Acesso total à biblioteca e gerador personalizado fiel às fotos da sua vitrine.
             </CardDescription>
-            <div className="pt-4">
-              <span className="text-4xl font-extrabold">R$ 49,90</span>
-              <span className="text-muted-foreground text-sm font-medium"> /mês</span>
+            <div className="pt-4 space-y-1">
+              <div className="flex items-baseline gap-2.5 flex-wrap">
+                <span className="text-lg sm:text-xl font-semibold text-muted-foreground line-through decoration-rose-500 decoration-2 opacity-80">
+                  R$ 49,90
+                </span>
+                <span className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
+                  R$ 19,90
+                </span>
+                <span className="text-muted-foreground text-sm font-bold"> /mês</span>
+              </div>
+              <p className="text-[11px] sm:text-xs font-semibold text-pink-600 dark:text-pink-400">
+                Preço promocional por tempo limitado — para os primeiros assinantes do site
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Cobrança mensal, sem fidelidade • Cancele quando quiser
+              </p>
             </div>
           </CardHeader>
-
           <CardContent className="space-y-3.5 text-sm flex-1">
             <div className="flex items-start gap-2.5 bg-pink-500/10 p-2.5 rounded-lg border border-pink-500/20">
               <Sparkles className="w-4 h-4 text-pink-600 dark:text-pink-400 shrink-0 mt-0.5" />
@@ -271,17 +282,16 @@ export const Plans: React.FC = () => {
               <span>Histórico completo de roteiros salvos na nuvem</span>
             </div>
           </CardContent>
-
           <CardFooter className="pt-4">
             <Button
               className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-semibold shadow-md"
               disabled={plan === 'monthly'}
               onClick={() => handleSelectPlan('monthly')}
             >
-              {plan === 'monthly' ? 'Plano Ativo' : 'Assinar PRO (R$ 49,90)'}
+              {plan === 'monthly' ? 'Plano Ativo' : 'Assinar PRO (R$ 19,90/mês)'}
               {plan !== 'monthly' && <ArrowRight className="w-4 h-4 ml-2" />}
             </Button>
-          </CardFooter>
+          </CardFooter>{' '}
         </Card>
 
         {/* PLANO ANUAL */}
@@ -306,11 +316,16 @@ export const Plans: React.FC = () => {
             <CardDescription>
               Para lojas e agências que faturam alto e querem o melhor custo por ano.
             </CardDescription>
-            <div className="pt-4">
-              <span className="text-4xl font-extrabold">R$ 19,90</span>
-              <span className="text-muted-foreground text-sm font-medium"> /mês</span>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1">
-                Faturado anualmente (R$ 238,80/ano)
+            <div className="pt-4 space-y-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-extrabold text-foreground">R$ 19,90</span>
+                <span className="text-muted-foreground text-sm font-medium"> /mês</span>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1">
+                Faturado anualmente em parcela única (Total: R$ 238,80/ano)
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                12 meses de acesso garantido com suporte VIP
               </p>
             </div>
           </CardHeader>
@@ -373,7 +388,7 @@ export const Plans: React.FC = () => {
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <CreditCard className="w-5 h-5 text-pink-500" />
               Assinatura do Plano{' '}
-              {selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (R$ 49,90/mês)'}
+              {selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (Oferta: R$ 19,90/mês)'}
             </DialogTitle>
             <DialogDescription>
               Fluxo demonstrativo de pagamento com cartão de crédito. Preencha ou use os dados de
@@ -441,9 +456,23 @@ export const Plans: React.FC = () => {
             </div>
 
             <div className="p-3 bg-muted rounded-lg flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Valor a ativar:</span>
-              <span className="font-extrabold text-foreground">
-                {selectedPlanForModal === 'annual' ? 'R$ 238,80 /ano' : 'R$ 49,90 /mês'}
+              <div className="space-y-0.5">
+                <span className="text-muted-foreground block text-xs">
+                  Valor demonstrativo a ativar:
+                </span>
+                {selectedPlanForModal === 'monthly' && (
+                  <span className="text-[11px] text-pink-600 dark:text-pink-400 font-semibold block">
+                    🔥 Oferta de Lançamento (de R$ 49,90 por R$ 19,90/mês)
+                  </span>
+                )}
+                {selectedPlanForModal === 'annual' && (
+                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold block">
+                    Faturado anualmente (12x R$ 19,90)
+                  </span>
+                )}
+              </div>
+              <span className="font-extrabold text-foreground text-base">
+                {selectedPlanForModal === 'annual' ? 'R$ 238,80 /ano' : 'R$ 19,90 /mês'}
               </span>
             </div>
 

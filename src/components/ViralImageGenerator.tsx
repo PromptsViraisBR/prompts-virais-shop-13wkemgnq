@@ -168,7 +168,7 @@ export const ViralImageGenerator: React.FC = () => {
       toast({
         title: '👑 Recurso Exclusivo do Plano PRO',
         description:
-          'O Gerador de Imagens com Nano Banana e ChatGPT é exclusivo para assinantes PRO. Assine por apenas R$ 49,90/mês!',
+          'O Gerador de Imagens com Nano Banana e ChatGPT é exclusivo para assinantes PRO. Aproveite a oferta de lançamento por apenas R$ 19,90/mês!',
         variant: 'destructive',
       })
       navigate('/planos')
@@ -399,7 +399,7 @@ export const ViralImageGenerator: React.FC = () => {
                 className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs rounded-2xl shadow-sm gap-1.5 hover:scale-[1.02] transition-transform"
               >
                 <Crown className="w-3.5 h-3.5" />
-                <span>Assinar Plano PRO (R$ 49,90)</span>
+                <span>Assinar Plano PRO (Oferta R$ 19,90)</span>
               </Button>
             </Link>
           ) : (

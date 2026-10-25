@@ -391,11 +391,34 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
  * 2. Roteiro Opcional (~60 segundos dividido em 6 cenas de 10s)
  * Opcionalmente persiste o registro no histórico de gerações.
  */
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      resolve(typeof reader.result === 'string' ? reader.result : '')
+    }
+    reader.onerror = (err) => reject(err)
+    reader.readAsDataURL(file)
+  })
+}
+
 export async function generateViralSceneWithImages(
   input: GenerateViralSceneInput,
 ): Promise<GenerateViralSceneResult> {
   const imagesCount = input.referenceImages?.length || input.imagesCount || 1
   const seed = input.seed || Math.floor(Math.random() * 1000000)
+
+  // Converter fotos para base64 para envio multimodal ao modelo
+  let base64Images: string[] = []
+  if (input.referenceImages && input.referenceImages.length > 0) {
+    try {
+      base64Images = await Promise.all(
+        input.referenceImages.slice(0, 3).map((f) => fileToBase64(f)),
+      )
+    } catch (b64Err) {
+      console.warn('Erro ao converter imagem em base64:', b64Err)
+    }
+  }
 
   try {
     const response = await fetch(
@@ -412,6 +435,7 @@ export async function generateViralSceneWithImages(
           niche: input.niche,
           visual_details: input.visualDetails,
           images_count: imagesCount,
+          images: base64Images,
           seed,
         }),
       },

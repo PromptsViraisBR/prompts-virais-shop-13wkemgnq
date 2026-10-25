@@ -16,6 +16,7 @@ import {
 } from '@/services/regenerationCredits'
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
+import { PromptSceneList } from '@/components/PromptSceneList'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -627,7 +628,7 @@ export const ViralGenerator: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* 2. ROTEIRO OPCIONAL (60s em Cenas de 10s) */}
+              {/* 2. ROTEIRO OPCIONAL (60s dividido em Cenas de 10s - Cópia Cena por Cena) */}
               <Card className="border rounded-3xl overflow-hidden shadow-sm bg-card">
                 <CardHeader className="bg-muted/30 border-b py-3.5 px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -636,13 +637,14 @@ export const ViralGenerator: React.FC = () => {
                     </div>
                     <div>
                       <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                        <span>2. Roteiro Opcional Sugerido</span>
+                        <span>2. Roteiro Opcional Sugerido (~60s)</span>
                         <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold">
-                          Opcional / Sugestão
+                          Opcional / Cenas de 10s
                         </Badge>
                       </CardTitle>
                       <span className="text-[10px] text-muted-foreground">
-                        Você pode ou não querer seguir este roteiro de ~60s
+                        Dividido em cenas de até 10s para renderizar pedaço por pedaço nas IAs de
+                        vídeo
                       </span>
                     </div>
                   </div>
@@ -666,40 +668,25 @@ export const ViralGenerator: React.FC = () => {
                         )
                       </span>
                     </Button>
-
-                    <Button
-                      size="sm"
-                      onClick={() => handleCopy(result.optional_script, 'script')}
-                      className="h-8 text-xs font-bold bg-gradient-to-r from-pink-600 to-amber-500 text-white gap-1.5"
-                    >
-                      {copiedScript ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          Copiado!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          Copiar Roteiro
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-4 sm:p-5">
-                  <div className="p-3 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                <CardContent className="p-4 sm:p-5 space-y-4">
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
                     <Lightbulb className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                     <span>
-                      <strong>Roteiro Opcional:</strong> Este roteiro de ~60 segundos foi
-                      estruturado em 6 cenas sequenciais de até 10 segundos. Você é livre para
-                      segui-lo à risca ou adaptar livremente com base na sua Ideia de Cena acima!
+                      <strong>Cópia Cena por Cena (Até 10s cada):</strong> A maioria das IAs de
+                      vídeo (Kling, Hailuo, Luma) gera até 10 segundos por vez. Copie cada cena
+                      abaixo individualmente para alimentar a IA sem distorções!
                     </span>
                   </div>
 
-                  <div className="bg-muted/40 border rounded-2xl p-4 font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto select-all">
-                    {result.optional_script}
-                  </div>
+                  {/* Componente padrão do projeto para cópia cena por cena com feedback de Cena Copiada! */}
+                  <PromptSceneList
+                    promptText={result.optional_script}
+                    promptTitle={result.character_name || result.theme_name || 'Roteiro Viral'}
+                    inModal={false}
+                  />
                 </CardContent>
 
                 <CardFooter className="bg-muted/20 border-t py-3 px-5 flex flex-wrap items-center justify-between gap-2">
@@ -793,9 +780,12 @@ export const ViralGenerator: React.FC = () => {
                             </Button>
                           </div>
 
-                          <div className="bg-background border rounded-xl p-3.5 font-mono text-xs whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed select-all">
-                            {curVar.prompt_text}
-                          </div>
+                          {/* Exibição em formato cena por cena também nas variações regeneradas */}
+                          <PromptSceneList
+                            promptText={curVar.prompt_text}
+                            promptTitle={curVar.angle}
+                            inModal={false}
+                          />
                         </div>
                       )
                     })()}

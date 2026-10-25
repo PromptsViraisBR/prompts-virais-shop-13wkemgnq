@@ -220,10 +220,15 @@ routerAdd('POST', '/backend/v1/generate-viral-scene', (e) => {
   try {
     const data = e.requestInfo().body || {}
     const characterName = (data.character_name || '').trim()
-    const themeName = (characterName || data.theme_name || 'personagem central').trim()
+    const themeIdea = (data.theme_name || data.theme || data.idea || '').trim()
+    const characterOrTheme = (characterName || themeIdea || 'Personagem central').trim()
     const niche = (data.niche || 'historinhas_frutas').trim()
     const visualDetails = (data.visual_details || '').trim()
-    const imageCount = parseInt(data.images_count || '1', 10)
+    const imagesPayload = Array.isArray(data.images) ? data.images : []
+    const imageCount = parseInt(
+      data.images_count || (imagesPayload.length > 0 ? imagesPayload.length : '1'),
+      10,
+    )
     const seed = data.seed || Math.floor(Math.random() * 1000000)
 
     const nicheNames = {
@@ -234,31 +239,148 @@ routerAdd('POST', '/backend/v1/generate-viral-scene', (e) => {
       face_swap: 'Troca de Rosto (Face Swap)',
       asmr_sensorial: 'ASMR Sons & Visual Sensorial',
       animais_falantes: 'Animais Falantes & Pets Cômicos',
+      perfumes_cosmeticos: 'Perfumes & Cosméticos',
     }
     const nicheLabel = nicheNames[niche] || 'Vídeos Virais'
+
+    // Análise multimodal da imagem via Gemini se houver imagem enviada
+    let analyzedImageDescription = ''
+    if (imagesPayload.length > 0) {
+      try {
+        let apiKey = ''
+        if (e.auth) {
+          apiKey = e.auth.getString('google_ai_api_key') || ''
+        }
+        if (!apiKey) {
+          apiKey = $os.getenv('GEMINI_API_KEY') || ''
+        }
+
+        if (apiKey) {
+          const geminiParts = []
+          const maxImgs = Math.min(imagesPayload.length, 3)
+          for (let i = 0; i < maxImgs; i++) {
+            const item = imagesPayload[i]
+            if (!item) continue
+            let mType = 'image/jpeg'
+            let b64 = ''
+            if (typeof item === 'string') {
+              if (item.startsWith('data:')) {
+                const match = item.match(/^data:([^;]+);base64,(.*)$/)
+                if (match) {
+                  mType = match[1]
+                  b64 = match[2]
+                } else {
+                  b64 = item
+                }
+              } else {
+                b64 = item
+              }
+            } else if (typeof item === 'object' && item.data) {
+              mType = item.mime_type || item.mimeType || 'image/jpeg'
+              b64 = item.data
+            }
+
+            if (b64) {
+              geminiParts.push({
+                inlineData: {
+                  mimeType: mType,
+                  data: b64,
+                },
+              })
+            }
+          }
+
+          if (geminiParts.length > 0) {
+            geminiParts.push({
+              text: 'Descreva em 2 a 3 frases em Português os elementos visuais exatos desta imagem: quem ou o que é o personagem/objeto principal (espécie, roupas, cores, expressão facial, postura), o cenário de fundo (local, iluminação, objetos presentes) e o estilo visual.',
+            })
+
+            const gRes = $http.send({
+              method: 'POST',
+              url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: geminiParts }],
+              }),
+              timeout: 20,
+            })
+
+            if (gRes.statusCode >= 200 && gRes.statusCode < 300) {
+              const gData = gRes.json || {}
+              if (
+                gData.candidates &&
+                gData.candidates[0] &&
+                gData.candidates[0].content &&
+                gData.candidates[0].content.parts
+              ) {
+                analyzedImageDescription = sanitizeText(
+                  gData.candidates[0].content.parts.map((p) => p.text || '').join(' '),
+                )
+              }
+            }
+          }
+        }
+      } catch (visErr) {
+        console.log('generate-viral-scene: visão Gemini opcional indisponível: ' + visErr.message)
+      }
+    }
+
+    const visualSummary = [
+      analyzedImageDescription ? `Análise da foto enviada: ${analyzedImageDescription}` : '',
+      visualDetails ? `Detalhes informados pelo usuário: ${visualDetails}` : '',
+    ]
+      .filter(Boolean)
+      .join(' | ')
 
     let sceneConcept = ''
     let optionalScript = ''
 
-    // Tentar via $ai.chat para criar uma ideia e roteiro totalmente únicos
+    // Tentar via $ai.chat com prompt estrito de fidelidade à ideia e personagem
     try {
-      const promptAI = `Você é um diretor criativo de canais virais (TikTok, Shorts, Reels) especializado no nicho "${nicheLabel}".
-Crie para o personagem/tema "${themeName}":
-1. UMA "IDEIA DE CENA VIRAL" (conceito curto de 2 a 4 linhas, altamente chamativo).
-2. UM "ROTEIRO OPCIONAL SUGERIDO" de ~60 segundos organizado em EXATAMENTE 6 cenas sequenciais de até 10 segundos cada (CENA 1: 0-10s gancho hipnótico; CENA 2: 10-20s desenvolvimento; CENA 3: 20-30s reviravolta; CENA 4: 30-40s clímax; CENA 5: 40-50s resolução; CENA 6: 50-60s CTA).
+      const systemInstruction = `Você é um diretor e roteirista profissional de canais virais (TikTok, Shorts, Reels) em Português Brasileiro (PT-BR).
 
-DETALHES OBRIGATÓRIOS:
-- Personagem principal: ${themeName}
-- Detalhes visuais da foto: ${visualDetails || 'texturas expressivas em 4K'}
-- Idioma: Português do Brasil (PT-BR) com narração envolvente
-- VÍDEO 100% LIMPO: SEM legendas gravadas, SEM texto impresso na tela
-- Variação aleatória: #${seed}
+REGRAS ABSOLUTAS E OBRIGATÓRIAS:
+1. FIDELIDADE TOTAL À IDEIA E SITUAÇÃO DO USUÁRIO:
+   - A ideia/tema informada pelo usuário ("${themeIdea || characterOrTheme}") é a BASE CENTRAL e MANDATÓRIA de todo o roteiro.
+   - NUNCA crie uma história genérica descolada da ideia dele. Cada uma das 6 cenas DEVE desenvolver exatamente a situação que o usuário pediu.
+2. FIDELIDADE TOTAL AO PERSONAGEM PRINCIPAL:
+   ${characterName ? `- O personagem principal é ESTRITAMENTE "${characterName}". Ele deve aparecer e protagonizar TODAS as 6 cenas.` : `- O elemento principal da história é "${characterOrTheme}". Mantenha coerência absoluta em todas as cenas.`}
+3. COERÊNCIA COM A FOTO/IMAGEM ENVIADA:
+   - Cenário, cores, visual do personagem e objetos devem ser fiéis aos elementos visuais: ${visualSummary || 'conforme a foto enviada pelo usuário'}.
+4. REGRAS DE VÍDEO VIRAL:
+   - Idioma: Português do Brasil (PT-BR) impecável, sem erros ortográficos.
+   - VÍDEO 100% LIMPO: SEM legendas gravadas, SEM textos na tela, SEM caracteres na imagem. A narração é apenas em áudio.
+   - Duração: ~60 segundos divididos em EXATAMENTE 6 cenas de até 10 segundos:
+     CENA 1 (0-10s) - GANCHO HIPNÓTICO (HOOK)
+     CENA 2 (10-20s) - DESENVOLVIMENTO
+     CENA 3 (20-30s) - REVIRAVOLTA / TENSÃO
+     CENA 4 (30-40s) - O CLÍMAX
+     CENA 5 (40-50s) - A RESOLUÇÃO
+     CENA 6 (50-60s) - CTA / ENGAGEMENT
+   - Cada cena deve conter:
+     - Visual: descrição precisa da ação da cena sem texto na tela
+     - Narração (PT-BR): fala falada envolvente e dinâmica
+5. FORMATO DE RESPOSTA OBRIGATÓRIO:
+   Divida a resposta exatamente com a tag [IDEIA_DE_CENA] e a tag [ROTEIRO_OPCIONAL].
+   Em [IDEIA_DE_CENA], entregue um conceito curto (2 a 4 linhas) focado na ideia dele.
+   Em [ROTEIRO_OPCIONAL], entregue o roteiro completo de 6 cenas seguindo o padrão CENA 1 (0-10s), CENA 2 (10-20s), etc.`
 
-Separe a resposta exatamente com a tag [IDEIA_DE_CENA] e a tag [ROTEIRO_OPCIONAL].`
+      const userInstruction = `Crie a ideia de cena e o roteiro opcional de 60s (6 cenas de 10s) com fidelidade absoluta a estes dados:
+- Ideia/Tema central obrigatório: "${themeIdea || characterOrTheme}"
+${characterName ? `- Personagem Principal em todas as cenas: "${characterName}"` : ''}
+- Nicho viral: ${nicheLabel}
+- Detalhes visuais da foto de referência: ${visualSummary || 'preservar personagens, cores e ambiente da imagem'}
+- Fotos anexadas: ${imageCount}
+- Variação Seed: #${seed}
+
+Gere agora a [IDEIA_DE_CENA] e o [ROTEIRO_OPCIONAL] 100% alinhados à minha ideia e à minha foto.`
 
       const aiRes = $ai.chat({
         model: 'fast',
-        messages: [{ role: 'user', content: promptAI }],
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: userInstruction },
+        ],
       })
 
       if (aiRes && aiRes.choices && aiRes.choices[0] && aiRes.choices[0].message) {
@@ -273,54 +395,53 @@ Separe a resposta exatamente com a tag [IDEIA_DE_CENA] e a tag [ROTEIRO_OPCIONAL
       }
     } catch (aiErr) {
       console.log(
-        'generate-viral-scene: IA indisponível, usando fallback enriquecido: ' + aiErr.message,
+        'generate-viral-scene: IA indisponível, usando gerador contextual: ' + aiErr.message,
       )
     }
 
-    // Fallbacks dinâmicos se a IA não responder no formato esperado
+    // Fallbacks dinâmicos contextuais se a IA não responder no formato esperado
+    const activeChar = characterName || characterOrTheme
+    const activeIdea = themeIdea || characterOrTheme
+
     if (!sceneConcept) {
-      const concepts = [
-        `💡 IDEIA DE CENA VIRAL:\n${themeName} se envolve em um dilema cômico e inesperado no universo de ${nicheLabel}, chamando a atenção logo nos primeiros 3 segundos com expressões marcantes e iluminação hiper-realista.`,
-        `💡 IDEIA DE CENA VIRAL:\nUma reviravolta emocionante com ${themeName} superando um desafio inusitado, com plano aproximado de alto impacto visual e ritmo dinâmico para retenção máxima no feed.`,
-        `💡 IDEIA DE CENA VIRAL:\nUm flagra intrigante e divertido mostrando ${themeName} quebrando as expectativas do público com carisma único e detalhes texturizados fiéis à sua imagem.`,
-      ]
-      sceneConcept = pickRandom(concepts)
-      if (visualDetails) sceneConcept += `\n🔍 Detalhes da sua imagem: ${visualDetails}`
+      sceneConcept = `💡 IDEIA DE CENA VIRAL:
+${activeChar} vivendo a situação "${activeIdea}" no universo de ${nicheLabel}. Enquadramento direto e de alto impacto visual nos primeiros 3 segundos, mantendo a coerência com a imagem enviada.${visualSummary ? `\n🔍 Detalhes visuais: ${visualSummary}` : ''}`
     }
 
     if (!optionalScript) {
       optionalScript = `[ROTEIRO OPCIONAL SUGERIDO - ~60 SEGUNDOS EM 6 CENAS DE 10S]
 ⏱️ DURAÇÃO ALVO: ~60 Segundos (6 Cenas de até 10s cada)
 🏷️ NICHO: ${nicheLabel}
-🎯 PERSONAGEM/CENA: ${themeName}
+🎯 PERSONAGEM PRINCIPAL: ${activeChar}
+💡 IDEIA CENTRAL: ${activeIdea}
 📌 DIRETRIZES ESSENCIAIS:
 - Idioma da narração: Português Brasileiro (PT-BR)
 - Vídeo totalmente limpo: SEM legendas gravadas na tela, SEM textos impressos no vídeo
-- Roteiro opcional para seguir ou adaptar livremente!
+- Narração em áudio fluida e expressiva
 
 🎬 CENA 1 (0-10s) - GANCHO HIPNÓTICO (HOOK):
-- Visual: Enquadramento direto baseado na sua imagem de ${themeName}. Iluminação dramática destacando detalhes reais (${visualDetails || 'alta nitidez'}).
-- Narração (PT-BR): "Se você acha que já viu de tudo na internet hoje, para tudo e olha o que o(a) ${themeName} fez!"
+- Visual: Enquadramento direto em ${activeChar} iniciando a cena de ${activeIdea}, com a estética e iluminação fiéis à foto de referência (${visualSummary || 'alta definição'}).
+- Narração (PT-BR): "Se você acha que já viu de tudo na internet hoje, para tudo e olha o que o(a) ${activeChar} aprontou agora!"
 
 🎬 CENA 2 (10-20s) - DESENVOLVIMENTO DO CONTEXTO:
-- Visual: Câmera em movimento fluido lateral revelando a ambientação ao redor enquanto ${themeName} se movimenta.
-- Narração (PT-BR): "Ninguém esperava que exatamente hoje esse detalhe curioso fosse acontecer..."
+- Visual: A câmera se move em plano médio revelando a situação de ${activeIdea} enquanto ${activeChar} interage com o ambiente ao redor.
+- Narração (PT-BR): "Tudo começou quando parecia mais um dia normal, até que esse detalhe mudou o rumo de tudo..."
 
 🎬 CENA 3 (20-30s) - A TENSÃO / REVIRAVOLTA:
-- Visual: ${themeName} toma uma atitude inesperada com close nas expressões.
-- Narração (PT-BR): "E foi aí que o rumo dessa história mudou completamente diante de todo mundo!"
+- Visual: Close expressivo em ${activeChar} tomando uma atitude inesperada diante do desafio de ${activeIdea}.
+- Narração (PT-BR): "E foi aí que aconteceu o momento que ninguém esperava ver na internet!"
 
-🎬 CENA 4 (30-40s) - O CLÍMAX DA CENA:
-- Visual: Câmera lenta suave capturando o ápice da ação e da estética visual sem texto na tela.
-- Narração (PT-BR): "Olha a expressão e a sincronia perfeita de cada detalhe em tempo real!"
+🎬 CENA 4 (30-40s) - O CLÍMAX DA HISTÓRIA:
+- Visual: Tomada dinâmica capturando o ápice da ação de ${activeChar} em ${activeIdea}, com iluminação vibrante e vídeo 100% limpo sem texto.
+- Narração (PT-BR): "Olha essa reação em tempo real! É exatamente por isso que essa cena merece viralizar!"
 
-🎬 CENA 5 (40-50s) - A RESOLUÇÃO DA HISTÓRIA:
-- Visual: Tomada de amplitude média enquadrando o desfecho satisfatório e harmônico.
-- Narração (PT-BR): "No final das contas, ficou provado que essa cena merecia mesmo ficar gravada pra sempre!"
+🎬 CENA 5 (40-50s) - A RESOLUÇÃO DA CENA:
+- Visual: O desfecho da situação de ${activeIdea} com ${activeChar} demonstrando alívio ou cumplicidade cômica com a câmera.
+- Narração (PT-BR): "No final das contas, ficou provado que essa aventura do(a) ${activeChar} valeu cada segundo!"
 
 🎬 CENA 6 (50-60s) - FECHAMENTO E ENGAGEMENT (CTA):
-- Visual: ${themeName} olha para a lente com atitude e simpatia. Fade-out elegante.
-- Narração (PT-BR): "O que você faria se estivesse no lugar dele(a)? Comente a sua opinião sincera aqui embaixo e siga para o próximo vídeo!"`
+- Visual: ${activeChar} olha diretamente para a lente com atitude e carisma. Fade-out elegante.
+- Narração (PT-BR): "O que você faria se estivesse no lugar dele(a)? Comente a sua opinião sincera aqui embaixo e já segue para não perder a continuação!"`
     }
 
     return e.json(200, {

@@ -44,6 +44,7 @@ import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
 import { ViralGenerator } from '@/components/ViralGenerator'
 import { ExternalImageToolsCard } from '@/components/ExternalImageToolsCard'
+import { ImagePromptGeneratorCard } from '@/components/ImagePromptGeneratorCard'
 import { RefreshCw } from 'lucide-react'
 
 // Estilos de gravação
@@ -364,12 +365,22 @@ export const ViralVideos: React.FC = () => {
         </div>
       </div>
 
+      {/* ✍️ NOVO: GERADOR DE PROMPT DE IMAGEM (A partir de referência em texto, ex: banana com asas) */}
+      <section id="gerador-prompt-imagem-section" className="scroll-mt-20">
+        <ImagePromptGeneratorCard
+          onScrollToTools={() => {
+            const el = document.getElementById('ferramentas-imagem-externas')
+            if (el) el.scrollIntoView({ behavior: 'smooth' })
+          }}
+        />
+      </section>
+
       {/* INDICAÇÃO DE FERRAMENTAS EXTERNAS GRATUITAS PARA CRIAÇÃO DE IMAGEM */}
       <section id="ferramentas-imagem-externas" className="scroll-mt-20">
         <ExternalImageToolsCard />
       </section>
 
-      {/* GERADOR DE ROTEIROS A PARTIR DE IMAGEM CRIADA */}
+      {/* GERADOR DE ROTEIROS A PARTIR DE IMAGEM CRIADA OU IDEIA */}
       <section id="gerador-viral" className="scroll-mt-20">
         <ViralGenerator />
       </section>

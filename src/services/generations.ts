@@ -579,3 +579,121 @@ export async function getUserGenerations(userId: string): Promise<GenerationReco
     return []
   }
 }
+
+export interface GenerateImagePromptInput {
+  userId?: string
+  idea: string
+  styleOption?: string
+  seed?: number
+}
+
+export interface GenerateImagePromptResult {
+  success: boolean
+  prompt: string
+  original_idea: string
+  used_ai: boolean
+  is_fallback: boolean
+  record_id?: string
+  error?: string
+}
+
+export async function generateImagePrompt(
+  input: GenerateImagePromptInput,
+): Promise<GenerateImagePromptResult> {
+  const seed = input.seed || Math.floor(Math.random() * 1000000)
+  const trimmedIdea = (input.idea || '').trim()
+
+  if (!trimmedIdea) {
+    return {
+      success: false,
+      prompt: '',
+      original_idea: '',
+      used_ai: false,
+      is_fallback: false,
+      error: 'Informe a ideia ou referência para o prompt de imagem.',
+    }
+  }
+
+  let finalPrompt = ''
+  let usedAi = false
+  let isFallback = false
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-image-prompt`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+        },
+        body: JSON.stringify({
+          idea: trimmedIdea,
+          style_option: input.styleOption,
+          seed,
+        }),
+      },
+    )
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data && data.prompt) {
+        finalPrompt = data.prompt
+        usedAi = Boolean(data.used_ai)
+        isFallback = Boolean(data.is_fallback)
+      }
+    }
+  } catch (fetchErr) {
+    console.warn(
+      '[generateImagePrompt] Erro na requisição ao backend, aplicando fallback:',
+      fetchErr,
+    )
+  }
+
+  // Fallback determinístico robusto no frontend caso o backend esteja offline ou não tenha retornado prompt
+  if (!finalPrompt) {
+    let clean = trimmedIdea
+    clean = clean.replace(/\bbanaca\b/gi, 'banana')
+    clean = clean.replace(/\bcrie uma\b/gi, '')
+    clean = clean.replace(/\bcrie um\b/gi, '')
+    clean = clean.replace(/\bcrie\b/gi, '')
+    clean = clean.replace(/\bquero uma\b/gi, '')
+    clean = clean.replace(/\bquero um\b/gi, '')
+    clean = clean.trim()
+    if (!clean) clean = trimmedIdea
+    const subject = clean.charAt(0).toUpperCase() + clean.slice(1)
+
+    finalPrompt = `Fotografia em altíssima definição no formato vertical 9:16 de ${subject}, com fidelidade absoluta aos elementos descritos. Texturas táteis hiper-realistas, cores vibrantes com gradientes naturais, iluminação cinematográfica de estúdio com luz suave de preenchimento e realces delicados nas bordas. Enquadramento central dinâmico, profundidade de campo rasa com plano de fundo suavemente desfocado criando contraste estético. Imagem 100% limpa: sem nenhum texto na tela, sem legendas, sem letras, sem tipografia e sem marca d'água.`
+    isFallback = true
+    usedAi = false
+  }
+
+  // Persistir no histórico da conta (coleção generations) se o usuário estiver logado
+  let savedRecordId: string | undefined = undefined
+  if (input.userId) {
+    try {
+      const rec = await pb.collection('generations').create<GenerationRecord>({
+        user: input.userId,
+        product_name: `Prompt Imagem: ${trimmedIdea.slice(0, 50)}`,
+        niche: 'historinhas_frutas',
+        style: 'pov',
+        platform: 'ambos',
+        target_audience: 'Criadores de Conteúdo (ChatGPT & Google Flow / Nano Banana)',
+        generated_prompt: finalPrompt,
+        image_prompt_description: trimmedIdea,
+      })
+      savedRecordId = rec.id
+    } catch (saveErr) {
+      console.warn('[generateImagePrompt] Erro ao salvar na coleção generations:', saveErr)
+    }
+  }
+
+  return {
+    success: true,
+    prompt: finalPrompt,
+    original_idea: trimmedIdea,
+    used_ai: usedAi,
+    is_fallback: isFallback,
+    record_id: savedRecordId,
+  }
+}

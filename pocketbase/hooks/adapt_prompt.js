@@ -838,3 +838,127 @@ ${photoNotes ? `${photoNotes}\n` : ''}
     })
   }
 })
+
+// ROTA 4: POST /backend/v1/generate-image-prompt
+// Transforma uma ideia/referência em texto simples do cliente em um PROMPT DE IMAGEM profissional,
+// detalhado, em Português Brasileiro (PT-BR), com fidelidade total ao pedido original,
+// formato vertical 9:16 e regra de imagem 100% limpa (sem texto/letras/legendas/marcas d'água na arte).
+// Otimizado para colar diretamente no ChatGPT ou no Google Flow / Nano Banana.
+routerAdd('POST', '/backend/v1/generate-image-prompt', (e) => {
+  const sanitizeText = function (text) {
+    if (!text) return ''
+    let cleaned = String(text)
+    cleaned = cleaned.replace(/^[ \t]*[-•*]?[ \t]*Texto[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+    cleaned = cleaned.replace(/^[ \t]*[-•*]?[ \t]*Legenda[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+    cleaned = cleaned.replace(/^[ \t]*[-•*]?[ \t]*Subtítulo[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+    cleaned = cleaned.replace(/^[ \t]*[-•*]?[ \t]*Overlay[^:\n\r]*:[^\n\r]*\r?\n?/gim, '')
+    return cleaned.replace(/\n{3,}/g, '\n\n').trim()
+  }
+
+  try {
+    const data = e.requestInfo().body || {}
+    const rawIdea = (data.idea || data.prompt_idea || data.reference || '').trim()
+    const styleOption = (data.style_option || data.style || '').trim()
+    const seed = data.seed || Math.floor(Math.random() * 1000000)
+
+    if (!rawIdea) {
+      return e.json(400, {
+        success: false,
+        message: 'Por favor, informe a ideia ou referência da imagem que você quer criar.',
+      })
+    }
+
+    let generatedPrompt = ''
+    let usedAi = false
+
+    // Chamada à IA Skip ($ai.chat) com model "fast"
+    try {
+      const systemInstruction = `Você é um especialista sênior em engenharia de prompts de imagem para inteligências artificiais geradoras (Google Flow, Nano Banana, Gemini Imagen 3, ChatGPT DALL-E 3, Midjourney).
+
+SUA MISSÃO:
+Receber a ideia curta ou referência do usuário (ex: "crie uma banaca com asas", "um cachorro de terno jogando xadrez") e transformá-la em um PROMPT DE IMAGEM PROFISSIONAL, DETALHADO, HIPER-REALISTA E TOTALMENTE FIEL ao que foi pedido.
+
+DIRETRIZES OBRIGATÓRIAS E INEGOCIÁVEIS:
+1. FIDELIDADE ABSOLUTA AO PEDIDO ORIGINAL:
+   - Se o usuário pediu "banana com asas" (mesmo se escreveu "banaca"), o sujeito central DEVE SER exatamente uma banana com asas. Não troque a fruta, não substitua as asas por braços, não invente outro personagem principal. O pedido original deve estar 100% intacto e no centro absoluto da imagem.
+   - Corrija automaticamente e silenciosamente erros de digitação e ortografia da ideia (ex: "banaca" -> "banana", "morango mutante", etc.).
+2. ENRIQUECIMENTO VISUAL PROFISSIONAL (Sem descaracterizar a ideia):
+   - Descreva com riqueza de detalhes: textura da superfície (casca, pele, penas, reflexos), anatomia coerente do objeto/personagem, expressão, pose e interação com o ambiente.
+   - Composição fotográfica: enquadramento cinematográfico vertical no formato 9:16 (aspect ratio 9:16, ideal para Reels, TikTok, Shorts e telas verticais).
+   - Iluminação: iluminação de estúdio profissional, luz volumétrica suave, sombras naturais e profundidade de campo sutil (foco nítido no sujeito, fundo levemente desfocado).
+   - Estilo: fotorrealismo cinematográfico de altíssima definição (estilo 8k, textura tátil vívida, cores equilibradas e vibrantes).
+3. REGRA MANDATÓRIA DE IMAGEM 100% LIMPA:
+   - NUNCA inclua texto, letras, tipografia, palavras, placas com escritas, legendas, marcas d'água ou assinaturas na arte.
+   - Adicione instrução explícita de exclusão no final do prompt: "sem nenhum texto na imagem, sem legendas, sem caracteres, sem marca d'água".
+4. IDIOMA E COMPATIBILIDADE:
+   - O prompt DEVE ser gerado em PORTUGUÊS BRASILEIRO (PT-BR) claro, conciso e direto.
+   - Otimizado para copiar e colar diretamente no ChatGPT ou no Google Flow / Nano Banana.
+5. FORMATO DE RETORNO:
+   - Responda DIRETAMENTE com o texto do prompt pronto para copiar e colar.
+   - NÃO inclua introduções como "Aqui está o seu prompt:", NÃO coloque aspas no início/fim, NÃO use blocos de código com markdown. Retorne apenas o prompt de imagem final e pronto.`
+
+      const userInstruction = `Transforme esta ideia em um prompt de imagem profissional de alta fidelidade:
+"${rawIdea}"
+
+${styleOption ? `Estilo preferencial indicado: ${styleOption}` : ''}
+Variação/Seed: #${seed}
+
+Gere o prompt em Português Brasileiro (PT-BR), vertical 9:16, 100% fiel ao elemento pedido, com imagem limpa sem texto na tela.`
+
+      const reply = $ai.chat({
+        model: 'fast',
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: userInstruction },
+        ],
+      })
+
+      if (reply && reply.choices && reply.choices[0] && reply.choices[0].message) {
+        const rawContent = reply.choices[0].message.content || ''
+        const cleaned = sanitizeText(rawContent)
+          .replace(/^["']|["']$/g, '')
+          .trim()
+        if (cleaned && cleaned.length >= 30) {
+          generatedPrompt = cleaned
+          usedAi = true
+        }
+      }
+    } catch (aiErr) {
+      console.log(
+        'generate-image-prompt: falha no $ai.chat, usando fallback determinístico: ' +
+          aiErr.message,
+      )
+    }
+
+    // Fallback determinístico caso o $ai.chat não esteja disponível
+    if (!generatedPrompt) {
+      // Correções comuns simples de ortografia da ideia do usuário
+      let cleanIdea = rawIdea
+      cleanIdea = cleanIdea.replace(/\bbanaca\b/gi, 'banana')
+      cleanIdea = cleanIdea.replace(/\bcrie uma\b/gi, '')
+      cleanIdea = cleanIdea.replace(/\bcrie um\b/gi, '')
+      cleanIdea = cleanIdea.replace(/\bcrie\b/gi, '')
+      cleanIdea = cleanIdea.replace(/\bquero uma\b/gi, '')
+      cleanIdea = cleanIdea.replace(/\bquero um\b/gi, '')
+      cleanIdea = cleanIdea.trim()
+      if (!cleanIdea) cleanIdea = rawIdea
+
+      const subjectFirst = cleanIdea.charAt(0).toUpperCase() + cleanIdea.slice(1)
+
+      generatedPrompt = `Fotografia em altíssima definição no formato vertical 9:16 de ${subjectFirst}, com fidelidade absoluta aos elementos descritos. Texturas táteis hiper-realistas, cores vibrantes com gradientes naturais, iluminação cinematográfica de estúdio com luz suave de preenchimento e realces delicados nas bordas. Enquadramento central dinâmico, profundidade de campo rasa com plano de fundo suavemente desfocado criando contraste estético. Imagem 100% limpa: sem nenhum texto na tela, sem legendas, sem letras, sem tipografia e sem marca d'água.`
+    }
+
+    return e.json(200, {
+      success: true,
+      prompt: generatedPrompt,
+      original_idea: rawIdea,
+      used_ai: usedAi,
+      is_fallback: !usedAi,
+    })
+  } catch (err) {
+    return e.json(500, {
+      success: false,
+      message: 'Erro ao gerar prompt de imagem: ' + (err.message || String(err)),
+    })
+  }
+})

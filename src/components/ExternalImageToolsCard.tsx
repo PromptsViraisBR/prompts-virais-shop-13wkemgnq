@@ -92,7 +92,8 @@ const EXTERNAL_TOOLS: ToolCard[] = [
 
 export const ExternalImageToolsCard: React.FC = () => {
   const scrollToGenerator = () => {
-    const el = document.getElementById('gerador-viral')
+    const el =
+      document.getElementById('gerador-prompt-imagem') || document.getElementById('gerador-viral')
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' })
     }
@@ -128,11 +129,26 @@ export const ExternalImageToolsCard: React.FC = () => {
           </p>
         </div>
 
-        {/* CTA rápido para descer até o gerador */}
-        <div className="shrink-0">
+        {/* CTA rápido para navegar entre os blocos */}
+        <div className="shrink-0 flex flex-col sm:flex-row gap-2">
           <Button
             type="button"
-            onClick={scrollToGenerator}
+            onClick={() => {
+              const el = document.getElementById('gerador-prompt-imagem')
+              if (el) el.scrollIntoView({ behavior: 'smooth' })
+            }}
+            variant="outline"
+            className="w-full sm:w-auto text-xs font-bold rounded-2xl border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/20 gap-1.5 h-10 shadow-xs"
+          >
+            <Wand2 className="w-4 h-4 text-purple-500" />
+            <span>✍️ Criar Prompt para Imagem</span>
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('gerador-viral')
+              if (el) el.scrollIntoView({ behavior: 'smooth' })
+            }}
             variant="outline"
             className="w-full sm:w-auto text-xs font-bold rounded-2xl border-pink-500/40 text-pink-600 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-950/20 gap-1.5 h-10 shadow-xs"
           >

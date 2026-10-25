@@ -894,9 +894,6 @@ export const ViralVideos: React.FC = () => {
           userId={user.id}
           onPaymentSuccess={(newBalance) => {
             setExtraCreditsBalance(newBalance)
-            setTimeout(() => {
-              handleCustomRegenerate()
-            }, 300)
           }}
         />
       )}

@@ -734,9 +734,6 @@ export const Library: React.FC = () => {
           userId={user.id}
           onPaymentSuccess={(newBalance) => {
             setExtraCreditsBalance(newBalance)
-            setTimeout(() => {
-              handleCustomRegenerate()
-            }, 300)
           }}
         />
       )}

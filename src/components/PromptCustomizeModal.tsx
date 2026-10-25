@@ -23,7 +23,7 @@ import {
   ArrowRight,
   SlidersHorizontal,
 } from 'lucide-react'
-import type { PromptRecord, PromptVariation } from '@/types'
+import type { PromptRecord } from '@/types'
 import { toast } from '@/hooks/use-toast'
 import { PromptInfoCard } from '@/components/PromptInfoCard'
 import { PromptSceneList } from '@/components/PromptSceneList'
@@ -31,6 +31,7 @@ import {
   adaptPromptWithImages,
   regeneratePromptVariations,
   saveGeneratedPrompt,
+  type PromptVariation,
 } from '@/services/generations'
 import { consumeExtraRegenerationCredit } from '@/services/regenerationCredits'
 

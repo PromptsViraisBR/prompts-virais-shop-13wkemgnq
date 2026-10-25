@@ -51,6 +51,19 @@ export async function subscribePlan(
 }
 
 export async function cancelSubscription(subscriptionId: string): Promise<SubscriptionRecord> {
+  // Chama a rota oficial do backend para cancelar no Mercado Pago e na base
+  try {
+    await pb.send('/backend/v1/mp/cancel-subscription', {
+      method: 'POST',
+      body: { subscription_id: subscriptionId },
+    })
+  } catch (err) {
+    console.warn(
+      'cancel-subscription hook falhou ou MP indisponível, aplicando atualização direta:',
+      err,
+    )
+  }
+
   return await pb.collection('subscriptions').update<SubscriptionRecord>(subscriptionId, {
     status: 'cancelled',
   })

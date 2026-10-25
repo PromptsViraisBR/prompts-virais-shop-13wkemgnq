@@ -37,6 +37,7 @@ export interface UserRecord {
   email: string
   name?: string
   avatar?: string
+  is_admin?: boolean
   xai_api_key?: string
   google_ai_api_key?: string
   created: string
@@ -50,8 +51,29 @@ export interface SubscriptionRecord {
   status: SubscriptionStatus
   start_date?: string
   end_date?: string
+  next_payment_date?: string
   card_last4?: string
   card_brand?: string
+  mp_preapproval_id?: string
+  mp_payment_id?: string
+  external_reference?: string
+  payer_email?: string
+  created: string
+  updated: string
+}
+
+export interface PaymentHistoryRecord {
+  id: string
+  user?: string
+  mp_payment_id: string
+  mp_preapproval_id?: string
+  external_reference?: string
+  payment_type?: string
+  status: string
+  status_detail?: string
+  transaction_amount?: number
+  payer_email?: string
+  payment_method_id?: string
   created: string
   updated: string
 }

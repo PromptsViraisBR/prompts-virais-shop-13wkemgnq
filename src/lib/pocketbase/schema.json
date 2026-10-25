@@ -29,19 +29,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "xai_api_key",
@@ -90,22 +85,14 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "free",
-            "monthly",
-            "annual"
-          ]
+          "selectValues": ["free", "monthly", "annual"]
         },
         {
           "name": "status",
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "active",
-            "cancelled",
-            "expired"
-          ]
+          "selectValues": ["active", "cancelled", "expired"]
         },
         {
           "name": "start_date",
@@ -136,19 +123,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "mp_preapproval_id",
@@ -245,11 +227,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "pov",
-            "modelo",
-            "unboxing_vitrine"
-          ]
+          "selectValues": ["pov", "modelo", "unboxing_vitrine"]
         },
         {
           "name": "prompt_text",
@@ -274,11 +252,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "tiktok_shop",
-            "shopee",
-            "ambos"
-          ]
+          "selectValues": ["tiktok_shop", "shopee", "ambos"]
         },
         {
           "name": "is_free",
@@ -297,19 +271,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "reference_image_url",
@@ -328,10 +297,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "ecommerce",
-            "virais"
-          ]
+          "selectValues": ["ecommerce", "virais"]
         }
       ],
       "indexes": [
@@ -370,19 +336,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -450,22 +411,14 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "pov",
-            "modelo",
-            "unboxing_vitrine"
-          ]
+          "selectValues": ["pov", "modelo", "unboxing_vitrine"]
         },
         {
           "name": "platform",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "tiktok_shop",
-            "shopee",
-            "ambos"
-          ]
+          "selectValues": ["tiktok_shop", "shopee", "ambos"]
         },
         {
           "name": "target_audience",
@@ -484,19 +437,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "generated_image_url",
@@ -547,9 +495,7 @@
           "system": false
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"
-      ]
+      "indexes": ["CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"]
     },
     {
       "name": "video_credits_usage",
@@ -592,19 +538,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -659,19 +600,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -761,19 +697,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [

@@ -21,7 +21,9 @@ import {
   Zap,
 } from 'lucide-react'
 import { purchaseExtraRegenerations } from '@/services/regenerationCredits'
+import { createMercadoPagoCheckout } from '@/services/mercadoPago'
 import { useToast } from '@/hooks/use-toast'
+import { ExternalLink, Lock, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 
 interface RegenerationPaymentModalProps {
@@ -89,35 +91,40 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
 
     setProcessing(true)
     try {
-      // Simulação rápida de processamento demonstrativo
-      await new Promise((r) => setTimeout(r, 600))
-
-      const updated = await purchaseExtraRegenerations({
-        userId,
+      // Inicia checkout oficial no Mercado Pago para compra avulsa de créditos (R$ 1,99 por unidade)
+      const res = await createMercadoPagoCheckout({
+        type: 'credits',
         quantity,
-        cardNumber: paymentTab === 'saved_card' ? savedCardLast4 : cardNumber,
-        paymentMethod:
-          paymentTab === 'pix' ? 'pix' : paymentTab === 'saved_card' ? 'saved_card' : 'card',
       })
 
-      const methodDesc =
-        paymentTab === 'saved_card'
-          ? `Cartão cadastrado final ${savedCardLast4}`
-          : paymentTab === 'pix'
-            ? 'Pix instantâneo'
-            : 'Novo cartão'
+      if (res.code === 'PAYMENTS_NOT_CONFIGURED' || !res.success) {
+        toast({
+          title: 'Pagamentos em Configuração',
+          description:
+            res.error ||
+            'O administrador precisa inserir o token do Mercado Pago no painel Skip Cloud para processar cobranças reais.',
+          variant: 'destructive',
+        })
+        return
+      }
 
-      toast({
-        title: '🎉 Créditos de Regeneração Liberados!',
-        description: `Você adquiriu ${quantity} prompt(s) de regeneração extra por ${totalPrice} via ${methodDesc} (simulação demonstrativa).`,
-      })
-
-      onPaymentSuccess(updated.extra_prompts_balance)
-      onOpenChange(false)
+      if (res.init_point) {
+        toast({
+          title: 'Redirecionando para o Mercado Pago...',
+          description: 'Conclua a compra com Pix, Cartão ou Boleto oficial.',
+        })
+        window.location.href = res.init_point
+      } else {
+        toast({
+          title: 'Erro ao gerar checkout',
+          description: res.error || 'Não foi possível iniciar a preferência no Mercado Pago.',
+          variant: 'destructive',
+        })
+      }
     } catch (err: any) {
       toast({
-        title: 'Erro no pagamento demonstrativo',
-        description: err.message || 'Tente novamente.',
+        title: 'Erro na conexão',
+        description: err.message || 'Falha ao conectar com o serviço do Mercado Pago.',
         variant: 'destructive',
       })
     } finally {
@@ -140,12 +147,12 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
         </DialogHeader>
 
         <div className="space-y-4 py-1">
-          {/* Alerta de demonstração */}
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+          {/* Selo oficial Mercado Pago */}
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
             <span>
-              <strong>Ambiente de Demonstração:</strong> Nenhuma cobrança real será realizada. O
-              saldo será creditado na sua conta no banco de dados imediatamente.
+              <strong>Pagamento Seguro via Mercado Pago:</strong> Checkout Pro oficial com liberação
+              automática de créditos assim que o pagamento for aprovado.
             </span>
           </div>
 
@@ -400,17 +407,21 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
             <Button
               type="button"
               onClick={() => handleConfirm()}
-              className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-1.5"
+              className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-1.5 shadow-md"
               disabled={processing}
             >
-              <ShieldCheck className="w-4 h-4" />
-              {processing
-                ? 'Confirmando...'
-                : paymentTab === 'saved_card'
-                  ? `Pagar ${totalPrice} com Cartão Salvo (1 Clique)`
-                  : paymentTab === 'pix'
-                    ? `Confirmar Pagamento Pix (${totalPrice})`
-                    : `Pagar ${totalPrice} & Liberar`}
+              {processing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Gerando Checkout...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  Pagar {totalPrice} no Mercado Pago
+                  <ExternalLink className="w-4 h-4 ml-1" />
+                </>
+              )}
             </Button>
           </DialogFooter>
         </div>

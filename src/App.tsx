@@ -15,6 +15,8 @@ import { ViralVideos } from './pages/ViralVideos'
 import { PromptDetail } from './pages/PromptDetail'
 import { Generator } from './pages/Generator'
 import { Profile } from './pages/Profile'
+import { CheckoutSuccess } from './pages/CheckoutSuccess'
+import { AdminDashboard } from './pages/AdminDashboard'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -33,6 +35,8 @@ const App = () => (
             <Route path="/prompt/:id" element={<PromptDetail />} />
             <Route path="/gerador" element={<Generator />} />
             <Route path="/perfil" element={<Profile />} />
+            <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

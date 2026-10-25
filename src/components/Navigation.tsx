@@ -162,6 +162,15 @@ export const Navbar: React.FC = () => {
                   </div>
                   <div className="px-2 py-1 lg:hidden">{planBadge()}</div>
                   <DropdownMenuSeparator />
+                  {(user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
+                    <DropdownMenuItem
+                      onClick={() => navigate('/admin')}
+                      className="cursor-pointer gap-2 text-pink-600 dark:text-pink-400 font-semibold"
+                    >
+                      <Crown className="w-4 h-4 text-pink-500" />
+                      Painel Admin Mercado Pago
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={() => navigate('/perfil')}
                     className="cursor-pointer gap-2"
@@ -293,6 +302,17 @@ export const Navbar: React.FC = () => {
                   <span className="truncate">{user.email}</span>
                   {planBadge()}
                 </div>
+                {(user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
+                  <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 text-sm border-pink-500/30 text-pink-600"
+                    >
+                      <Crown className="w-4 h-4 text-pink-500" />
+                      Painel Admin Mercado Pago
+                    </Button>
+                  </Link>
+                )}
                 <Link to="/perfil" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="outline" className="w-full justify-start gap-2 text-sm">
                     <User className="w-4 h-4" />

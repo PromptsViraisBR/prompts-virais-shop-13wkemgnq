@@ -50,6 +50,44 @@ routerAdd('POST', '/backend/v1/adapt-prompt', (e) => {
     const category = (data.category || '').trim()
     const iterationSeed = data.iteration_seed || data.seed || Math.floor(Math.random() * 1000000)
 
+    const authUser = e.auth
+    // Verificação de acesso: Se o usuário estiver logado, checa se é PRO ou possui créditos extras
+    // Se não for PRO nem tiver créditos, bloqueia no servidor
+    if (authUser) {
+      let isProActive = false
+      try {
+        const subs = $app.findRecordsByFilter(
+          'subscriptions',
+          `user = "${authUser.id}" && status = "active" && (plan = "monthly" || plan = "annual")`,
+          '-created',
+          1,
+          0,
+        )
+        if (subs && subs.length > 0) isProActive = true
+      } catch (_) {}
+
+      // Se não é PRO, verificar se possui créditos extras de regeneração
+      if (!isProActive) {
+        let hasCredits = false
+        try {
+          const credRec = $app.findFirstRecordByData('regeneration_credits', 'user', authUser.id)
+          if (credRec && credRec.getInt('extra_prompts_balance') > 0) {
+            hasCredits = true
+          }
+        } catch (_) {}
+
+        // Se a requisição veio explicitamente para adaptação de catálogo avançada e não possui PRO nem créditos extras
+        if (!hasCredits && data.require_pro) {
+          return e.json(403, {
+            success: false,
+            error:
+              'Recurso exclusivo do Plano PRO. Faça upgrade para desbloquear adaptação ilimitada!',
+            code: 'PRO_REQUIRED',
+          })
+        }
+      }
+    }
+
     const isViral =
       category === 'virais' ||
       basePrompt.includes('60 SEGUNDOS') ||

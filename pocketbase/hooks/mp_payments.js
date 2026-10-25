@@ -3,63 +3,34 @@
 /**
  * Hook de Pagamentos Mercado Pago (APIs oficiais):
  * 1. GET  /backend/v1/mp/config-status
- *    - Informa ao frontend se as credenciais MERCADO_PAGO_ACCESS_TOKEN e MERCADO_PAGO_WEBHOOK_SECRET
- *      estão devidamente configuradas no backend.
- *
  * 2. POST /backend/v1/mp/create-checkout
- *    - Cria Checkout Pro (preparação de preferência) para Plano Anual VIP (R$ 238,80) e Créditos Extras (R$ 1,99 unid).
- *    - Cria Assinatura Recorrente (/preapproval) para Plano Mensal PRO (R$ 19,90/mês).
- *    - Requer usuário autenticado. Retorna `init_point` seguro oficial do Mercado Pago para redirecionamento.
- *
  * 3. POST /backend/v1/mp/webhook
- *    - Recebe notificações HTTP POST do Mercado Pago.
- *    - Validação de segurança obrigatória via x-signature (HMAC SHA-256 com MERCADO_PAGO_WEBHOOK_SECRET)
- *      usando o template oficial: id:[data.id];request-id:[x-request-id];ts:[ts];
- *    - NUNCA confia no corpo do webhook: consulta diretamente as APIs oficiais do MP (/v1/payments/{id}
- *      ou /preapproval/{id}) com o token privado no backend.
- *    - Idempotência: grava em payments_history para não reprocessar o mesmo payment_id.
- *    - Atualiza subscriptions (active, cancelled, expired) ou regeneration_credits com precisão.
- *
  * 4. POST /backend/v1/mp/cancel-subscription
- *    - Permite que o assinante cancele sua assinatura ativa no Mercado Pago (PUT /preapproval/{id} -> status: "cancelled").
- *    - Atualiza a coleção subscriptions para status "cancelled".
+ * 5. GET  /backend/v1/mp/admin/overview
  *
- * 5. GET /backend/v1/mp/admin/overview
- *    - Rota administrativa para o dono da aplicação consultar estatísticas, usuários, planos e pagamentos recentes.
- *    - Protegida por verificação de is_admin no usuário autenticado.
+ * REGRA CRÍTICA POCKETBASE JSVM:
+ * Todas as funções utilitárias e variáveis ficam INLINE dentro do corpo de cada callback de rota
+ * para evitar ReferenceError no pool JSVM.
  */
-
-// Helper interno para obter credenciais do Mercado Pago
-function getMpCredentials() {
-  const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
-  const webhookSecret = ($os.getenv('MERCADO_PAGO_WEBHOOK_SECRET') || '').trim()
-  return { token, webhookSecret, isConfigured: Boolean(token) }
-}
-
-// Helper interno para obter a URL base pública do site
-function getPublicSiteUrl() {
-  let siteUrl = ($os.getenv('SITE_URL') || '').trim()
-  if (!siteUrl) {
-    siteUrl = 'https://prompts-virais-shop-16b33.goskip.app'
-  }
-  return siteUrl.replace(/\/+$/, '')
-}
 
 // -------------------------------------------------------------
 // ROTA 1: GET /backend/v1/mp/config-status
 // -------------------------------------------------------------
 routerAdd('GET', '/backend/v1/mp/config-status', (e) => {
   try {
-    const creds = getMpCredentials()
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
+    const webhookSecret = ($os.getenv('MERCADO_PAGO_WEBHOOK_SECRET') || '').trim()
+    const isConfigured = Boolean(token)
+
     return e.json(200, {
       success: true,
-      configured: creds.isConfigured,
-      has_token: Boolean(creds.token),
-      has_webhook_secret: Boolean(creds.webhookSecret),
+      configured: isConfigured,
+      has_token: Boolean(token),
+      has_webhook_secret: Boolean(webhookSecret),
       webhook_url: 'https://prompts-virais-shop-16b33.goskip.app/backend/v1/mp/webhook',
-      message: creds.isConfigured
+      message: isConfigured
         ? 'Mercado Pago pronto para processamento real.'
-        : 'Pagamentos em configuração: o administrador precisa inserir MERCADO_PAGO_ACCESS_TOKEN nas variáveis de ambiente.',
+        : 'Pagamentos em configuração: o administrador precisa inserir MERCADO_PAGO_ACCESS_TOKEN nas variáveis de ambiente do Skip Cloud.',
     })
   } catch (err) {
     return e.json(500, { success: false, error: err.message || String(err) })
@@ -79,15 +50,21 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
       })
     }
 
-    const creds = getMpCredentials()
-    if (!creds.token) {
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
+    if (!token) {
       return e.json(503, {
         success: false,
         code: 'PAYMENTS_NOT_CONFIGURED',
         error:
-          'O sistema de pagamentos está em configuração. As chaves oficiais do Mercado Pago ainda não foram configuradas.',
+          'O sistema de pagamentos está em configuração. As credenciais oficiais do Mercado Pago ainda não foram configuradas.',
       })
     }
+
+    let siteUrl = ($os.getenv('SITE_URL') || '').trim()
+    if (!siteUrl) {
+      siteUrl = 'https://prompts-virais-shop-16b33.goskip.app'
+    }
+    siteUrl = siteUrl.replace(/\/+$/, '')
 
     const reqInfo = e.requestInfo()
     const body = reqInfo.body || {}
@@ -95,7 +72,6 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
     const plan = (body.plan || 'monthly').toLowerCase().trim() // 'monthly' | 'annual'
     const creditsQuantity = parseInt(body.quantity || '1', 10)
 
-    const siteUrl = getPublicSiteUrl()
     const userEmail = authUser.getString('email') || ''
     const userId = authUser.id
 
@@ -123,7 +99,7 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
         url: 'https://api.mercadopago.com/preapproval',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${creds.token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(preapprovalPayload),
         timeout: 30,
@@ -154,9 +130,7 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
     }
 
     // FLUXO B: Checkout Pro (API /checkout/preferences)
-    // Usado para:
-    //  - Plano Anual VIP (R$ 238,80 / ano em parcela única)
-    //  - Compra avulsa de Créditos de Regeneração (R$ 1,99 por crédito)
+    // Para Anual VIP (R$ 238,80) e Créditos Extras (R$ 1,99 unid)
     let preferenceItems = []
     let externalRef = ''
     let successBackUrl = ''
@@ -216,7 +190,7 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
       url: 'https://api.mercadopago.com/checkout/preferences',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${creds.token}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(preferencePayload),
       timeout: 30,
@@ -253,8 +227,10 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
 // -------------------------------------------------------------
 routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
   try {
-    const creds = getMpCredentials()
-    if (!creds.token) {
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
+    const webhookSecret = ($os.getenv('MERCADO_PAGO_WEBHOOK_SECRET') || '').trim()
+
+    if (!token) {
       console.warn('[mp-webhook] MERCADO_PAGO_ACCESS_TOKEN ausente. Ignorando evento.')
       return e.json(503, { success: false, error: 'Mercado Pago não configurado.' })
     }
@@ -265,7 +241,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
     const body = reqInfo.body || {}
 
     // 1. Validação de Assinatura se MERCADO_PAGO_WEBHOOK_SECRET estiver configurado
-    if (creds.webhookSecret) {
+    if (webhookSecret) {
       const xSignature = headers['x-signature'] || headers['X-Signature'] || ''
       const xRequestId = headers['x-request-id'] || headers['X-Request-Id'] || ''
 
@@ -274,7 +250,6 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         return e.json(401, { success: false, error: 'Assinatura x-signature ausente.' })
       }
 
-      // x-signature tem formato: ts=1704908010,v1=618c8534...
       let ts = ''
       let hashV1 = ''
       const parts = xSignature.split(',')
@@ -284,13 +259,9 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         if (p.startsWith('v1=')) hashV1 = p.substring(3)
       }
 
-      // ID do recurso pode vir em query['data.id'] ou body.data.id ou query['id']
       const dataIdRaw = query['data.id'] || (body.data && body.data.id) || query['id'] || ''
       const dataIdLower = String(dataIdRaw).toLowerCase().trim()
 
-      // Manifest oficial do Mercado Pago:
-      // Template: "id:[data.id_url];request-id:[x-request-id_header];ts:[ts_header];"
-      // Obs.: caso algum parâmetro não venha, remove-se do manifest conforme doc oficial.
       let manifest = ''
       if (dataIdLower) {
         manifest += `id:${dataIdLower};`
@@ -302,7 +273,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         manifest += `ts:${ts};`
       }
 
-      const calculatedHash = $security.hs256(manifest, creds.webhookSecret)
+      const calculatedHash = $security.hs256(manifest, webhookSecret)
       if (calculatedHash !== hashV1) {
         console.warn('[mp-webhook] Assinatura inválida:', {
           calculatedHash,
@@ -314,17 +285,8 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
     }
 
     // 2. Extrair tópico / tipo do evento recebido
-    // Notificações do MP podem vir como:
-    //  - type: "payment" ou topic: "payment"
-    //  - type: "subscription_preapproval" ou topic: "subscription_preapproval"
-    //  - action: "payment.created", "payment.updated"
     const eventType = (body.type || query.type || body.topic || query.topic || '').toLowerCase()
-    const resourceId =
-      query['data.id'] ||
-      (body.data && body.data.id) ||
-      body.id ||
-      query.id ||
-      ''
+    const resourceId = query['data.id'] || (body.data && body.data.id) || body.id || query.id || ''
 
     if (!resourceId) {
       return e.json(200, { success: true, message: 'Evento sem resourceId ignorado.' })
@@ -332,16 +294,13 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
 
     console.log(`[mp-webhook] Recebido evento tipo="${eventType}" id="${resourceId}"`)
 
-    // -------------------------------------------------------------------------
-    // CASO A: Tópico PAYMENT (Checkout Pro ou cobrança de assinatura)
-    // -------------------------------------------------------------------------
+    // CASO A: Tópico PAYMENT (Checkout Pro ou cobrança avulsa)
     if (eventType === 'payment' || (!eventType && String(resourceId).length > 5)) {
-      // NUNCA confiar no corpo: buscar pagamento diretamente na API do MP
       const pmtRes = $http.send({
         method: 'GET',
         url: `https://api.mercadopago.com/v1/payments/${resourceId}`,
         headers: {
-          Authorization: `Bearer ${creds.token}`,
+          Authorization: `Bearer ${token}`,
         },
         timeout: 30,
       })
@@ -362,9 +321,9 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       const paymentMethodId = pmtData.payment_method_id || ''
       const cardInfo = pmtData.card || {}
       const cardLast4 = cardInfo.last_four_digits || ''
-      const cardBrand = (pmtData.payment_method && pmtData.payment_method.id) || paymentMethodId || ''
+      const cardBrand =
+        (pmtData.payment_method && pmtData.payment_method.id) || paymentMethodId || ''
 
-      // Identificar o usuário correspondente
       let targetUserId = ''
       let isSubscriptionPayment = false
       let planTarget = 'monthly'
@@ -372,15 +331,13 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       let creditsToAdd = 0
 
       if (externalRef.startsWith('sub_')) {
-        // Formato: sub_{userId}_{plan}_{timestamp}
         const spl = externalRef.split('_')
         if (spl.length >= 3) {
           targetUserId = spl[1]
-          planTarget = spl[2] // 'monthly' ou 'annual'
+          planTarget = spl[2]
           isSubscriptionPayment = true
         }
       } else if (externalRef.startsWith('credits_')) {
-        // Formato: credits_{userId}_{qty}_{timestamp}
         const spl = externalRef.split('_')
         if (spl.length >= 3) {
           targetUserId = spl[1]
@@ -389,7 +346,6 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         }
       }
 
-      // Se não encontrou userId pelo external_reference, tentar buscar pelo email do pagador
       if (!targetUserId && payerEmail) {
         try {
           const userRec = $app.findAuthRecordByEmail('_pb_users_auth_', payerEmail)
@@ -397,21 +353,26 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         } catch (_) {}
       }
 
-      // IDEMPOTÊNCIA: Registrar ou atualizar na tabela payments_history
+      // Idempotência com payments_history
       let existingHistoryRec = null
       try {
-        existingHistoryRec = $app.findFirstRecordByData('payments_history', 'mp_payment_id', String(resourceId))
+        existingHistoryRec = $app.findFirstRecordByData(
+          'payments_history',
+          'mp_payment_id',
+          String(resourceId),
+        )
       } catch (_) {}
 
       if (existingHistoryRec) {
-        // Se já foi registrado como approved anteriormente, não concede créditos nem reativa à toa
         const previousStatus = existingHistoryRec.getString('status')
         existingHistoryRec.set('status', pmtStatus)
         existingHistoryRec.set('status_detail', pmtStatusDetail)
         $app.save(existingHistoryRec)
 
         if (previousStatus === 'approved') {
-          console.log(`[mp-webhook] Pagamento ${resourceId} já havia sido processado como approved.`)
+          console.log(
+            `[mp-webhook] Pagamento ${resourceId} já processado anteriormente como approved.`,
+          )
           return e.json(200, { success: true, message: 'Pagamento já processado anteriormente.' })
         }
       } else {
@@ -434,10 +395,9 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         }
       }
 
-      // AÇÃO REAL CONFORME O STATUS DO PAGAMENTO:
+      // Ações com base no status do pagamento
       if (targetUserId && pmtStatus === 'approved') {
         if (isCreditsPayment && creditsToAdd > 0) {
-          // Conceder créditos na coleção regeneration_credits
           try {
             let credRecord = null
             try {
@@ -461,12 +421,14 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               if (cardLast4) newCred.set('last_purchase_card_last4', cardLast4)
               $app.save(newCred)
             }
-            console.log(`[mp-webhook] Concedidos ${creditsToAdd} créditos para o usuário ${targetUserId}`)
+            console.log(
+              `[mp-webhook] Concedidos ${creditsToAdd} créditos para usuário ${targetUserId}`,
+            )
           } catch (cErr) {
             console.error('[mp-webhook] Erro ao conceder créditos:', cErr)
           }
         } else {
-          // Ativação da assinatura na coleção subscriptions
+          // Ativação da assinatura
           try {
             const now = new Date()
             const endDate = new Date()
@@ -516,13 +478,17 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               newSub.set('card_brand', cardBrand || 'Mastercard')
               $app.save(newSub)
             }
-            console.log(`[mp-webhook] Assinatura ${planTarget} ativada para usuário ${targetUserId}`)
+            console.log(
+              `[mp-webhook] Assinatura ${planTarget} ativada para usuário ${targetUserId}`,
+            )
           } catch (subSaveErr) {
             console.error('[mp-webhook] Erro ao salvar assinatura:', subSaveErr)
           }
         }
-      } else if (targetUserId && (pmtStatus === 'rejected' || pmtStatus === 'cancelled' || pmtStatus === 'refunded')) {
-        // Bloqueio / suspensão se o pagamento da assinatura foi cancelado ou estornado
+      } else if (
+        targetUserId &&
+        (pmtStatus === 'rejected' || pmtStatus === 'cancelled' || pmtStatus === 'refunded')
+      ) {
         if (isSubscriptionPayment) {
           try {
             const userSubs = $app.findRecordsByFilter(
@@ -536,10 +502,12 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               const sRec = userSubs[0]
               sRec.set('status', 'cancelled')
               $app.save(sRec)
-              console.log(`[mp-webhook] Assinatura cancelada para usuário ${targetUserId} devido a pagamento ${pmtStatus}`)
+              console.log(
+                `[mp-webhook] Assinatura cancelada para usuário ${targetUserId} devido a pagamento ${pmtStatus}`,
+              )
             }
           } catch (subCancelErr) {
-            console.warn('[mp-webhook] Erro ao suspender assinatura por pagamento rejeitado:', subCancelErr)
+            console.warn('[mp-webhook] Erro ao suspender assinatura:', subCancelErr)
           }
         }
       }
@@ -547,15 +515,13 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       return e.json(200, { success: true, processed_payment: resourceId, status: pmtStatus })
     }
 
-    // -------------------------------------------------------------------------
-    // CASO B: Tópico SUBSCRIPTION_PREAPPROVAL (Assinatura Recorrente)
-    // -------------------------------------------------------------------------
+    // CASO B: Tópico SUBSCRIPTION_PREAPPROVAL
     if (eventType === 'subscription_preapproval' || eventType === 'preapproval') {
       const preapprovalRes = $http.send({
         method: 'GET',
         url: `https://api.mercadopago.com/preapproval/${resourceId}`,
         headers: {
-          Authorization: `Bearer ${creds.token}`,
+          Authorization: `Bearer ${token}`,
         },
         timeout: 30,
       })
@@ -568,7 +534,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       }
 
       const preData = preapprovalRes.json || {}
-      const preStatus = (preData.status || '').toLowerCase() // authorized, paused, cancelled, pending
+      const preStatus = (preData.status || '').toLowerCase()
       const externalRef = preData.external_reference || ''
       const payerEmail = preData.payer_email || ''
       const nextPaymentDate = preData.next_payment_date || ''
@@ -600,7 +566,9 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
 
         if (preStatus === 'authorized') {
           const now = new Date()
-          const endDate = nextPaymentDate ? new Date(nextPaymentDate) : new Date(now.getTime() + 31 * 24 * 3600 * 1000)
+          const endDate = nextPaymentDate
+            ? new Date(nextPaymentDate)
+            : new Date(now.getTime() + 31 * 24 * 3600 * 1000)
 
           if (subRecord) {
             subRecord.set('plan', 'monthly')
@@ -631,7 +599,9 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
           if (subRecord) {
             subRecord.set('status', 'cancelled')
             $app.save(subRecord)
-            console.log(`[mp-webhook] Assinatura cancelada para ${targetUserId} (preapproval status=${preStatus})`)
+            console.log(
+              `[mp-webhook] Assinatura cancelada para ${targetUserId} (preapproval status=${preStatus})`,
+            )
           }
         }
       }
@@ -641,7 +611,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
 
     return e.json(200, { success: true, message: 'Evento recebido com sucesso.' })
   } catch (err) {
-    console.error('[mp-webhook] Erro fatal no processamento:', err)
+    console.error('[mp-webhook] Erro fatal:', err)
     return e.json(500, { success: false, error: err.message || String(err) })
   }
 })
@@ -656,12 +626,11 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const creds = getMpCredentials()
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
     const reqInfo = e.requestInfo()
     const body = reqInfo.body || {}
     const subscriptionId = (body.subscription_id || '').trim()
 
-    // Localizar a assinatura
     let sub = null
     if (subscriptionId) {
       try {
@@ -684,16 +653,15 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
 
     const preapprovalId = sub.getString('mp_preapproval_id')
 
-    // Se houver preapproval no Mercado Pago e credenciais presentes, cancelar na API oficial do MP
     let mpCancelled = false
-    if (preapprovalId && creds.token) {
+    if (preapprovalId && token) {
       try {
         const mpRes = $http.send({
           method: 'PUT',
           url: `https://api.mercadopago.com/preapproval/${preapprovalId}`,
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${creds.token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ status: 'cancelled' }),
           timeout: 20,
@@ -701,14 +669,13 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
         if (mpRes.statusCode >= 200 && mpRes.statusCode < 300) {
           mpCancelled = true
         } else {
-          console.warn('[cancel-subscription] MP PUT /preapproval retornou status:', mpRes.statusCode)
+          console.warn('[cancel-subscription] MP PUT /preapproval status:', mpRes.statusCode)
         }
       } catch (mpErr) {
         console.warn('[cancel-subscription] Falha ao comunicar com MP:', mpErr)
       }
     }
 
-    // Atualizar no banco de dados local
     sub.set('status', 'cancelled')
     $app.save(sub)
 
@@ -732,8 +699,9 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    // Apenas admin tem acesso (campo is_admin = true ou primeiro email cadastrado)
-    const isAdmin = authUser.getBool('is_admin') || authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const isAdmin =
+      authUser.getBool('is_admin') ||
+      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, {
         success: false,
@@ -741,15 +709,20 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
       })
     }
 
-    const creds = getMpCredentials()
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
+    const isConfigured = Boolean(token)
 
-    // Contadores gerais
     const totalUsers = $app.countRecords('users')
-    const activeMonthlySubs = $app.countRecords('subscriptions', 'status = "active" && plan = "monthly"')
-    const activeAnnualSubs = $app.countRecords('subscriptions', 'status = "active" && plan = "annual"')
+    const activeMonthlySubs = $app.countRecords(
+      'subscriptions',
+      'status = "active" && plan = "monthly"',
+    )
+    const activeAnnualSubs = $app.countRecords(
+      'subscriptions',
+      'status = "active" && plan = "annual"',
+    )
     const cancelledSubs = $app.countRecords('subscriptions', 'status = "cancelled"')
 
-    // Listar usuários recentes
     const recentUsers = $app.findRecordsByFilter('users', '', '-created', 30, 0)
     const usersList = recentUsers.map((u) => ({
       id: u.id,
@@ -759,7 +732,6 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
       created: u.getDateTime('created'),
     }))
 
-    // Listar assinaturas
     const allSubs = $app.findRecordsByFilter('subscriptions', '', '-created', 50, 0)
     const subsList = allSubs.map((s) => ({
       id: s.id,
@@ -775,7 +747,6 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
       created: s.getDateTime('created'),
     }))
 
-    // Listar histórico de pagamentos registrados
     let paymentsHistory = []
     try {
       const pmts = $app.findRecordsByFilter('payments_history', '', '-created', 50, 0)
@@ -795,7 +766,7 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
 
     return e.json(200, {
       success: true,
-      is_configured: creds.isConfigured,
+      is_configured: isConfigured,
       webhook_url: 'https://prompts-virais-shop-16b33.goskip.app/backend/v1/mp/webhook',
       metrics: {
         total_users: totalUsers,

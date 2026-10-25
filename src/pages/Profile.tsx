@@ -191,18 +191,33 @@ export const Profile: React.FC = () => {
                       {subscription.card_last4 || '4242'}
                     </span>
                   </div>
-
-                  {subscription.end_date && (
-                    <div className="flex items-center justify-between py-1 border-b">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" />
-                        Próxima Renovação:
+                  {subscription.next_payment_date ? (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-pink-500" />
+                        Próxima Cobrança (MP)
+                      </span>
+                      <span className="text-foreground font-semibold">
+                        {new Date(subscription.next_payment_date).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  ) : subscription.end_date ? (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-pink-500" />
+                        Válido até
                       </span>
                       <span className="text-foreground font-semibold">
                         {new Date(subscription.end_date).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
-                  )}
+                  ) : null}
+                  {subscription.mp_preapproval_id && (
+                    <div className="flex justify-between items-center text-[11px] pt-1 border-t text-muted-foreground font-mono">
+                      <span>Assinatura MP:</span>
+                      <span>{subscription.mp_preapproval_id.slice(0, 12)}...</span>
+                    </div>
+                  )}{' '}
                 </div>
               )}
 

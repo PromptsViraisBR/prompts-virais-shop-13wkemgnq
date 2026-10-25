@@ -19,8 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Check,
   Crown,
@@ -31,27 +29,41 @@ import {
   ArrowRight,
   HelpCircle,
   AlertCircle,
+  ExternalLink,
+  Loader2,
+  Lock,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import type { PlanType } from '@/types'
+import {
+  createMercadoPagoCheckout,
+  getMercadoPagoConfigStatus,
+  cancelMercadoPagoSubscription,
+} from '@/services/mercadoPago'
 
 export const Plans: React.FC = () => {
-  const { user, plan, changePlanDemo } = useAuth()
+  const { user, plan, subscription, refreshSubscription } = useAuth()
   const navigate = useNavigate()
 
-  const [selectedPlanForModal, setSelectedPlanForModal] = useState<PlanType | null>(null)
+  const [selectedPlanForModal, setSelectedPlanForModal] = useState<'monthly' | 'annual' | null>(
+    null,
+  )
   const [modalOpen, setModalOpen] = useState(false)
-  const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242')
-  const [cardHolder, setCardHolder] = useState('NOME DO COMPRADOR')
-  const [cardExpiry, setCardExpiry] = useState('12/28')
-  const [cardCvc, setCardCvc] = useState('123')
   const [processing, setProcessing] = useState(false)
+  const [mpConfigured, setMpConfigured] = useState<boolean | null>(null)
+
+  // Consultar se as credenciais oficiais do Mercado Pago estão no backend
+  React.useEffect(() => {
+    getMercadoPagoConfigStatus().then((res) => {
+      setMpConfigured(res.configured)
+    })
+  }, [])
 
   const handleSelectPlan = (targetPlan: PlanType) => {
     if (!user) {
       toast({
         title: 'Faça login para assinar',
-        description: 'Crie ou acerte sua conta para concluir a assinatura.',
+        description: 'Crie ou acesse sua conta para concluir a assinatura com o Mercado Pago.',
       })
       navigate('/login')
       return
@@ -66,26 +78,26 @@ export const Plans: React.FC = () => {
     }
 
     if (targetPlan === 'free') {
-      // Downgrade direto
       handleDowngradeToFree()
       return
     }
 
-    setSelectedPlanForModal(targetPlan)
+    setSelectedPlanForModal(targetPlan as 'monthly' | 'annual')
     setModalOpen(true)
   }
 
   const handleDowngradeToFree = async () => {
     try {
       setProcessing(true)
-      await changePlanDemo('free')
+      await cancelMercadoPagoSubscription(subscription?.id)
+      await refreshSubscription()
       toast({
-        title: 'Plano alterado para Gratuito',
-        description: 'Sua assinatura foi atualizada.',
+        title: 'Plano revertido para Gratuito',
+        description: 'Sua assinatura anterior foi cancelada com sucesso.',
       })
     } catch (err) {
       toast({
-        title: 'Erro ao alterar plano',
+        title: 'Erro ao cancelar plano',
         description: 'Tente novamente.',
         variant: 'destructive',
       })
@@ -94,28 +106,44 @@ export const Plans: React.FC = () => {
     }
   }
 
-  const handleConfirmCheckout = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleProceedToMercadoPago = async () => {
     if (!selectedPlanForModal) return
 
     setProcessing(true)
     try {
-      const last4 = cardNumber.replace(/\s+/g, '').slice(-4) || '4242'
-      await changePlanDemo(selectedPlanForModal, {
-        last4,
-        brand: 'Mastercard',
+      const res = await createMercadoPagoCheckout({
+        type: 'subscription',
+        plan: selectedPlanForModal,
       })
 
-      setModalOpen(false)
+      if (res.code === 'PAYMENTS_NOT_CONFIGURED' || !res.success) {
+        toast({
+          title: 'Pagamentos em Configuração',
+          description:
+            res.error ||
+            'O sistema está aguardando o cadastro das chaves do Mercado Pago nas variáveis de ambiente do Skip Cloud.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (res.init_point) {
+        toast({
+          title: 'Redirecionando para o Mercado Pago...',
+          description: 'Você será levado ao checkout seguro e oficial.',
+        })
+        window.location.href = res.init_point
+      } else {
+        toast({
+          title: 'Erro ao iniciar checkout',
+          description: res.error || 'Não foi possível gerar a sessão de pagamento.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: any) {
       toast({
-        title: 'Assinatura confirmada com sucesso! 🎉',
-        description: `Seu plano foi atualizado para ${selectedPlanForModal === 'annual' ? 'Anual VIP (R$ 238,80/ano)' : 'PRO Promocional (R$ 19,90/mês)'}. Biblioteca completa e gerador personalizado liberados!`,
-      })
-      navigate('/biblioteca')
-    } catch (err) {
-      toast({
-        title: 'Erro ao processar',
-        description: 'Ocorreu uma falha ao ativar a assinatura demonstrativa.',
+        title: 'Erro na conexão',
+        description: err?.message || 'Falha ao conectar com o servidor.',
         variant: 'destructive',
       })
     } finally {
@@ -137,10 +165,20 @@ export const Plans: React.FC = () => {
           Multiplique as vendas da sua vitrine com roteiros virais
         </h1>
         <p className="text-muted-foreground text-base sm:text-lg">
-          Escolha o plano ideal para a sua loja ou canal de afiliados no TikTok Shop e Shopee. Nesta
-          versão 1, a cobrança é realizada em <strong>fluxo demonstrativo</strong> com cartão
-          simulado.
+          Escolha o plano ideal para a sua loja ou canal de afiliados no TikTok Shop e Shopee.
+          Pagamentos 100% seguros processados através da API oficial do{' '}
+          <strong>Mercado Pago</strong> (Pix, Cartão de Crédito e Boleto).
         </p>
+
+        {mpConfigured === false && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300 max-w-xl mx-auto flex items-center justify-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Ambiente de Integração:</strong> Credenciais do Mercado Pago aguardando
+              configuração nas variáveis de ambiente.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Plan Cards Grid */}
@@ -371,130 +409,103 @@ export const Plans: React.FC = () => {
       <div className="border rounded-2xl p-6 sm:p-8 bg-muted/20 max-w-4xl mx-auto space-y-4">
         <h3 className="font-bold text-lg flex items-center gap-2">
           <HelpCircle className="w-5 h-5 text-pink-500" />
-          Como funciona o pagamento demonstrativo nesta versão?
+          Como funciona a segurança e o pagamento no Mercado Pago?
         </h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Nesta primeira versão do projeto, o fluxo de assinatura e checkout com cartão de crédito é
-          totalmente <strong>demonstrativo e simulado</strong>. Nenhum valor real é cobrado do seu
-          cartão e você pode testar a alteração, upgrade e downgrade de planos instantaneamente
-          salvando o status no banco de dados.
+          Ao contratar um plano, você é direcionado diretamente ao ambiente criptografado e oficial
+          do <strong>Mercado Pago</strong>. Todos os seus dados financeiros permanecem 100%
+          protegidos pelo banco emissor. A ativação dos seus recursos PRO ocorre de forma automática
+          e instantânea assim que a notificação oficial for confirmada pelo nosso servidor.
         </p>
       </div>
 
-      {/* MODAL DE CHECKOUT COM CARTÃO DEMO */}
+      {/* MODAL DE CHECKOUT SEGURO COM MERCADO PAGO */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <CreditCard className="w-5 h-5 text-pink-500" />
-              Assinatura do Plano{' '}
-              {selectedPlanForModal === 'annual' ? 'Anual VIP' : 'PRO (Oferta: R$ 19,90/mês)'}
+              Contratação Segura —{' '}
+              {selectedPlanForModal === 'annual' ? 'Plano Anual VIP' : 'Plano PRO Mensal'}
             </DialogTitle>
             <DialogDescription>
-              Fluxo demonstrativo de pagamento com cartão de crédito. Preencha ou use os dados de
-              teste pré-definidos.
+              Você será direcionado ao checkout oficial do Mercado Pago para efetuar o pagamento com
+              Pix, Cartão ou Saldo em conta.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleConfirmCheckout} className="space-y-4 py-2">
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
-                <strong>Ambiente de Demonstração:</strong> Nenhuma cobrança real será realizada. O
-                status da sua assinatura será ativado no banco de dados.
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="card-number">Número do Cartão</Label>
-              <div className="relative">
-                <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="card-number"
-                  placeholder="0000 0000 0000 0000"
-                  className="pl-9 font-mono"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="card-holder">Nome no Cartão</Label>
-              <Input
-                id="card-holder"
-                placeholder="NOME COMO NO CARTÃO"
-                value={cardHolder}
-                onChange={(e) => setCardHolder(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="card-expiry">Validade</Label>
-                <Input
-                  id="card-expiry"
-                  placeholder="MM/AA"
-                  value={cardExpiry}
-                  onChange={(e) => setCardExpiry(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="card-cvc">CVC</Label>
-                <Input
-                  id="card-cvc"
-                  placeholder="123"
-                  maxLength={4}
-                  value={cardCvc}
-                  onChange={(e) => setCardCvc(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="p-3 bg-muted rounded-lg flex items-center justify-between text-sm">
-              <div className="space-y-0.5">
-                <span className="text-muted-foreground block text-xs">
-                  Valor demonstrativo a ativar:
+          <div className="space-y-4 py-2">
+            <div className="p-4 rounded-xl bg-muted/50 border space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Plano Escolhido:</span>
+                <span className="font-bold text-foreground">
+                  {selectedPlanForModal === 'annual'
+                    ? 'Anual VIP (12 Meses)'
+                    : 'PRO Mensal (Recorrente)'}
                 </span>
-                {selectedPlanForModal === 'monthly' && (
-                  <span className="text-[11px] text-pink-600 dark:text-pink-400 font-semibold block">
-                    🔥 Oferta de Lançamento (de R$ 49,90 por R$ 19,90/mês)
-                  </span>
-                )}
-                {selectedPlanForModal === 'annual' && (
-                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold block">
-                    Faturado anualmente (12x R$ 19,90)
-                  </span>
-                )}
               </div>
-              <span className="font-extrabold text-foreground text-base">
-                {selectedPlanForModal === 'annual' ? 'R$ 238,80 /ano' : 'R$ 19,90 /mês'}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Valor:</span>
+                <span className="text-lg font-black text-foreground">
+                  {selectedPlanForModal === 'annual' ? 'R$ 238,80 /ano' : 'R$ 19,90 /mês'}
+                </span>
+              </div>
+              {selectedPlanForModal === 'monthly' && (
+                <p className="text-[11px] text-pink-600 dark:text-pink-400 font-semibold pt-1 border-t">
+                  🔥 Preço promocional de lançamento garantido enquanto sua assinatura estiver
+                  ativa.
+                </p>
+              )}
+            </div>
+
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+              <span>
+                <strong>Checkout Seguro Mercado Pago:</strong> Seus dados de pagamento nunca passam
+                por nossos servidores. A liberação ocorre via webhook oficial criptografado.
               </span>
             </div>
 
-            <DialogFooter className="pt-2 sm:justify-between">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setModalOpen(false)}
-                disabled={processing}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-semibold"
-                disabled={processing}
-              >
-                <ShieldCheck className="w-4 h-4 mr-1.5" />
-                {processing ? 'Processando...' : 'Confirmar Assinatura'}
-              </Button>
-            </DialogFooter>
-          </form>
+            {mpConfigured === false && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                <span>
+                  <strong>Aviso:</strong> O administrador do sistema ainda não cadastrou o token do
+                  Mercado Pago no painel Skip Cloud.
+                </span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2 sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setModalOpen(false)}
+              disabled={processing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleProceedToMercadoPago}
+              disabled={processing}
+              className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-semibold gap-2 shadow-md"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Gerando Checkout...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  Pagar no Mercado Pago
+                  <ExternalLink className="w-4 h-4 ml-1" />
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

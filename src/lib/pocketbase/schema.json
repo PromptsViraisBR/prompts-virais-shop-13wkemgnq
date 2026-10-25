@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T23:40:33.083Z",
+  "generatedAt": "2026-10-25T23:47:41.863Z",
   "collections": [
     {
       "name": "users",
@@ -52,6 +52,12 @@
         },
         {
           "name": "is_admin",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "welcome_email_sent",
           "type": "bool",
           "required": false,
           "system": false
@@ -159,6 +165,24 @@
         {
           "name": "next_payment_date",
           "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expiration_notified",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expiration_notified_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "welcome_sub_notified",
+          "type": "bool",
           "required": false,
           "system": false
         }

@@ -33,8 +33,17 @@ import {
   Key,
   RotateCcw,
   AlertTriangle,
+  Mail,
+  Send,
+  Inbox,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import {
+  getEmailStatus,
+  runExpirationCheck,
+  testTransactionalEmail,
+  EmailStatusResponse,
+} from '@/services/emailAutomations'
 
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuth()
@@ -48,6 +57,14 @@ export const AdminDashboard: React.FC = () => {
   const [funnelPeriod, setFunnelPeriod] = useState<'today' | '7d' | '30d' | 'all'>('30d')
   const [funnelData, setFunnelData] = useState<FunnelMetricsResponse | null>(null)
   const [funnelLoading, setFunnelLoading] = useState(false)
+
+  // Automações de e-mail (Fase D)
+  const [emailStatus, setEmailStatus] = useState<EmailStatusResponse | null>(null)
+  const [runningExpiration, setRunningExpiration] = useState(false)
+  const [sendingTestEmail, setSendingTestEmail] = useState(false)
+  const [testEmailType, setTestEmailType] = useState<
+    'welcome' | 'subscription_active' | 'payment_failed' | 'access_expired'
+  >('welcome')
 
   // Modal de Estorno/Reembolso
   const [selectedPaymentForRefund, setSelectedPaymentForRefund] = useState<{
@@ -93,9 +110,14 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const [res, fRes] = await Promise.all([getAdminOverview(), getFunnelMetrics(funnelPeriod)])
+      const [res, fRes, eRes] = await Promise.all([
+        getAdminOverview(),
+        getFunnelMetrics(funnelPeriod),
+        getEmailStatus().catch(() => null),
+      ])
       setData(res)
       setFunnelData(fRes)
+      if (eRes) setEmailStatus(eRes)
     } catch (err: any) {
       console.error(err)
       setErrorMsg(err?.data?.error || err?.message || 'Falha ao carregar painel administrativo.')
@@ -120,6 +142,46 @@ export const AdminDashboard: React.FC = () => {
       setFunnelData(fRes)
     } finally {
       setFunnelLoading(false)
+    }
+  }
+
+  const handleRunExpiration = async () => {
+    setRunningExpiration(true)
+    try {
+      const res = await runExpirationCheck()
+      toast({
+        title: 'Varredura de vencimento concluída',
+        description: `${res.expired_count} assinaturas processadas no servidor.`,
+      })
+      await loadOverview()
+    } catch (err: any) {
+      toast({
+        title: 'Erro na varredura',
+        description: err?.message || 'Falha ao executar verificação.',
+        variant: 'destructive',
+      })
+    } finally {
+      setRunningExpiration(false)
+    }
+  }
+
+  const handleSendTestEmail = async () => {
+    setSendingTestEmail(true)
+    try {
+      const res = await testTransactionalEmail(testEmailType, user?.email)
+      toast({
+        title: res.sent_via_mailer ? 'E-mail enviado via Mailer' : 'Disparo simulado com sucesso',
+        description: res.diagnostic,
+      })
+      await loadOverview()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao disparar teste',
+        description: err?.message || 'Falha no disparo.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSendingTestEmail(false)
     }
   }
 
@@ -420,6 +482,148 @@ export const AdminDashboard: React.FC = () => {
                   Cancelamentos: <strong>{funnelData?.metrics.cancellations}</strong>
                 </span>
               )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* SEÇÃO: AUTOMAÇÕES TRANSACIONAIS E JOB DE VENCIMENTO (Fase D) */}
+      <Card className="border-2 border-indigo-500/20 shadow-md">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+          <div className="space-y-1">
+            <CardTitle className="text-xl font-bold flex items-center gap-2">
+              <Mail className="w-5 h-5 text-indigo-500" />
+              Automações de E-mail & Job de Vencimento (Fase D)
+            </CardTitle>
+            <CardDescription>
+              E-mails 100% transacionais conectados aos ciclos de vida do usuário e pagamentos do
+              Mercado Pago.
+            </CardDescription>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={runningExpiration}
+              onClick={handleRunExpiration}
+              className="text-xs gap-1.5"
+            >
+              <Clock className={`w-3.5 h-3.5 ${runningExpiration ? 'animate-spin' : ''}`} />
+              Executar Job de Vencimento Agora
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Card de Diagnóstico do SMTP */}
+          <div
+            className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+              emailStatus?.smtp_configured
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+            }`}
+          >
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <Inbox className="w-4 h-4" />
+                <span>
+                  {emailStatus?.smtp_configured
+                    ? 'SMTP Nativo Configurado e Ativo'
+                    : 'Mailer Nativo PocketBase (Aguardando SMTP de Produção)'}
+                </span>
+              </div>
+              <p className="text-xs opacity-90">
+                Remetente configurado:{' '}
+                <strong>
+                  {emailStatus?.sender_name} &lt;{emailStatus?.sender_address}&gt;
+                </strong>
+                .
+                {!emailStatus?.smtp_configured &&
+                  ' Todas as automações estão ativas e com templates prontos no backend. Para envio real aos clientes finais, configure as credenciais SMTP no painel do PocketBase.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-semibold">
+                Job Diário: 03:00 UTC
+              </Badge>
+            </div>
+          </div>
+
+          {/* Métricas de Disparos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl border bg-card space-y-1">
+              <span className="text-xs text-muted-foreground font-semibold">
+                Boas-Vindas Enviados
+              </span>
+              <p className="text-2xl font-black text-foreground">
+                {emailStatus?.metrics.welcome_emails_sent ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Cadastros orientados</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border bg-card space-y-1">
+              <span className="text-xs text-muted-foreground font-semibold">
+                Confirmações de Plano
+              </span>
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                {emailStatus?.metrics.subscription_confirmations_notified ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Assinaturas ativadas</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border bg-card space-y-1">
+              <span className="text-xs text-muted-foreground font-semibold">
+                Avisos de Fim de Acesso
+              </span>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                {emailStatus?.metrics.expired_subscriptions_notified ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Idempotência garantida</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border bg-card space-y-1">
+              <span className="text-xs text-muted-foreground font-semibold">Recusa / Falha MP</span>
+              <p className="text-2xl font-black text-pink-600 dark:text-pink-400">Ativo</p>
+              <p className="text-[11px] text-muted-foreground">Disparo em rejected</p>
+            </div>
+          </div>
+
+          {/* Teste Rápido de Disparo Transacional */}
+          <div className="p-4 rounded-xl border bg-muted/30 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Send className="w-4 h-4 text-pink-500" />
+                  Testar Envio Transacional para seu E-mail ({user?.email})
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Valide a composição, formatação e entrega de qualquer um dos 4 fluxos
+                  transacionais.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={testEmailType}
+                  onChange={(e) => setTestEmailType(e.target.value as any)}
+                  className="text-xs bg-background border rounded-lg px-2.5 py-1.5 text-foreground"
+                >
+                  <option value="welcome">1. Boas-Vindas + 3 Passos</option>
+                  <option value="subscription_active">2. Confirmação de Assinatura</option>
+                  <option value="payment_failed">3. Falha de Cobrança / Recusa</option>
+                  <option value="access_expired">4. Fim de Acesso PRO</option>
+                </select>
+
+                <Button
+                  size="sm"
+                  disabled={sendingTestEmail}
+                  onClick={handleSendTestEmail}
+                  className="text-xs gap-1.5 bg-pink-600 hover:bg-pink-700 text-white"
+                >
+                  <Send className={`w-3.5 h-3.5 ${sendingTestEmail ? 'animate-spin' : ''}`} />
+                  Disparar Teste
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>

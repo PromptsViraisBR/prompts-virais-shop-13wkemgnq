@@ -1178,6 +1178,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               }
             } catch (_) {}
 
+            let activeSubToNotify = null
             if (subRecord) {
               subRecord.set('plan', planTarget)
               subRecord.set('status', 'active')
@@ -1189,6 +1190,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               if (cardLast4) subRecord.set('card_last4', cardLast4)
               if (cardBrand) subRecord.set('card_brand', cardBrand)
               $app.save(subRecord)
+              activeSubToNotify = subRecord
             } else {
               const subsCol = $app.findCollectionByNameOrId('subscriptions')
               const newSub = new Record(subsCol)
@@ -1203,7 +1205,93 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               newSub.set('card_last4', cardLast4 || '4242')
               newSub.set('card_brand', cardBrand || 'Mastercard')
               $app.save(newSub)
+              activeSubToNotify = newSub
             }
+
+            // Disparo transacional de Confirmação de Assinatura (idempotente)
+            try {
+              if (activeSubToNotify && !activeSubToNotify.getBool('welcome_sub_notified')) {
+                let recipient = payerEmail
+                let userName = 'Criador(a)'
+                try {
+                  const u = $app.findRecordById('_pb_users_auth_', targetUserId)
+                  if (u) {
+                    if (!recipient) recipient = u.email() || u.getString('email')
+                    const un = u.getString('name')
+                    if (un) userName = un
+                  }
+                } catch (_) {}
+
+                if (recipient) {
+                  let sEmail = 'noreply@prompts-virais.com'
+                  let sName = 'Prompts Virais Shop'
+                  try {
+                    const st = $app.settings()
+                    if (st && st.meta) {
+                      if (st.meta.senderAddress) sEmail = st.meta.senderAddress
+                      if (st.meta.senderName) sName = st.meta.senderName
+                    }
+                  } catch (_) {}
+
+                  const planLabel = planTarget === 'annual' ? 'Anual VIP' : 'Mensal PRO'
+                  const planAmount =
+                    planTarget === 'annual' ? 'R$ 238,80 (12 meses)' : 'R$ 19,90/mês'
+                  const validityStr =
+                    planTarget === 'annual' ? '12 meses' : '30 dias (renovação automática)'
+
+                  const subSubject = `Assinatura confirmada: Plano ${planLabel} ativado!`
+                  const subHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Assinatura Confirmada</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #10b981; margin-top: 0;">🎉 Pagamento aprovado com sucesso!</h2>
+    <p>Olá, ${userName}! Sua assinatura do <strong>Plano ${planLabel}</strong> no Prompts Virais Shop está ativa.</p>
+    <div style="background: #1e293b; border-radius: 8px; padding: 18px; margin: 20px 0;">
+      <p style="margin: 4px 0; color: #cbd5e1;"><strong>Plano:</strong> ${planLabel}</p>
+      <p style="margin: 4px 0; color: #cbd5e1;"><strong>Valor pago:</strong> ${planAmount}</p>
+      <p style="margin: 4px 0; color: #cbd5e1;"><strong>Validade:</strong> ${validityStr}</p>
+      <p style="margin: 4px 0; color: #cbd5e1;"><strong>ID da transação:</strong> ${resourceId}</p>
+    </div>
+    <p style="color: #cbd5e1;">Você já pode acessar todos os roteiros PRO e utilizar os geradores virais sem restrições.</p>
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${siteUrl}/biblioteca" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Acessar Biblioteca PRO →</a>
+    </div>
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Prompts Virais Shop • E-mail transacional de confirmação de pagamento.</p>
+  </div>
+</body>
+</html>`
+
+                  try {
+                    const msg = new MailerMessage({
+                      from: { address: sEmail, name: sName },
+                      to: [{ address: recipient }],
+                      subject: subSubject,
+                      html: subHtml,
+                    })
+                    $app.newMailClient().send(msg)
+                    console.log(
+                      `[mp-webhook] E-mail de confirmação de assinatura enviado para ${recipient}`,
+                    )
+                  } catch (mErr) {
+                    console.warn(
+                      `[mp-webhook] Mailer não pôde entregar e-mail de assinatura para ${recipient}:`,
+                      mErr.message || String(mErr),
+                    )
+                  }
+
+                  activeSubToNotify.set('welcome_sub_notified', true)
+                  $app.save(activeSubToNotify)
+                }
+              }
+            } catch (notifyErr) {
+              console.warn(
+                '[mp-webhook] Erro ao disparar e-mail de confirmação de assinatura:',
+                notifyErr,
+              )
+            }
+
             console.log(
               `[mp-webhook] Assinatura ${planTarget} ativada para usuário ${targetUserId}`,
             )
@@ -1227,6 +1315,76 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               $app.save(sRec)
               console.log(
                 `[mp-webhook] Assinatura cancelada para usuário ${targetUserId} devido a pagamento ${pmtStatus}`,
+              )
+            }
+
+            // Disparo transacional de Falha de Cobrança / Recusa
+            try {
+              let failRecipient = payerEmail
+              let userName = 'Criador(a)'
+              try {
+                const u = $app.findRecordById('_pb_users_auth_', targetUserId)
+                if (u) {
+                  if (!failRecipient) failRecipient = u.email() || u.getString('email')
+                  const un = u.getString('name')
+                  if (un) userName = un
+                }
+              } catch (_) {}
+
+              if (failRecipient) {
+                let sEmail = 'noreply@prompts-virais.com'
+                let sName = 'Prompts Virais Shop'
+                try {
+                  const st = $app.settings()
+                  if (st && st.meta) {
+                    if (st.meta.senderAddress) sEmail = st.meta.senderAddress
+                    if (st.meta.senderName) sName = st.meta.senderName
+                  }
+                } catch (_) {}
+
+                const failSubject = 'Aviso: Falha no pagamento da sua assinatura - Prompts Virais'
+                const failHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Pagamento Recusado</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #ef4444; margin-top: 0;">⚠️ Pagamento não aprovado</h2>
+    <p>Olá, ${userName}.</p>
+    <p>A tentativa de cobrança da sua assinatura no Prompts Virais Shop não foi autorizada pelo Mercado Pago ou pela operadora do seu cartão (Status: <strong>${pmtStatus}</strong>).</p>
+    <div style="background: #1e293b; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0; color: #cbd5e1; font-size: 14px;">Para evitar a interrupção do seu acesso aos roteiros PRO e geradores virais, por favor atualize seu cartão ou selecione outra forma de pagamento (Pix / Cartão).</p>
+    </div>
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${siteUrl}/planos" style="display: inline-block; background: #ef4444; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Regularizar Assinatura →</a>
+    </div>
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Prompts Virais Shop • Mensagem transacional de conta e cobrança.</p>
+  </div>
+</body>
+</html>`
+
+                try {
+                  const msg = new MailerMessage({
+                    from: { address: sEmail, name: sName },
+                    to: [{ address: failRecipient }],
+                    subject: failSubject,
+                    html: failHtml,
+                  })
+                  $app.newMailClient().send(msg)
+                  console.log(
+                    `[mp-webhook] E-mail de falha de cobrança enviado para ${failRecipient}`,
+                  )
+                } catch (mErr) {
+                  console.warn(
+                    `[mp-webhook] Mailer não pôde entregar e-mail de falha para ${failRecipient}:`,
+                    mErr.message || String(mErr),
+                  )
+                }
+              }
+            } catch (failMailErr) {
+              console.warn(
+                '[mp-webhook] Erro ao disparar e-mail de falha de cobrança:',
+                failMailErr,
               )
             }
           } catch (subCancelErr) {
@@ -1310,6 +1468,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
             ? new Date(nextPaymentDate)
             : new Date(now.getTime() + 31 * 24 * 3600 * 1000)
 
+          let preSubToNotify = null
           if (subRecord) {
             subRecord.set('plan', 'monthly')
             subRecord.set('status', 'active')
@@ -1320,6 +1479,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
             subRecord.set('end_date', endDate.toISOString())
             if (nextPaymentDate) subRecord.set('next_payment_date', nextPaymentDate)
             $app.save(subRecord)
+            preSubToNotify = subRecord
           } else {
             const subsCol = $app.findCollectionByNameOrId('subscriptions')
             const newSub = new Record(subsCol)
@@ -1333,7 +1493,85 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
             newSub.set('end_date', endDate.toISOString())
             if (nextPaymentDate) newSub.set('next_payment_date', nextPaymentDate)
             $app.save(newSub)
+            preSubToNotify = newSub
           }
+
+          // Disparo transacional de Confirmação de Assinatura Preapproval (idempotente)
+          try {
+            if (preSubToNotify && !preSubToNotify.getBool('welcome_sub_notified')) {
+              let recipient = payerEmail
+              let userName = 'Criador(a)'
+              try {
+                const u = $app.findRecordById('_pb_users_auth_', targetUserId)
+                if (u) {
+                  if (!recipient) recipient = u.email() || u.getString('email')
+                  const un = u.getString('name')
+                  if (un) userName = un
+                }
+              } catch (_) {}
+
+              if (recipient) {
+                let sEmail = 'noreply@prompts-virais.com'
+                let sName = 'Prompts Virais Shop'
+                try {
+                  const st = $app.settings()
+                  if (st && st.meta) {
+                    if (st.meta.senderAddress) sEmail = st.meta.senderAddress
+                    if (st.meta.senderName) sName = st.meta.senderName
+                  }
+                } catch (_) {}
+
+                const subSubject = 'Assinatura confirmada: Plano Mensal PRO ativado!'
+                const subHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Assinatura Confirmada</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #10b981; margin-top: 0;">🎉 Assinatura Mensal PRO confirmada!</h2>
+    <p>Olá, ${userName}! Sua assinatura recorrente foi aprovada pelo Mercado Pago.</p>
+    <div style="background: #1e293b; border-radius: 8px; padding: 18px; margin: 20px 0;">
+      <p style="margin: 4px 0; color: #cbd5e1;"><strong>Plano:</strong> Mensal PRO</p>
+      <p style="margin: 4px 0; color: #cbd5e1;"><strong>Valor:</strong> R$ 19,90/mês</p>
+      <p style="margin: 4px 0; color: #cbd5e1;"><strong>Próxima renovação:</strong> ${nextPaymentDate || 'Em 30 dias'}</p>
+    </div>
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${siteUrl}/biblioteca" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Acessar Biblioteca PRO →</a>
+    </div>
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Prompts Virais Shop • E-mail transacional de assinatura.</p>
+  </div>
+</body>
+</html>`
+
+                try {
+                  const msg = new MailerMessage({
+                    from: { address: sEmail, name: sName },
+                    to: [{ address: recipient }],
+                    subject: subSubject,
+                    html: subHtml,
+                  })
+                  $app.newMailClient().send(msg)
+                  console.log(
+                    `[mp-webhook] E-mail de confirmação preapproval enviado para ${recipient}`,
+                  )
+                } catch (mErr) {
+                  console.warn(
+                    `[mp-webhook] Mailer não pôde entregar e-mail para ${recipient}:`,
+                    mErr.message || String(mErr),
+                  )
+                }
+
+                preSubToNotify.set('welcome_sub_notified', true)
+                $app.save(preSubToNotify)
+              }
+            }
+          } catch (preNotifyErr) {
+            console.warn(
+              '[mp-webhook] Erro ao disparar e-mail de confirmação preapproval:',
+              preNotifyErr,
+            )
+          }
+
           console.log(`[mp-webhook] Assinatura mensal ativada via preapproval para ${targetUserId}`)
         } else if (preStatus === 'cancelled' || preStatus === 'paused') {
           if (subRecord) {
@@ -1342,6 +1580,74 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
             console.log(
               `[mp-webhook] Assinatura cancelada para ${targetUserId} (preapproval status=${preStatus})`,
             )
+
+            // Disparo transacional de Fim de Acesso / Cancelamento (idempotente)
+            try {
+              if (!subRecord.getBool('expiration_notified')) {
+                let recipient = payerEmail
+                let userName = 'Criador(a)'
+                try {
+                  const u = $app.findRecordById('_pb_users_auth_', targetUserId)
+                  if (u) {
+                    if (!recipient) recipient = u.email() || u.getString('email')
+                    const un = u.getString('name')
+                    if (un) userName = un
+                  }
+                } catch (_) {}
+
+                if (recipient) {
+                  let sEmail = 'noreply@prompts-virais.com'
+                  let sName = 'Prompts Virais Shop'
+                  try {
+                    const st = $app.settings()
+                    if (st && st.meta) {
+                      if (st.meta.senderAddress) sEmail = st.meta.senderAddress
+                      if (st.meta.senderName) sName = st.meta.senderName
+                    }
+                  } catch (_) {}
+
+                  const endSubject = 'Sua assinatura no Prompts Virais Shop foi encerrada'
+                  const endHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Assinatura Encerrada</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #ffffff; margin-top: 0;">Olá, ${userName}</h2>
+    <p style="color: #cbd5e1;">Confirmamos que a renovação da sua assinatura PRO foi cancelada ou pausada (Status: ${preStatus}).</p>
+    <p style="color: #94a3b8;">Seus prompts e histórico de geração continuam salvos na sua conta. Quando desejar reativar seus recursos PRO, basta acessar a página de planos.</p>
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${siteUrl}/planos" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Reativar Plano PRO →</a>
+    </div>
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Prompts Virais Shop • Mensagem transacional de conta.</p>
+  </div>
+</body>
+</html>`
+
+                  try {
+                    const msg = new MailerMessage({
+                      from: { address: sEmail, name: sName },
+                      to: [{ address: recipient }],
+                      subject: endSubject,
+                      html: endHtml,
+                    })
+                    $app.newMailClient().send(msg)
+                    console.log(`[mp-webhook] E-mail de encerramento enviado para ${recipient}`)
+                  } catch (mErr) {
+                    console.warn(
+                      `[mp-webhook] Mailer não pôde entregar e-mail de encerramento para ${recipient}:`,
+                      mErr.message || String(mErr),
+                    )
+                  }
+
+                  subRecord.set('expiration_notified', true)
+                  subRecord.set('expiration_notified_at', new Date().toISOString())
+                  $app.save(subRecord)
+                }
+              }
+            } catch (endMailErr) {
+              console.warn('[mp-webhook] Erro ao disparar e-mail de cancelamento:', endMailErr)
+            }
           }
           // Registrar evento de cancelamento
           try {

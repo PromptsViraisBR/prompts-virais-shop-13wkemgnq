@@ -43,8 +43,8 @@ import {
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
 import { ViralGenerator } from '@/components/ViralGenerator'
-import { ViralImageGenerator } from '@/components/ViralImageGenerator'
-import { ImagePlus, RefreshCw } from 'lucide-react'
+import { ExternalImageToolsCard } from '@/components/ExternalImageToolsCard'
+import { RefreshCw } from 'lucide-react'
 
 // Estilos de gravação
 const STYLE_KEYS: StyleType[] = ['pov', 'modelo', 'unboxing_vitrine']
@@ -364,9 +364,9 @@ export const ViralVideos: React.FC = () => {
         </div>
       </div>
 
-      {/* GERADOR DE IMAGENS COM IA (EXCLUSIVO PLANO PRO) */}
-      <section id="gerador-imagem-viral" className="scroll-mt-20">
-        <ViralImageGenerator />
+      {/* INDICAÇÃO DE FERRAMENTAS EXTERNAS GRATUITAS PARA CRIAÇÃO DE IMAGEM */}
+      <section id="ferramentas-imagem-externas" className="scroll-mt-20">
+        <ExternalImageToolsCard />
       </section>
 
       {/* GERADOR DE ROTEIROS A PARTIR DE IMAGEM CRIADA */}

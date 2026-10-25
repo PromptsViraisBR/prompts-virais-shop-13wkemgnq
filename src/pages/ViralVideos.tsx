@@ -28,7 +28,12 @@ import { PromptHowToUseModal } from '@/components/PromptHowToUseModal'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord, NicheType, StyleType } from '@/types'
 import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS, VIRAL_NICHE_KEYS } from '@/types'
-import { formatHookTitle, getEstimatedDuration, getPlatformInfo } from '@/lib/promptHooks'
+import {
+  formatHookTitle,
+  getEstimatedDuration,
+  getPlatformInfo,
+  extractScenesFromPrompt,
+} from '@/lib/promptHooks'
 import {
   adaptPromptWithImages,
   regeneratePromptVariations,
@@ -76,6 +81,8 @@ export const ViralVideos: React.FC = () => {
   const [selectedStyle, setSelectedStyle] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'all' | 'free' | 'favorites'>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [copiedSceneKey, setCopiedSceneKey] = useState<string | null>(null)
+  const [expandedScenesPromptId, setExpandedScenesPromptId] = useState<string | null>(null)
 
   // Modal "Como usar este prompt"
   const [infoModalOpen, setInfoModalOpen] = useState(false)
@@ -419,6 +426,47 @@ export const ViralVideos: React.FC = () => {
 
     setTimeout(() => {
       setCopiedId(null)
+    }, 2500)
+  }
+
+  // Copia cena individual do prompt viral
+  const handleCopyScene = (
+    e: React.MouseEvent,
+    prompt: PromptRecord,
+    sceneIdx: number,
+    sceneRaw: string,
+    sceneTitle: string,
+  ) => {
+    e.stopPropagation()
+
+    if (!user) {
+      setAuthGateAction(`Copiar cena de "${prompt.title}"`)
+      setAuthGateOpen(true)
+      return
+    }
+
+    const isLocked = !prompt.is_free && !isPaidPlan
+    if (isLocked) {
+      toast({
+        title: 'Conteúdo Exclusivo do Plano Pago',
+        description:
+          'Faça upgrade para o plano Mensal ou Anual para copiar as cenas deste roteiro.',
+        variant: 'destructive',
+      })
+      navigate('/planos')
+      return
+    }
+
+    navigator.clipboard.writeText(sceneRaw)
+    const key = `${prompt.id}_scene_${sceneIdx}`
+    setCopiedSceneKey(key)
+    toast({
+      title: `${sceneTitle || `Cena ${sceneIdx + 1}`} copiada! 🎬`,
+      description: 'Texto da cena copiado para a área de transferência.',
+    })
+
+    setTimeout(() => {
+      setCopiedSceneKey((curr) => (curr === key ? null : curr))
     }, 2500)
   }
 
@@ -823,6 +871,78 @@ export const ViralVideos: React.FC = () => {
 
                 {/* Rodapé do Card */}
                 <CardFooter className="pt-3 pb-4 px-4 sm:px-5 border-t flex flex-col gap-2 bg-muted/20">
+                  {/* Cenas individuais (Cena 1 a Cena 6) expansíveis com botão "Copiar esta cena" */}
+                  {(() => {
+                    const scenes = extractScenesFromPrompt(prompt.prompt_text)
+                    const isExpanded = expandedScenesPromptId === prompt.id
+                    if (scenes.length === 0) return null
+
+                    return (
+                      <div className="w-full rounded-2xl border border-pink-500/20 bg-background/60 p-2.5 space-y-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setExpandedScenesPromptId(isExpanded ? null : prompt.id)
+                          }}
+                          className="w-full flex items-center justify-between text-left text-xs font-bold text-foreground hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+                            Cenas ({scenes.length}) — Copiar Cena por Cena
+                          </span>
+                          <span className="text-[10px] bg-pink-500/10 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded-full font-semibold">
+                            {isExpanded ? 'Recolher ▲' : 'Ver Cenas ▼'}
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="space-y-1.5 pt-1 border-t border-border/50 max-h-56 overflow-y-auto">
+                            {scenes.map((sc, sIdx) => {
+                              const sceneKey = `${prompt.id}_scene_${sIdx}`
+                              const isSceneCopied = copiedSceneKey === sceneKey
+                              return (
+                                <div
+                                  key={sIdx}
+                                  className="p-2 rounded-xl bg-muted/40 border border-border/40 text-[11px] flex items-center justify-between gap-2"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-foreground truncate">{sc.title}</p>
+                                    {sc.timeRange && (
+                                      <span className="text-[10px] font-mono text-muted-foreground">
+                                        ⏱️ {sc.timeRange}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) =>
+                                      handleCopyScene(e, prompt, sIdx, sc.raw, sc.title)
+                                    }
+                                    className="h-6 px-2 text-[10px] gap-1 font-bold shrink-0 border-pink-500/30 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10"
+                                  >
+                                    {isSceneCopied ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-emerald-500" />
+                                        <span>Copiada!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Copiar esta cena</span>
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
                   {/* Botão de Instrução "Como Usar Este Prompt" (ITEM PEDIDO) */}
                   <Button
                     variant="outline"
@@ -833,7 +953,6 @@ export const ViralVideos: React.FC = () => {
                     <Info className="w-3.5 h-3.5 text-purple-500" />
                     <span>Como usar este prompt</span>
                   </Button>
-
                   {/* Botão Regenerar Prompt (com limite de até 2 gratuitas para virais) */}
                   <Button
                     variant="outline"

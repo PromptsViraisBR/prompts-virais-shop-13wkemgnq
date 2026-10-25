@@ -19,6 +19,7 @@ export type NicheType =
   | 'pet_acessorios'
   | 'cozinha_utilidades'
   | 'relogios_bijus'
+  | 'perfumes_cosmeticos'
   // Nichos de Vídeos Virais para Criadores de Conteúdo
   | 'historinhas_frutas'
   | 'infantil_historinhas'
@@ -200,6 +201,7 @@ export const NICHE_LABELS: Record<NicheType, string> = {
   pet_acessorios: 'Pet & Acessórios',
   cozinha_utilidades: 'Cozinha & Utilidades',
   relogios_bijus: 'Relógios & Bijus',
+  perfumes_cosmeticos: 'Perfumes & Cosméticos',
   // Nichos de Vídeos Virais
   historinhas_frutas: 'Historinhas de Frutas Humanoides',
   infantil_historinhas: 'Conteúdo Infantil & Fábulas',
@@ -226,6 +228,7 @@ export const NICHE_EMOJIS: Record<NicheType, string> = {
   pet_acessorios: '🧸',
   cozinha_utilidades: '🏠',
   relogios_bijus: '⌚',
+  perfumes_cosmeticos: '💄',
   // Nichos de Vídeos Virais
   historinhas_frutas: '🍓',
   infantil_historinhas: '🎈',

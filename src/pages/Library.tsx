@@ -52,6 +52,7 @@ import { ImagePlus, Upload, RefreshCw } from 'lucide-react'
 // Lista ordenada de nichos para os chips táteis
 const NICHE_KEYS: NicheType[] = [
   'moda_feminina',
+  'perfumes_cosmeticos',
   'streetwear_casual',
   'fitness_academia',
   'moda_fitness_plus_size',

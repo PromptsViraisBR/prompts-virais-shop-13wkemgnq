@@ -327,8 +327,8 @@ export const Landing: React.FC = () => {
               </div>
               <h3 className="font-bold text-lg">Escolha ou Gere o Prompt</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Acesse a biblioteca por nicho (Moda Feminina, Streetwear, Fitness) ou informe a peça
-                exata do seu catálogo no Gerador Inteligente.
+                Acesse a biblioteca por nicho (Moda Feminina, Perfumes & Cosméticos, Streetwear,
+                Fitness) ou informe a peça exata do seu catálogo no Gerador Inteligente.
               </p>
             </div>
 

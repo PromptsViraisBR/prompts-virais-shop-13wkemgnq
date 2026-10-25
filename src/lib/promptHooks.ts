@@ -123,3 +123,56 @@ export function getPlatformInfo(platform?: string): {
   }
   return { label: 'TikTok & Shopee', badgeVariant: 'outline', emoji: '🚀' }
 }
+
+export interface ParsedScene {
+  number: number
+  title: string
+  timeRange: string
+  content: string
+  raw: string
+}
+
+/**
+ * Extrai as cenas estruturadas de um prompt (ex: CENA 1 (0-10s) ... CENA 6 (50-60s)).
+ * Funciona para virais (6 cenas de 10s) e e-commerce (3 cenas).
+ */
+export function extractScenesFromPrompt(promptText: string): ParsedScene[] {
+  if (!promptText) return []
+
+  const sceneHeaderRegex = /(?:🎬\s*)?CENA\s*(\d+)[\s:-]*(\([^)]+\)|[^\n\r]*)/gi
+  const matches = Array.from(promptText.matchAll(sceneHeaderRegex))
+  if (matches.length === 0) return []
+
+  const scenes: ParsedScene[] = []
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]
+    const sceneNum = parseInt(match[1], 10)
+    const headerRest = (match[2] || '').trim()
+    const startIndex = match.index ?? 0
+    const nextIndex =
+      i + 1 < matches.length ? (matches[i + 1].index ?? promptText.length) : promptText.length
+
+    const rawScene = promptText.slice(startIndex, nextIndex).trim()
+
+    // Extrair faixa de tempo se houver (ex: "(0-10s)" ou "0-10s")
+    const timeMatch = rawScene.match(/\(?(\d{1,2}\s*[-–]\s*\d{1,2}s?)\)?/i)
+    const timeRange = timeMatch ? timeMatch[1].trim() : ''
+
+    // Título da cena
+    const firstLine = rawScene.split('\n')[0].trim()
+
+    // Conteúdo sem a primeira linha de cabeçalho
+    const contentLines = rawScene.split('\n').slice(1).join('\n').trim()
+
+    scenes.push({
+      number: sceneNum,
+      title: firstLine,
+      timeRange: timeRange || `Cena ${sceneNum}`,
+      content: contentLines || rawScene,
+      raw: rawScene,
+    })
+  }
+
+  return scenes
+}

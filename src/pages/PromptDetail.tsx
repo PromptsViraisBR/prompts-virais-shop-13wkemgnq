@@ -247,10 +247,13 @@ export const PromptDetail: React.FC = () => {
         promptTitle: prompt.title,
         productName: customProductName.trim() || prompt.title,
         visualDetails: customVisualDetails.trim() || undefined,
+        niche: prompt.niche,
         style: prompt.style,
         platform: prompt.platform,
         referenceImages: customFiles,
         imagesCount: customFiles.length,
+        category: prompt.category || 'ecommerce',
+        iterationSeed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.adapted_prompt) {
@@ -310,11 +313,13 @@ export const PromptDetail: React.FC = () => {
     setRegenerating(true)
     try {
       const res = await regeneratePromptVariations({
-        basePrompt: prompt.prompt_text,
-        promptTitle: prompt.title,
-        productName: prompt.title,
+        basePrompt: adaptedResult || prompt.prompt_text,
+        promptTitle: customProductName.trim() || prompt.title,
+        productName: customProductName.trim() || prompt.title,
+        visualDetails: customVisualDetails.trim() || undefined,
         niche: prompt.niche,
         category: prompt.category || 'ecommerce',
+        seed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.variations?.length) {
@@ -880,19 +885,30 @@ export const PromptDetail: React.FC = () => {
             </div>
 
             {/* Nome do Produto Customizado */}
-            <div className="space-y-1.5">
-              <Label htmlFor="custom-detail-prod" className="text-xs font-semibold">
-                Nome da Sua Peça / Roupa
-              </Label>
+            <div className="space-y-1.5 p-3 rounded-xl border border-pink-500/20 bg-pink-500/5">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="custom-detail-prod"
+                  className="text-xs font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Nome da Sua Peça / Produto Real
+                </Label>
+                <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold bg-pink-500/10 px-2 py-0.5 rounded-full">
+                  Substitui o original
+                </span>
+              </div>
               <Input
                 id="custom-detail-prod"
                 value={customProductName}
                 onChange={(e) => setCustomProductName(e.target.value)}
-                placeholder="Ex: Vestido Midi Canelado Terracota"
-                className="text-sm"
+                placeholder="Ex: Espelho de maquiagem LED, Vestido canelado, etc."
+                className="text-sm bg-background border-pink-500/30 focus-visible:ring-pink-500"
               />
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                Substitui perfeitamente o produto anterior do roteiro pelo novo informado.
+              </p>
             </div>
-
             {/* Detalhes Visuais */}
             <div className="space-y-1.5">
               <Label htmlFor="custom-detail-vis" className="text-xs font-semibold">

@@ -91,6 +91,7 @@ export const ViralVideos: React.FC = () => {
   const [customFiles, setCustomFiles] = useState<File[]>([])
   const [customPreviews, setCustomPreviews] = useState<string[]>([])
   const [customProductName, setCustomProductName] = useState('')
+  const [customCharacterName, setCustomCharacterName] = useState('')
   const [customVisualDetails, setCustomVisualDetails] = useState('')
   const [adapting, setAdapting] = useState(false)
   const [adaptedResult, setAdaptedResult] = useState<string | null>(null)
@@ -185,6 +186,7 @@ export const ViralVideos: React.FC = () => {
     }
     setCustomizePrompt(prompt)
     setCustomProductName(prompt.title)
+    setCustomCharacterName('')
     setCustomVisualDetails('')
     setCustomFiles([])
     setCustomPreviews([])
@@ -235,11 +237,14 @@ export const ViralVideos: React.FC = () => {
       const res = await regeneratePromptVariations({
         basePrompt: adaptedResult || customizePrompt.prompt_text,
         promptTitle: customProductName.trim() || customizePrompt.title,
-        productName: customProductName.trim() || customizePrompt.title,
+        productName:
+          customCharacterName.trim() || customProductName.trim() || customizePrompt.title,
+        characterName: customCharacterName.trim() || undefined,
         visualDetails: customVisualDetails.trim() || undefined,
         niche: customizePrompt.niche,
         imagesCount: customFiles.length,
         category: 'virais',
+        seed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.variations?.length) {
@@ -310,13 +315,17 @@ export const ViralVideos: React.FC = () => {
       const res = await adaptPromptWithImages({
         originalPrompt: customizePrompt.prompt_text,
         promptTitle: customizePrompt.title,
-        productName: customProductName.trim() || customizePrompt.title,
+        productName:
+          customCharacterName.trim() || customProductName.trim() || customizePrompt.title,
+        characterName: customCharacterName.trim() || undefined,
         visualDetails: customVisualDetails.trim() || undefined,
+        niche: customizePrompt.niche,
         style: customizePrompt.style,
         platform: customizePrompt.platform,
         referenceImages: customFiles,
         imagesCount: customFiles.length,
         category: 'virais',
+        iterationSeed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.adapted_prompt) {
@@ -989,16 +998,44 @@ export const ViralVideos: React.FC = () => {
                 )}
               </div>
 
+              {/* Troca de Personagem / Novo Personagem */}
+              <div className="space-y-1.5 p-3 rounded-xl border border-pink-500/30 bg-pink-500/5">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="custom-viral-character"
+                    className="text-xs font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Trocar Personagem / Elemento Central
+                  </Label>
+                  <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold bg-pink-500/10 px-2 py-0.5 rounded-full">
+                    Substituição Total
+                  </span>
+                </div>
+                <Input
+                  id="custom-viral-character"
+                  value={customCharacterName}
+                  onChange={(e) => setCustomCharacterName(e.target.value)}
+                  placeholder="Ex: Pinguim falante, Gato detetive, Espelho mágico..."
+                  className="text-sm border-pink-500/30 focus-visible:ring-pink-500"
+                />
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Quer mudar o personagem do prompt pronto? Escreva aqui (ex: se o prompt era com um
+                  cachorro, digite <span className="font-semibold text-foreground">pinguim</span>) e
+                  o roteiro de ~60s será adaptado substituindo totalmente o antigo pelo novo.
+                </p>
+              </div>
+
               {/* Título / Tema da Cena */}
               <div className="space-y-1.5">
                 <Label htmlFor="custom-viral-title" className="text-xs font-semibold">
-                  Tema ou Personagem da Cena
+                  Tema ou Contexto da Cena
                 </Label>
                 <Input
                   id="custom-viral-title"
                   value={customProductName}
                   onChange={(e) => setCustomProductName(e.target.value)}
-                  placeholder="Ex: Abacate falante com óculos de sol"
+                  placeholder="Ex: Aventuras cômicas na cozinha, mistério na floresta..."
                   className="text-sm"
                 />
               </div>

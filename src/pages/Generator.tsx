@@ -333,6 +333,8 @@ export const Generator: React.FC = () => {
         visualDetails: visualDetails.trim() || details.trim() || undefined,
         niche,
         imagesCount: referenceFiles.length,
+        category: 'ecommerce',
+        seed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.variations?.length) {

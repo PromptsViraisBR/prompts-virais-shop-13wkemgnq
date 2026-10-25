@@ -63,6 +63,7 @@ export const ViralGenerator: React.FC = () => {
 
   // Form State
   const [themeName, setThemeName] = useState('')
+  const [characterName, setCharacterName] = useState('')
   const [niche, setNiche] = useState<NicheType>('historinhas_frutas')
   const [visualDetails, setVisualDetails] = useState('')
 
@@ -162,10 +163,10 @@ export const ViralGenerator: React.FC = () => {
       return
     }
 
-    if (referenceFiles.length === 0 && !themeName.trim()) {
+    if (referenceFiles.length === 0 && !themeName.trim() && !characterName.trim()) {
       toast({
-        title: 'Suba sua imagem ou digite o tema da cena',
-        description: 'Suba até 3 imagens já criadas ou dê um nome para o personagem/tema.',
+        title: 'Suba sua imagem ou digite o tema/personagem',
+        description: 'Suba até 3 imagens já criadas ou defina o personagem da cena.',
         variant: 'destructive',
       })
       return
@@ -173,14 +174,17 @@ export const ViralGenerator: React.FC = () => {
 
     setGenerating(true)
     try {
-      const generatedTheme = themeName.trim() || 'Personagem da Imagem Criada'
+      const generatedTheme =
+        characterName.trim() || themeName.trim() || 'Personagem da Imagem Criada'
       const genRes = await generateViralSceneWithImages({
         userId: user.id,
         themeName: generatedTheme,
+        characterName: characterName.trim() || undefined,
         niche,
         visualDetails: visualDetails.trim() || undefined,
         referenceImages: referenceFiles,
         imagesCount: referenceFiles.length,
+        seed: Math.floor(Math.random() * 1000000),
       })
 
       if (genRes.success) {
@@ -245,11 +249,13 @@ export const ViralGenerator: React.FC = () => {
       const res = await regeneratePromptVariations({
         basePrompt: result.optional_script,
         promptTitle: result.theme_name,
-        productName: result.theme_name,
+        productName: characterName.trim() || result.theme_name,
+        characterName: characterName.trim() || undefined,
         visualDetails: visualDetails.trim() || undefined,
         niche: result.niche,
         imagesCount: referenceFiles.length,
         category: 'virais',
+        seed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.variations?.length) {
@@ -446,16 +452,43 @@ export const ViralGenerator: React.FC = () => {
                 </Select>
               </div>
 
-              {/* Tema ou Nome do Personagem */}
+              {/* Troca / Definição de Personagem Central */}
+              <div className="space-y-1.5 p-3 rounded-2xl border border-pink-500/30 bg-pink-500/5">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="viral-character-input"
+                    className="text-xs font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Personagem Principal do Roteiro
+                  </Label>
+                  <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold bg-pink-500/10 px-2 py-0.5 rounded-full">
+                    Troca Inteligente
+                  </span>
+                </div>
+                <Input
+                  id="viral-character-input"
+                  value={characterName}
+                  onChange={(e) => setCharacterName(e.target.value)}
+                  placeholder="Ex: Pinguim falante, Cachorro detetive, Espelho que fala..."
+                  className="rounded-xl text-xs sm:text-sm h-10 border-pink-500/30 focus-visible:ring-pink-500 bg-background"
+                />
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Defina o personagem central. Se você estiver adaptando uma história, o personagem
+                  antigo será substituído integralmente por este.
+                </p>
+              </div>
+
+              {/* Tema ou Contexto da Imagem */}
               <div className="space-y-1.5">
                 <Label htmlFor="viral-theme-input" className="text-xs font-semibold">
-                  Tema ou Personagem da Imagem
+                  Tema ou Situação da Cena
                 </Label>
                 <Input
                   id="viral-theme-input"
                   value={themeName}
                   onChange={(e) => setThemeName(e.target.value)}
-                  placeholder="Ex: Morango falante, Cãozinho carente, Guerreiro medieval..."
+                  placeholder="Ex: Fuga cômica na cozinha, mistério na floresta à noite..."
                   className="rounded-xl text-xs sm:text-sm h-10"
                 />
               </div>

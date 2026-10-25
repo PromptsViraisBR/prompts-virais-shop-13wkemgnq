@@ -240,19 +240,19 @@ export const Navbar: React.FC = () => {
             <Link
               to="/virais"
               onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center justify-between px-3 py-2 rounded-md font-medium text-sm ${
-                isActive('/virais') ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+              className={`flex items-center justify-between px-3 py-2 rounded-md font-medium text-sm border border-rose-500/20 bg-rose-500/5 ${
+                isActive('/virais') ? 'bg-rose-500/15 text-foreground font-bold' : 'text-foreground'
               }`}
             >
               <span className="flex items-center gap-2.5">
-                <Flame className="w-4 h-4 text-rose-500" />
-                Vídeos Virais
+                <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
+                <span>Vídeos Virais (Criadores)</span>
               </span>
               <Badge
                 variant="secondary"
-                className="text-[10px] bg-rose-500/15 text-rose-600 font-bold"
+                className="text-[10px] bg-rose-500/15 text-rose-600 font-extrabold border border-rose-500/30"
               >
-                NOVO
+                NOVO 🔥
               </Badge>
             </Link>
 

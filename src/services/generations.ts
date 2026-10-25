@@ -20,26 +20,32 @@ export interface AdaptPromptInput {
   originalPrompt?: string
   promptTitle?: string
   productName?: string
+  characterName?: string
   visualDetails?: string
+  niche?: string
   style?: StyleType
   platform?: PlatformType
   referenceImages?: File[]
   imagesCount?: number
   category?: 'ecommerce' | 'virais'
+  iterationSeed?: number
 }
 
 export interface GenerateViralSceneInput {
   userId?: string
   themeName: string
+  characterName?: string
   niche: NicheType
   visualDetails?: string
   referenceImages?: File[]
   imagesCount?: number
+  seed?: number
 }
 
 export interface GenerateViralSceneResult {
   success: boolean
   theme_name: string
+  character_name?: string
   niche: NicheType
   niche_label: string
   scene_concept: string
@@ -61,15 +67,18 @@ export interface RegenerateVariationsInput {
   basePrompt?: string
   promptTitle?: string
   productName?: string
+  characterName?: string
   visualDetails?: string
   niche?: string
   imagesCount?: number
   category?: 'ecommerce' | 'virais'
+  seed?: number
 }
 
 export interface RegenerateVariationsResult {
   success: boolean
   product_name: string
+  character_name?: string
   variations: PromptVariation[]
 }
 
@@ -77,6 +86,7 @@ export interface AdaptPromptResult {
   success: boolean
   adapted_prompt: string
   product_name?: string
+  character_name?: string
   visual_details?: string
   error?: string
 }
@@ -204,6 +214,7 @@ export async function regeneratePromptVariations(
 ): Promise<RegenerateVariationsResult> {
   const imagesCount = input.imagesCount || 1
   const category = input.category || 'ecommerce'
+  const seed = input.seed || Math.floor(Math.random() * 1000000)
 
   try {
     const response = await fetch(
@@ -218,10 +229,12 @@ export async function regeneratePromptVariations(
           original_prompt: input.basePrompt,
           prompt_title: input.promptTitle,
           product_name: input.productName,
+          character_name: input.characterName,
           visual_details: input.visualDetails,
           niche: input.niche || (category === 'virais' ? 'historinhas_frutas' : 'moda_feminina'),
           images_count: imagesCount,
           category,
+          seed,
         }),
       },
     )
@@ -303,7 +316,11 @@ export async function regeneratePromptVariations(
 }
 
 export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<AdaptPromptResult> {
-  const imagesCount = input.referenceImages?.length || input.imagesCount || 1
+  const imagesCount =
+    input.referenceImages?.length ||
+    input.imagesCount ||
+    (input.referenceImages ? input.referenceImages.length : 0)
+  const iterationSeed = input.iterationSeed || Math.floor(Math.random() * 1000000)
 
   try {
     const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/adapt-prompt`, {
@@ -316,11 +333,14 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
         original_prompt: input.originalPrompt,
         prompt_title: input.promptTitle,
         product_name: input.productName,
+        character_name: input.characterName,
         visual_details: input.visualDetails,
+        niche: input.niche,
         style: input.style || 'pov',
         platform: input.platform || 'ambos',
         images_count: imagesCount,
         category: input.category || 'ecommerce',
+        iteration_seed: iterationSeed,
       }),
     })
 
@@ -332,7 +352,8 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
     return (await response.json()) as AdaptPromptResult
   } catch (err: any) {
     console.warn('Erro na rota de adaptação, usando fallback local inteligente:', err)
-    const prod = input.productName || input.promptTitle || 'Peça em destaque'
+    const char = input.characterName
+    const prod = char || input.productName || input.promptTitle || 'Peça em destaque'
     const visual =
       input.visualDetails || 'Caimento ajustado, cor fiel às fotos e tecido de alta densidade'
     const baseScript = input.originalPrompt || ''
@@ -374,6 +395,7 @@ export async function generateViralSceneWithImages(
   input: GenerateViralSceneInput,
 ): Promise<GenerateViralSceneResult> {
   const imagesCount = input.referenceImages?.length || input.imagesCount || 1
+  const seed = input.seed || Math.floor(Math.random() * 1000000)
 
   try {
     const response = await fetch(
@@ -386,9 +408,11 @@ export async function generateViralSceneWithImages(
         },
         body: JSON.stringify({
           theme_name: input.themeName,
+          character_name: input.characterName,
           niche: input.niche,
           visual_details: input.visualDetails,
           images_count: imagesCount,
+          seed,
         }),
       },
     )
@@ -481,6 +505,7 @@ export async function generateViralSceneWithImages(
     return {
       success: true,
       theme_name: theme,
+      character_name: input.characterName,
       niche: input.niche,
       niche_label: nicheLabel,
       scene_concept: sceneConcept,
@@ -493,6 +518,7 @@ export async function generateViralSceneWithImages(
     return {
       success: false,
       theme_name: input.themeName,
+      character_name: input.characterName,
       niche: input.niche,
       niche_label: NICHE_LABELS[input.niche] || 'Vídeos Virais',
       scene_concept: '',

@@ -219,6 +219,8 @@ export const Library: React.FC = () => {
         visualDetails: customVisualDetails.trim() || undefined,
         niche: customizePrompt.niche,
         imagesCount: customFiles.length,
+        category: 'ecommerce',
+        seed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.variations?.length) {
@@ -290,10 +292,13 @@ export const Library: React.FC = () => {
         promptTitle: customizePrompt.title,
         productName: customProductName.trim() || customizePrompt.title,
         visualDetails: customVisualDetails.trim() || undefined,
+        niche: customizePrompt.niche,
         style: customizePrompt.style,
         platform: customizePrompt.platform,
         referenceImages: customFiles,
         imagesCount: customFiles.length,
+        category: 'ecommerce',
+        iterationSeed: Math.floor(Math.random() * 1000000),
       })
 
       if (res.success && res.adapted_prompt) {
@@ -945,17 +950,31 @@ export const Library: React.FC = () => {
               </div>
 
               {/* Nome do Produto Customizado */}
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-prod" className="text-xs font-semibold">
-                  Nome da Sua Peça / Roupa
-                </Label>
+              <div className="space-y-1.5 p-3 rounded-xl border border-pink-500/20 bg-pink-500/5">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="custom-prod"
+                    className="text-xs font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Nome do Seu Produto / Peça Real
+                  </Label>
+                  <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold bg-pink-500/10 px-2 py-0.5 rounded-full">
+                    Substitui o original
+                  </span>
+                </div>
                 <Input
                   id="custom-prod"
                   value={customProductName}
                   onChange={(e) => setCustomProductName(e.target.value)}
-                  placeholder="Ex: Vestido Midi Terracota"
-                  className="text-sm"
+                  placeholder="Ex: Espelho de maquiagem LED, Vestido Midi, Capinha de celular..."
+                  className="text-sm bg-background border-pink-500/30 focus-visible:ring-pink-500"
                 />
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  O produto informado aqui substitui integralmente o produto do prompt original (ex:
+                  se o prompt era uma capinha e você quer vender um espelho, o roteiro será
+                  reformulado 100% para o espelho).
+                </p>
               </div>
 
               {/* Detalhes Visuais */}

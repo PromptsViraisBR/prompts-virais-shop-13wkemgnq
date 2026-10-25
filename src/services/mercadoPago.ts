@@ -149,3 +149,42 @@ export async function getAdminOverview(): Promise<AdminOverviewResult> {
     method: 'GET',
   })
 }
+
+export interface RefundPaymentResult {
+  success: boolean
+  message?: string
+  refund_id?: string | number
+  payment_id?: string
+  status?: string
+  error?: string
+  consequences?: {
+    subscription_cancelled: boolean
+    credits_deducted: number
+  }
+  details?: any
+}
+
+/**
+ * Executa o estorno/reembolso oficial de um pagamento via Mercado Pago (Apenas Admins)
+ */
+export async function refundMercadoPagoPayment(
+  paymentId: string,
+  amount?: number,
+): Promise<RefundPaymentResult> {
+  try {
+    const res = await pb.send<RefundPaymentResult>('/backend/v1/mp/admin/refund', {
+      method: 'POST',
+      body: {
+        payment_id: paymentId,
+        amount: amount,
+      },
+    })
+    return res
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.data?.error || err?.message || 'Falha ao solicitar estorno no Mercado Pago.',
+      details: err?.data?.details,
+    }
+  }
+}

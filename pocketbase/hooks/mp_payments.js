@@ -7,6 +7,7 @@
  * 3. POST /backend/v1/mp/webhook
  * 4. POST /backend/v1/mp/cancel-subscription
  * 5. GET  /backend/v1/mp/admin/overview
+ * 6. POST /backend/v1/mp/admin/refund
  *
  * REGRA CRÍTICA POCKETBASE JSVM:
  * Todas as funções utilitárias e variáveis ficam INLINE dentro do corpo de cada callback de rota
@@ -325,6 +326,221 @@ routerAdd('GET', '/backend/v1/mp/config-status', (e) => {
       e2e_report: e2eReport,
     })
   } catch (err) {
+    return e.json(500, { success: false, error: err.message || String(err) })
+  }
+})
+
+// -------------------------------------------------------------
+// ROTA 6: POST /backend/v1/mp/admin/refund
+// Executa o estorno/reembolso oficial via API do Mercado Pago
+// POST https://api.mercadopago.com/v1/payments/{payment_id}/refunds
+// -------------------------------------------------------------
+routerAdd('POST', '/backend/v1/mp/admin/refund', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, { success: false, error: 'Requer autenticação.' })
+    }
+
+    const isAdmin =
+      authUser.getBool('is_admin') ||
+      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    if (!isAdmin) {
+      return e.json(403, {
+        success: false,
+        error: 'Acesso restrito ao administrador do sistema.',
+      })
+    }
+
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
+    if (!token) {
+      return e.json(503, {
+        success: false,
+        error: 'MERCADO_PAGO_ACCESS_TOKEN não está configurado no servidor.',
+      })
+    }
+
+    const reqInfo = e.requestInfo()
+    const body = reqInfo.body || {}
+    const paymentId = (body.payment_id || body.mp_payment_id || '').toString().trim()
+    const refundAmount = body.amount ? parseFloat(body.amount) : undefined
+
+    if (!paymentId) {
+      return e.json(400, {
+        success: false,
+        error: 'ID do pagamento (payment_id) é obrigatório.',
+      })
+    }
+
+    console.log(`[mp-admin-refund] Iniciando reembolso para payment_id=${paymentId}...`)
+
+    // Chamar a API oficial do Mercado Pago: POST /v1/payments/{id}/refunds
+    // Header X-Idempotency-Key para evitar duplicidade
+    const idempotencyKey = `refund_${paymentId}_${Date.now()}`
+    const refundPayload = refundAmount && refundAmount > 0 ? { amount: refundAmount } : {}
+
+    const mpRefundRes = $http.send({
+      method: 'POST',
+      url: `https://api.mercadopago.com/v1/payments/${paymentId}/refunds`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(refundPayload),
+      timeout: 30,
+    })
+
+    const mpRefundData = mpRefundRes.json || {}
+    const isSuccess = mpRefundRes.statusCode >= 200 && mpRefundRes.statusCode < 300
+
+    if (!isSuccess) {
+      console.warn(
+        `[mp-admin-refund] Falha na API do MP: status=${mpRefundRes.statusCode}`,
+        mpRefundData,
+      )
+      const errorMsg =
+        mpRefundData.message ||
+        mpRefundData.error ||
+        (Array.isArray(mpRefundData.cause) &&
+          mpRefundData.cause[0] &&
+          mpRefundData.cause[0].description) ||
+        `Erro ao estornar pagamento na API do Mercado Pago (Status ${mpRefundRes.statusCode}).`
+
+      return e.json(mpRefundRes.statusCode || 400, {
+        success: false,
+        error: errorMsg,
+        details: mpRefundData,
+      })
+    }
+
+    console.log(`[mp-admin-refund] Reembolso aprovado na API do MP! ID=${mpRefundData.id}`)
+
+    // Consultar o pagamento atualizado no MP para saber detalhes completos
+    let updatedPaymentData = null
+    try {
+      const getPmt = $http.send({
+        method: 'GET',
+        url: `https://api.mercadopago.com/v1/payments/${paymentId}`,
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15,
+      })
+      if (getPmt.statusCode === 200) {
+        updatedPaymentData = getPmt.json || {}
+      }
+    } catch (_) {}
+
+    // Atualizar registro no banco de dados local (payments_history)
+    let historyRec = null
+    try {
+      historyRec = $app.findFirstRecordByData('payments_history', 'mp_payment_id', paymentId)
+    } catch (_) {}
+
+    if (historyRec) {
+      historyRec.set('status', 'refunded')
+      historyRec.set('status_detail', 'refunded_by_admin')
+      $app.save(historyRec)
+    }
+
+    // Aplicar as consequências no banco (assinatura ou créditos) caso o webhook demore a chegar
+    let consequencesApplied = { subscription_cancelled: false, credits_deducted: 0 }
+    let targetUserId = historyRec ? historyRec.getString('user') : ''
+    let paymentType = historyRec ? historyRec.getString('payment_type') : ''
+    let externalRef = historyRec ? historyRec.getString('external_reference') : ''
+
+    if (updatedPaymentData && !targetUserId) {
+      const payerEmail = (updatedPaymentData.payer && updatedPaymentData.payer.email) || ''
+      if (payerEmail) {
+        try {
+          const u = $app.findAuthRecordByEmail('_pb_users_auth_', payerEmail)
+          if (u) targetUserId = u.id
+        } catch (_) {}
+      }
+      if (!externalRef) {
+        externalRef = updatedPaymentData.external_reference || ''
+      }
+    }
+
+    // 1. Assinatura: desativar / cancelar
+    try {
+      let linkedSubs = []
+      try {
+        linkedSubs = $app.findRecordsByFilter(
+          'subscriptions',
+          `mp_payment_id = "${paymentId}"`,
+          '-created',
+          5,
+          0,
+        )
+      } catch (_) {}
+
+      if ((!linkedSubs || linkedSubs.length === 0) && targetUserId && paymentType !== 'credits') {
+        try {
+          linkedSubs = $app.findRecordsByFilter(
+            'subscriptions',
+            `user = "${targetUserId}" && status = "active"`,
+            '-created',
+            5,
+            0,
+          )
+        } catch (_) {}
+      }
+
+      if (linkedSubs && linkedSubs.length > 0) {
+        for (let i = 0; i < linkedSubs.length; i++) {
+          const s = linkedSubs[i]
+          s.set('status', 'cancelled')
+          $app.save(s)
+          consequencesApplied.subscription_cancelled = true
+        }
+      }
+    } catch (subErr) {
+      console.warn('[mp-admin-refund] Erro ao atualizar assinatura:', subErr)
+    }
+
+    // 2. Créditos: deduzir
+    if (paymentType === 'credits' || (externalRef && externalRef.includes('credits'))) {
+      try {
+        let creditsQty = 1
+        if (externalRef) {
+          const parts = externalRef.split('_')
+          if (parts.length >= 3) {
+            creditsQty = parseInt(parts[2] || '1', 10)
+          }
+        }
+        if (targetUserId) {
+          let credRec = null
+          try {
+            credRec = $app.findFirstRecordByData('regeneration_credits', 'user', targetUserId)
+          } catch (_) {}
+
+          if (credRec) {
+            const currentBal = credRec.getInt('extra_prompts_balance') || 0
+            const currentTot = credRec.getInt('total_purchased') || 0
+            const newBal = Math.max(0, currentBal - creditsQty)
+            const newTot = Math.max(0, currentTot - creditsQty)
+            credRec.set('extra_prompts_balance', newBal)
+            credRec.set('total_purchased', newTot)
+            $app.save(credRec)
+            consequencesApplied.credits_deducted = creditsQty
+          }
+        }
+      } catch (credErr) {
+        console.warn('[mp-admin-refund] Erro ao deduzir créditos:', credErr)
+      }
+    }
+
+    return e.json(200, {
+      success: true,
+      message: 'Pagamento estornado com sucesso no Mercado Pago!',
+      refund_id: mpRefundData.id,
+      payment_id: paymentId,
+      status: 'refunded',
+      consequences: consequencesApplied,
+      refund_data: mpRefundData,
+    })
+  } catch (err) {
+    console.error('[mp-admin-refund] Erro interno:', err)
     return e.json(500, { success: false, error: err.message || String(err) })
   }
 })
@@ -661,9 +877,9 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       }
 
       const pmtData = pmtRes.json || {}
-      const pmtStatus = pmtData.status || '' // approved, pending, rejected, refunded, cancelled
+      const pmtStatus = (pmtData.status || '').toLowerCase() // approved, pending, rejected, refunded, charged_back, cancelled
       const pmtStatusDetail = pmtData.status_detail || ''
-      const externalRef = pmtData.external_reference || ''
+      let externalRef = pmtData.external_reference || ''
       const payerEmail = (pmtData.payer && pmtData.payer.email) || ''
       const transactionAmount = pmtData.transaction_amount || 0
       const paymentMethodId = pmtData.payment_method_id || ''
@@ -672,25 +888,65 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       const cardBrand =
         (pmtData.payment_method && pmtData.payment_method.id) || paymentMethodId || ''
 
+      const isRefundOrChargeback =
+        pmtStatus === 'refunded' ||
+        pmtStatus === 'charged_back' ||
+        pmtStatusDetail === 'refunded' ||
+        pmtStatusDetail === 'by_admin' ||
+        pmtStatusDetail === 'settled' ||
+        pmtStatusDetail === 'reimbursed'
+
       let targetUserId = ''
       let isSubscriptionPayment = false
       let planTarget = 'monthly'
       let isCreditsPayment = false
-      let creditsToAdd = 0
+      let creditsQty = 0
 
-      if (externalRef.startsWith('sub_')) {
+      // Tentar resgatar external_reference ou histórico prévio se o MP não retornar external_reference completo
+      let existingHistoryRec = null
+      try {
+        existingHistoryRec = $app.findFirstRecordByData(
+          'payments_history',
+          'mp_payment_id',
+          String(resourceId),
+        )
+      } catch (_) {}
+
+      if (!externalRef && existingHistoryRec) {
+        externalRef = existingHistoryRec.getString('external_reference') || ''
+      }
+
+      if (externalRef.startsWith('sub_') || externalRef.startsWith('test_sub_')) {
         const spl = externalRef.split('_')
-        if (spl.length >= 3) {
+        // formatos: sub_{userId}_{plan}_{timestamp} ou test_sub_{userId}_{plan}_{timestamp}
+        if (externalRef.startsWith('test_sub_') && spl.length >= 4) {
+          targetUserId = spl[2]
+          planTarget = spl[3]
+          isSubscriptionPayment = true
+        } else if (spl.length >= 3) {
           targetUserId = spl[1]
           planTarget = spl[2]
           isSubscriptionPayment = true
         }
-      } else if (externalRef.startsWith('credits_')) {
+      } else if (externalRef.startsWith('credits_') || externalRef.startsWith('test_credits_')) {
         const spl = externalRef.split('_')
-        if (spl.length >= 3) {
-          targetUserId = spl[1]
-          creditsToAdd = parseInt(spl[2] || '1', 10)
+        if (externalRef.startsWith('test_credits_') && spl.length >= 4) {
+          targetUserId = spl[2]
+          creditsQty = parseInt(spl[3] || '1', 10)
           isCreditsPayment = true
+        } else if (spl.length >= 3) {
+          targetUserId = spl[1]
+          creditsQty = parseInt(spl[2] || '1', 10)
+          isCreditsPayment = true
+        }
+      }
+
+      if (!targetUserId && existingHistoryRec) {
+        targetUserId = existingHistoryRec.getString('user') || ''
+        if (existingHistoryRec.getString('payment_type') === 'credits') {
+          isCreditsPayment = true
+        } else if (existingHistoryRec.getString('payment_type') === 'subscription') {
+          isSubscriptionPayment = true
         }
       }
 
@@ -701,23 +957,34 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         } catch (_) {}
       }
 
-      // Idempotência com payments_history
-      let existingHistoryRec = null
-      try {
-        existingHistoryRec = $app.findFirstRecordByData(
-          'payments_history',
-          'mp_payment_id',
-          String(resourceId),
-        )
-      } catch (_) {}
-
+      // Idempotência: verificar o status salvo anteriormente
+      let previousStatus = ''
+      let alreadyRefunded = false
       if (existingHistoryRec) {
-        const previousStatus = existingHistoryRec.getString('status')
+        previousStatus = existingHistoryRec.getString('status')
+        alreadyRefunded = previousStatus === 'refunded' || previousStatus === 'charged_back'
+
         existingHistoryRec.set('status', pmtStatus)
         existingHistoryRec.set('status_detail', pmtStatusDetail)
+        if (targetUserId && !existingHistoryRec.getString('user')) {
+          existingHistoryRec.set('user', targetUserId)
+        }
         $app.save(existingHistoryRec)
 
-        if (previousStatus === 'approved') {
+        // Se já foi processado como estorno anteriormente, encerra com idempotência
+        if (isRefundOrChargeback && alreadyRefunded) {
+          console.log(
+            `[mp-webhook] Pagamento ${resourceId} já havia sido estornado anteriormente. Idempotência mantida.`,
+          )
+          return e.json(200, {
+            success: true,
+            idempotent: true,
+            message: 'Reembolso já processado anteriormente.',
+          })
+        }
+
+        // Se era approved e continua approved sem alteração, idempotência
+        if (pmtStatus === 'approved' && previousStatus === 'approved') {
           console.log(
             `[mp-webhook] Pagamento ${resourceId} já processado anteriormente como approved.`,
           )
@@ -738,14 +1005,108 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
           newHist.set('payment_method_id', paymentMethodId)
           newHist.set('raw_payload', JSON.stringify(pmtData))
           $app.save(newHist)
+          existingHistoryRec = newHist
         } catch (histErr) {
           console.warn('[mp-webhook] Erro ao salvar histórico:', histErr)
         }
       }
 
-      // Ações com base no status do pagamento
+      // =========================================================================
+      // CASO A.1: PAGAMENTO REEMBOLSADO OU CHARGEBACK (REVERSÃO AUTOMÁTICA)
+      // =========================================================================
+      if (isRefundOrChargeback) {
+        console.log(
+          `[mp-webhook] REEMBOLSO DETECTADO para pagamento ${resourceId}! Status=${pmtStatus}, Detail=${pmtStatusDetail}, User=${targetUserId}`,
+        )
+
+        // A) Se era assinatura (mensal / anual) -> marcar subscription como cancelled/expired com motivo refunded
+        // Tentar encontrar a subscription vinculada por mp_payment_id ou pelo user
+        try {
+          let userSubs = []
+          try {
+            userSubs = $app.findRecordsByFilter(
+              'subscriptions',
+              `mp_payment_id = "${resourceId}"`,
+              '-created',
+              5,
+              0,
+            )
+          } catch (_) {}
+
+          if ((!userSubs || userSubs.length === 0) && targetUserId) {
+            try {
+              userSubs = $app.findRecordsByFilter(
+                'subscriptions',
+                `user = "${targetUserId}" && status = "active"`,
+                '-created',
+                5,
+                0,
+              )
+            } catch (_) {}
+          }
+
+          if (userSubs && userSubs.length > 0) {
+            for (let sIdx = 0; sIdx < userSubs.length; sIdx++) {
+              const sRec = userSubs[sIdx]
+              sRec.set('status', 'cancelled')
+              $app.save(sRec)
+              console.log(
+                `[mp-webhook] Assinatura ${sRec.id} do usuário ${sRec.getString('user')} CANCELADA por REEMBOLSO (payment ${resourceId}).`,
+              )
+            }
+          }
+        } catch (subRefundErr) {
+          console.error('[mp-webhook] Erro ao reverter assinatura por reembolso:', subRefundErr)
+        }
+
+        // B) Se era compra de créditos de regeneração -> descontar os créditos creditados (sem ficar negativo)
+        if (isCreditsPayment || creditsQty > 0) {
+          try {
+            const qtyToDeduct = creditsQty > 0 ? creditsQty : 1
+            if (targetUserId) {
+              let credRecord = null
+              try {
+                credRecord = $app.findFirstRecordByData(
+                  'regeneration_credits',
+                  'user',
+                  targetUserId,
+                )
+              } catch (_) {}
+
+              if (credRecord) {
+                const currentBalance = credRecord.getInt('extra_prompts_balance') || 0
+                const currentTotalPurchased = credRecord.getInt('total_purchased') || 0
+                const newBalance = Math.max(0, currentBalance - qtyToDeduct)
+                const newTotalPurchased = Math.max(0, currentTotalPurchased - qtyToDeduct)
+
+                credRecord.set('extra_prompts_balance', newBalance)
+                credRecord.set('total_purchased', newTotalPurchased)
+                $app.save(credRecord)
+
+                console.log(
+                  `[mp-webhook] Créditos revertidos para o usuário ${targetUserId}. Saldo anterior: ${currentBalance}, novo saldo: ${newBalance} (deduzidos ${qtyToDeduct}).`,
+                )
+              }
+            }
+          } catch (credRefundErr) {
+            console.error('[mp-webhook] Erro ao reverter créditos por reembolso:', credRefundErr)
+          }
+        }
+
+        return e.json(200, {
+          success: true,
+          action: 'refund_processed',
+          processed_payment: resourceId,
+          status: pmtStatus,
+          status_detail: pmtStatusDetail,
+        })
+      }
+
+      // =========================================================================
+      // CASO A.2: PAGAMENTO APROVADO (CONCESSÃO DE ASSINATURA OU CRÉDITOS)
+      // =========================================================================
       if (targetUserId && pmtStatus === 'approved') {
-        if (isCreditsPayment && creditsToAdd > 0) {
+        if (isCreditsPayment && creditsQty > 0) {
           try {
             let credRecord = null
             try {
@@ -755,22 +1116,22 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
             if (credRecord) {
               const currentBalance = credRecord.getInt('extra_prompts_balance') || 0
               const totalPurchased = credRecord.getInt('total_purchased') || 0
-              credRecord.set('extra_prompts_balance', currentBalance + creditsToAdd)
-              credRecord.set('total_purchased', totalPurchased + creditsToAdd)
+              credRecord.set('extra_prompts_balance', currentBalance + creditsQty)
+              credRecord.set('total_purchased', totalPurchased + creditsQty)
               if (cardLast4) credRecord.set('last_purchase_card_last4', cardLast4)
               $app.save(credRecord)
             } else {
               const credCol = $app.findCollectionByNameOrId('regeneration_credits')
               const newCred = new Record(credCol)
               newCred.set('user', targetUserId)
-              newCred.set('extra_prompts_balance', creditsToAdd)
-              newCred.set('total_purchased', creditsToAdd)
+              newCred.set('extra_prompts_balance', creditsQty)
+              newCred.set('total_purchased', creditsQty)
               newCred.set('total_used', 0)
               if (cardLast4) newCred.set('last_purchase_card_last4', cardLast4)
               $app.save(newCred)
             }
             console.log(
-              `[mp-webhook] Concedidos ${creditsToAdd} créditos para usuário ${targetUserId}`,
+              `[mp-webhook] Concedidos ${creditsQty} créditos para usuário ${targetUserId}`,
             )
           } catch (cErr) {
             console.error('[mp-webhook] Erro ao conceder créditos:', cErr)
@@ -833,10 +1194,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
             console.error('[mp-webhook] Erro ao salvar assinatura:', subSaveErr)
           }
         }
-      } else if (
-        targetUserId &&
-        (pmtStatus === 'rejected' || pmtStatus === 'cancelled' || pmtStatus === 'refunded')
-      ) {
+      } else if (targetUserId && (pmtStatus === 'rejected' || pmtStatus === 'cancelled')) {
         if (isSubscriptionPayment) {
           try {
             const userSubs = $app.findRecordsByFilter(

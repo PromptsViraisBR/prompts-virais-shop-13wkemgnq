@@ -1,10 +1,22 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { getAdminOverview, AdminOverviewResult } from '@/services/mercadoPago'
+import {
+  getAdminOverview,
+  AdminOverviewResult,
+  refundMercadoPagoPayment,
+} from '@/services/mercadoPago'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Users,
   CreditCard,
@@ -18,6 +30,8 @@ import {
   XCircle,
   Clock,
   Key,
+  RotateCcw,
+  AlertTriangle,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -28,6 +42,46 @@ export const AdminDashboard: React.FC = () => {
   const [data, setData] = useState<AdminOverviewResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
+
+  // Modal de Estorno/Reembolso
+  const [selectedPaymentForRefund, setSelectedPaymentForRefund] = useState<{
+    id: string
+    mp_payment_id: string
+    transaction_amount?: number
+    payment_type?: string
+    payer_email?: string
+  } | null>(null)
+  const [refunding, setRefunding] = useState(false)
+
+  const handleConfirmRefund = async () => {
+    if (!selectedPaymentForRefund) return
+    setRefunding(true)
+    try {
+      const res = await refundMercadoPagoPayment(selectedPaymentForRefund.mp_payment_id)
+      if (res.success) {
+        toast({
+          title: 'Reembolso realizado com sucesso!',
+          description: `Pagamento ${selectedPaymentForRefund.mp_payment_id} estornado na API oficial do Mercado Pago.`,
+        })
+        setSelectedPaymentForRefund(null)
+        await loadOverview()
+      } else {
+        toast({
+          title: 'Erro ao estornar',
+          description: res.error || 'Não foi possível estornar o pagamento.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro no estorno',
+        description: err?.message || 'Falha na comunicação com o Mercado Pago.',
+        variant: 'destructive',
+      })
+    } finally {
+      setRefunding(false)
+    }
+  }
 
   const loadOverview = async () => {
     setLoading(true)
@@ -311,47 +365,85 @@ export const AdminDashboard: React.FC = () => {
                     <th className="pb-2">Tipo</th>
                     <th className="pb-2">Status</th>
                     <th className="pb-2">Data</th>
+                    <th className="pb-2 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {(data?.payments || []).length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                      <td colSpan={6} className="py-6 text-center text-muted-foreground">
                         Nenhum pagamento registrado ainda. Os pagamentos aparecerão aqui assim que o
                         webhook receber os eventos do Mercado Pago.
                       </td>
                     </tr>
                   ) : (
-                    data?.payments.map((pmt) => (
-                      <tr key={pmt.id} className="hover:bg-muted/30">
-                        <td className="py-2.5 font-mono font-medium">{pmt.mp_payment_id}</td>
-                        <td className="py-2.5 font-bold">
-                          {pmt.transaction_amount
-                            ? pmt.transaction_amount.toLocaleString('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              })
-                            : '—'}
-                        </td>
-                        <td className="py-2.5 capitalize text-muted-foreground">
-                          {pmt.payment_type || '—'}
-                        </td>
-                        <td className="py-2.5">
-                          <Badge
-                            className={`text-[10px] ${
-                              pmt.status === 'approved'
-                                ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                                : 'bg-amber-500/15 text-amber-600 border-amber-500/30'
-                            }`}
-                          >
-                            {pmt.status}
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 text-muted-foreground text-[11px]">
-                          {pmt.created ? new Date(pmt.created).toLocaleDateString('pt-BR') : '—'}
-                        </td>
-                      </tr>
-                    ))
+                    data?.payments.map((pmt) => {
+                      const isApproved = pmt.status === 'approved'
+                      const isRefunded =
+                        pmt.status === 'refunded' ||
+                        pmt.status === 'charged_back' ||
+                        pmt.status_detail?.includes('refund')
+
+                      return (
+                        <tr key={pmt.id} className="hover:bg-muted/30">
+                          <td className="py-2.5 font-mono font-medium">{pmt.mp_payment_id}</td>
+                          <td className="py-2.5 font-bold">
+                            {pmt.transaction_amount
+                              ? pmt.transaction_amount.toLocaleString('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                })
+                              : '—'}
+                          </td>
+                          <td className="py-2.5 capitalize text-muted-foreground">
+                            {pmt.payment_type || '—'}
+                          </td>
+                          <td className="py-2.5">
+                            <Badge
+                              className={`text-[10px] ${
+                                isRefunded
+                                  ? 'bg-rose-500/15 text-rose-600 border-rose-500/30'
+                                  : isApproved
+                                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                                    : 'bg-amber-500/15 text-amber-600 border-amber-500/30'
+                              }`}
+                            >
+                              {pmt.status}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 text-muted-foreground text-[11px]">
+                            {pmt.created ? new Date(pmt.created).toLocaleDateString('pt-BR') : '—'}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            {isApproved ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setSelectedPaymentForRefund({
+                                    id: pmt.id,
+                                    mp_payment_id: pmt.mp_payment_id,
+                                    transaction_amount: pmt.transaction_amount,
+                                    payment_type: pmt.payment_type,
+                                    payer_email: pmt.payer_email,
+                                  })
+                                }
+                                className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive hover:text-destructive-foreground gap-1 border-destructive/30"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                Estornar
+                              </Button>
+                            ) : isRefunded ? (
+                              <span className="text-[11px] text-muted-foreground italic">
+                                Estornado
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
@@ -359,6 +451,94 @@ export const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Confirmação de Estorno / Reembolso */}
+      <Dialog
+        open={Boolean(selectedPaymentForRefund)}
+        onOpenChange={(open) => !open && setSelectedPaymentForRefund(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 text-rose-600 flex items-center justify-center mb-2">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <DialogTitle className="text-lg font-bold">
+              Confirmar Estorno no Mercado Pago?
+            </DialogTitle>
+            <DialogDescription className="text-sm space-y-2 pt-1 text-muted-foreground">
+              <p>
+                Esta ação chamará a API oficial do Mercado Pago (
+                <code className="text-xs font-mono bg-muted px-1 py-0.5 rounded">
+                  POST /v1/payments/{selectedPaymentForRefund?.mp_payment_id}/refunds
+                </code>
+                ) e estornará o valor diretamente ao cliente.
+              </p>
+              <div className="bg-muted/50 p-3 rounded-lg text-xs space-y-1 border">
+                <div>
+                  <span className="font-semibold">ID do Pagamento: </span>
+                  <span className="font-mono">{selectedPaymentForRefund?.mp_payment_id}</span>
+                </div>
+                {selectedPaymentForRefund?.transaction_amount ? (
+                  <div>
+                    <span className="font-semibold">Valor do Reembolso: </span>
+                    <span className="font-bold text-foreground">
+                      {selectedPaymentForRefund.transaction_amount.toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      })}
+                    </span>
+                  </div>
+                ) : null}
+                <div>
+                  <span className="font-semibold">Tipo: </span>
+                  <span className="capitalize">
+                    {selectedPaymentForRefund?.payment_type || 'Geral'}
+                  </span>
+                </div>
+                {selectedPaymentForRefund?.payer_email && (
+                  <div>
+                    <span className="font-semibold">Comprador: </span>
+                    <span>{selectedPaymentForRefund.payer_email}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-rose-600 dark:text-rose-400 font-medium pt-1">
+                Ao confirmar, o sistema cancelará automaticamente o plano PRO ou deduzirá os
+                créditos concedidos. O processo é irreversível.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={refunding}
+              onClick={() => setSelectedPaymentForRefund(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={refunding}
+              onClick={handleConfirmRefund}
+              className="gap-1.5"
+            >
+              {refunding ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Processando Estorno...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Confirmar Estorno Oficial
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

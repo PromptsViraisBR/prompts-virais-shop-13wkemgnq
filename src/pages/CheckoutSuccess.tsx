@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { getUserRegenerationCredits } from '@/services/regenerationCredits'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -28,22 +29,40 @@ export const CheckoutSuccess: React.FC = () => {
 
   const [checking, setChecking] = useState(false)
   const [pollCount, setPollCount] = useState(0)
+  const [creditsBalance, setCreditsBalance] = useState<number | null>(null)
 
   // Parâmetros da URL retornados pelo Mercado Pago ou gerados pelo backend
   const tipo = searchParams.get('tipo') // 'assinatura' | 'creditos'
   const plano = searchParams.get('plano') // 'monthly' | 'annual'
+  const qtd = parseInt(searchParams.get('qtd') || '1', 10)
   const collectionStatus = searchParams.get('collection_status')
   const statusParam = searchParams.get('status')
   const paymentId = searchParams.get('payment_id') || searchParams.get('collection_id')
 
+  const isCredits = tipo === 'creditos'
+
+  const checkStatus = useCallback(async () => {
+    if (!user?.id) return
+    if (isCredits) {
+      const rec = await getUserRegenerationCredits(user.id)
+      if (rec) {
+        setCreditsBalance(rec.extra_prompts_balance)
+      }
+    } else {
+      await refreshSubscription()
+    }
+  }, [user?.id, isCredits, refreshSubscription])
+
   // Fazer polling suave nos primeiros 20 segundos para verificar se o webhook do MP já confirmou o pagamento
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
-    if (pollCount < 6 && (!isPaidPlan || checking)) {
+    const needsPolling = isCredits ? creditsBalance === null || creditsBalance === 0 : !isPaidPlan
+
+    if (pollCount < 6 && (needsPolling || checking)) {
       timer = setTimeout(async () => {
         setChecking(true)
         try {
-          await refreshSubscription()
+          await checkStatus()
         } finally {
           setChecking(false)
           setPollCount((prev) => prev + 1)
@@ -51,18 +70,31 @@ export const CheckoutSuccess: React.FC = () => {
       }, 3500)
     }
     return () => clearTimeout(timer)
-  }, [pollCount, isPaidPlan, refreshSubscription, checking])
+  }, [pollCount, isCredits, creditsBalance, isPaidPlan, checkStatus, checking])
+
+  // Carga inicial do saldo de créditos quando for compra de créditos
+  useEffect(() => {
+    if (user?.id && isCredits) {
+      getUserRegenerationCredits(user.id).then((rec) => {
+        if (rec) setCreditsBalance(rec.extra_prompts_balance)
+      })
+    }
+  }, [user?.id, isCredits])
 
   const handleManualRefresh = async () => {
     setChecking(true)
     try {
-      await refreshSubscription()
+      await checkStatus()
     } finally {
       setChecking(false)
     }
   }
 
-  const isConfirmed = isPaidPlan || subscription?.status === 'active'
+  const isConfirmed = isCredits
+    ? (creditsBalance !== null && creditsBalance > 0) ||
+      collectionStatus === 'approved' ||
+      statusParam === 'approved'
+    : isPaidPlan || subscription?.status === 'active'
 
   return (
     <div className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto space-y-8">
@@ -91,22 +123,36 @@ export const CheckoutSuccess: React.FC = () => {
 
           <CardTitle className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             {isConfirmed
-              ? 'Parabéns! Seus recursos já estão liberados 🎉'
+              ? isCredits
+                ? 'Créditos Adicionados com Sucesso! 🎉'
+                : 'Parabéns! Seus recursos já estão liberados 🎉'
               : 'Recebemos o retorno do checkout seguro!'}
           </CardTitle>
 
           <CardDescription className="text-sm sm:text-base max-w-xl mx-auto">
             {isConfirmed ? (
-              <span>
-                O Mercado Pago validou seu pagamento via webhook oficial. Seu plano{' '}
-                <strong className="text-foreground">
-                  {plan === 'annual' ? 'Anual VIP' : 'PRO Mensal'}
-                </strong>{' '}
-                está totalmente ativo no banco de dados.
-              </span>
+              isCredits ? (
+                <span>
+                  O Mercado Pago confirmou seu pagamento. Foram adicionados{' '}
+                  <strong className="text-foreground">{qtd} crédito(s) de regeneração</strong> à sua
+                  conta. Saldo atual:{' '}
+                  <strong className="text-pink-600 dark:text-pink-400">
+                    {creditsBalance ?? qtd} prompts extras
+                  </strong>
+                  .
+                </span>
+              ) : (
+                <span>
+                  O Mercado Pago validou seu pagamento via webhook oficial. Seu plano{' '}
+                  <strong className="text-foreground">
+                    {plan === 'annual' ? 'Anual VIP' : 'PRO Mensal'}
+                  </strong>{' '}
+                  está totalmente ativo no banco de dados.
+                </span>
+              )
             ) : (
               <span>
-                Por questões de segurança, a liberação de recursos premium é realizada{' '}
+                Por questões de segurança, a liberação dos recursos é realizada{' '}
                 <strong>estritamente após a notificação oficial do Mercado Pago</strong>. Isso
                 costuma levar apenas alguns segundos no cartão ou Pix.
               </span>
@@ -140,7 +186,11 @@ export const CheckoutSuccess: React.FC = () => {
                     : 'bg-amber-500/15 text-amber-600 border-amber-500/30 text-xs font-bold'
                 }
               >
-                {isConfirmed ? `Ativo (${plan.toUpperCase()})` : 'Pendente / Verificando...'}
+                {isConfirmed
+                  ? isCredits
+                    ? `Créditos Liberados (${creditsBalance ?? qtd} disp.)`
+                    : `Ativo (${plan.toUpperCase()})`
+                  : 'Pendente / Verificando...'}
               </Badge>
             </div>
           </div>
@@ -172,24 +222,29 @@ export const CheckoutSuccess: React.FC = () => {
                 {checking ? 'Checando pagamento...' : 'Verificar Status Novamente'}
               </Button>
             )}
-
             <Link to="/perfil" className="w-full sm:w-auto">
               <Button variant="secondary" size="sm" className="w-full gap-2">
                 <ShieldCheck className="w-4 h-4 text-pink-500" />
                 Gerenciar no Meu Perfil
               </Button>
             </Link>
-
-            <Link to={isConfirmed ? '/gerador' : '/biblioteca'} className="w-full sm:w-auto">
+            <Link
+              to={isCredits ? '/virais' : isConfirmed ? '/gerador' : '/biblioteca'}
+              className="w-full sm:w-auto"
+            >
               <Button
                 size="sm"
-                className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-semibold gap-2 shadow-md"
+                className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-semibold gap-2 shadow-md"
               >
                 <Sparkles className="w-4 h-4" />
-                {isConfirmed ? 'Acessar o Gerador PRO' : 'Ver Biblioteca de Roteiros'}
+                {isCredits
+                  ? 'Ir para Vídeos Virais'
+                  : isConfirmed
+                    ? 'Acessar o Gerador PRO'
+                    : 'Ver Biblioteca de Roteiros'}
                 <ArrowRight className="w-4 h-4" />
               </Button>
-            </Link>
+            </Link>{' '}
           </div>
         </CardContent>
 

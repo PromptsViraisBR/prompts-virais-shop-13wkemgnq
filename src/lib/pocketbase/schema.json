@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T20:37:09.779Z",
+  "generatedAt": "2026-10-25T20:49:35.433Z",
   "collections": [
     {
       "name": "users",
@@ -29,14 +29,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "xai_api_key",
@@ -47,6 +52,12 @@
         {
           "name": "google_ai_api_key",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_admin",
+          "type": "bool",
           "required": false,
           "system": false
         }
@@ -79,14 +90,22 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["free", "monthly", "annual"]
+          "selectValues": [
+            "free",
+            "monthly",
+            "annual"
+          ]
         },
         {
           "name": "status",
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["active", "cancelled", "expired"]
+          "selectValues": [
+            "active",
+            "cancelled",
+            "expired"
+          ]
         },
         {
           "name": "start_date",
@@ -117,14 +136,49 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        },
+        {
+          "name": "mp_preapproval_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mp_payment_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "external_reference",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payer_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_payment_date",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -191,7 +245,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["pov", "modelo", "unboxing_vitrine"]
+          "selectValues": [
+            "pov",
+            "modelo",
+            "unboxing_vitrine"
+          ]
         },
         {
           "name": "prompt_text",
@@ -216,7 +274,11 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["tiktok_shop", "shopee", "ambos"]
+          "selectValues": [
+            "tiktok_shop",
+            "shopee",
+            "ambos"
+          ]
         },
         {
           "name": "is_free",
@@ -235,14 +297,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "reference_image_url",
@@ -261,7 +328,10 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["ecommerce", "virais"]
+          "selectValues": [
+            "ecommerce",
+            "virais"
+          ]
         }
       ],
       "indexes": [
@@ -300,14 +370,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -375,14 +450,22 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["pov", "modelo", "unboxing_vitrine"]
+          "selectValues": [
+            "pov",
+            "modelo",
+            "unboxing_vitrine"
+          ]
         },
         {
           "name": "platform",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["tiktok_shop", "shopee", "ambos"]
+          "selectValues": [
+            "tiktok_shop",
+            "shopee",
+            "ambos"
+          ]
         },
         {
           "name": "target_audience",
@@ -401,14 +484,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "generated_image_url",
@@ -459,7 +547,9 @@
           "system": false
         }
       ],
-      "indexes": ["CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"]
+      "indexes": [
+        "CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"
+      ]
     },
     {
       "name": "video_credits_usage",
@@ -502,14 +592,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -564,18 +659,126 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
         "CREATE UNIQUE INDEX idx_regeneration_credits_user ON regeneration_credits (user)"
+      ]
+    },
+    {
+      "name": "payments_history",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "mp_payment_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mp_preapproval_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "external_reference",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payment_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status_detail",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "transaction_amount",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payer_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payment_method_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pmt_history_mp_id ON payments_history (mp_payment_id)",
+        "CREATE INDEX idx_pmt_history_user ON payments_history (user)"
       ]
     }
   ]

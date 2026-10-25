@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T23:23:34.722Z",
+  "generatedAt": "2026-10-25T23:40:33.083Z",
   "collections": [
     {
       "name": "users",
@@ -8,7 +8,7 @@
         "list": "id = @request.auth.id",
         "view": "id = @request.auth.id",
         "create": "",
-        "update": "id = @request.auth.id",
+        "update": "id = @request.auth.id && @request.body.is_admin:changed = false",
         "delete": "id = @request.auth.id"
       },
       "fields": [
@@ -66,11 +66,11 @@
       "name": "subscriptions",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && user = @request.auth.id",
-        "view": "@request.auth.id != '' && user = @request.auth.id",
-        "create": "@request.auth.id != '' && user = @request.auth.id",
-        "update": "@request.auth.id != '' && user = @request.auth.id",
-        "delete": "@request.auth.id != '' && user = @request.auth.id"
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
+        "create": null,
+        "update": null,
+        "delete": null
       },
       "fields": [
         {
@@ -313,7 +313,7 @@
         "list": "@request.auth.id != '' && user = @request.auth.id",
         "view": "@request.auth.id != '' && user = @request.auth.id",
         "create": "@request.auth.id != '' && user = @request.auth.id",
-        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "update": null,
         "delete": "@request.auth.id != '' && user = @request.auth.id"
       },
       "fields": [
@@ -355,10 +355,10 @@
       "name": "generations",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && user = @request.auth.id",
-        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
         "create": "@request.auth.id != '' && user = @request.auth.id",
-        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "update": null,
         "delete": "@request.auth.id != '' && user = @request.auth.id"
       },
       "fields": [
@@ -557,10 +557,10 @@
       "name": "regeneration_credits",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && user = @request.auth.id",
-        "view": "@request.auth.id != '' && user = @request.auth.id",
-        "create": "@request.auth.id != '' && user = @request.auth.id",
-        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.is_admin = true)",
+        "create": null,
+        "update": null,
         "delete": null
       },
       "fields": [
@@ -710,6 +710,63 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_pmt_history_mp_id ON payments_history (mp_payment_id)",
         "CREATE INDEX idx_pmt_history_user ON payments_history (user)"
+      ]
+    },
+    {
+      "name": "events",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.is_admin = true",
+        "view": "@request.auth.id != '' && @request.auth.is_admin = true",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "event_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "session_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_events_type_created ON events (event_type, created DESC)",
+        "CREATE INDEX idx_events_user_created ON events (user, created DESC)",
+        "CREATE INDEX idx_events_session ON events (session_id)"
       ]
     }
   ]

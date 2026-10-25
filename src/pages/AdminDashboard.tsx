@@ -6,6 +6,7 @@ import {
   AdminOverviewResult,
   refundMercadoPagoPayment,
 } from '@/services/mercadoPago'
+import { getFunnelMetrics, FunnelMetricsResponse } from '@/services/events'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +43,11 @@ export const AdminDashboard: React.FC = () => {
   const [data, setData] = useState<AdminOverviewResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
+
+  // Funil de Conversão
+  const [funnelPeriod, setFunnelPeriod] = useState<'today' | '7d' | '30d' | 'all'>('30d')
+  const [funnelData, setFunnelData] = useState<FunnelMetricsResponse | null>(null)
+  const [funnelLoading, setFunnelLoading] = useState(false)
 
   // Modal de Estorno/Reembolso
   const [selectedPaymentForRefund, setSelectedPaymentForRefund] = useState<{
@@ -87,8 +93,9 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const res = await getAdminOverview()
+      const [res, fRes] = await Promise.all([getAdminOverview(), getFunnelMetrics(funnelPeriod)])
       setData(res)
+      setFunnelData(fRes)
     } catch (err: any) {
       console.error(err)
       setErrorMsg(err?.data?.error || err?.message || 'Falha ao carregar painel administrativo.')
@@ -104,6 +111,17 @@ export const AdminDashboard: React.FC = () => {
     }
     loadOverview()
   }, [user, navigate])
+
+  const handlePeriodChange = async (period: 'today' | '7d' | '30d' | 'all') => {
+    setFunnelPeriod(period)
+    setFunnelLoading(true)
+    try {
+      const fRes = await getFunnelMetrics(period)
+      setFunnelData(fRes)
+    } finally {
+      setFunnelLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -266,6 +284,146 @@ export const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* SEÇÃO: FUNIL DE CONVERSÃO (Fase B / Métricas) */}
+      <Card className="border-2 border-pink-500/20 shadow-md">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+          <div className="space-y-1">
+            <CardTitle className="text-xl font-bold flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-pink-500" />
+              Funil de Conversão de Clientes
+            </CardTitle>
+            <CardDescription>
+              Acompanhe a passagem de visitantes até clientes pagantes e identifique pontos de
+              atrito.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl self-start sm:self-auto border">
+            {(['today', '7d', '30d', 'all'] as const).map((p) => {
+              const labels = {
+                today: 'Hoje',
+                '7d': '7 dias',
+                '30d': '30 dias',
+                all: 'Total',
+              }
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => handlePeriodChange(p)}
+                  disabled={funnelLoading}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                    funnelPeriod === p
+                      ? 'bg-background shadow text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {labels[p]}
+                </button>
+              )
+            })}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* 5 Etapas Visuais do Funil */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {/* 1. Visitas */}
+            <div className="p-4 rounded-xl border bg-card space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                <span>1. Visita à Landing</span>
+                <Users className="w-4 h-4 text-blue-500" />
+              </div>
+              <p className="text-2xl font-black text-foreground">
+                {funnelData?.metrics.page_views ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Topo do funil</p>
+            </div>
+
+            {/* 2. Cadastros */}
+            <div className="p-4 rounded-xl border bg-card space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                <span>2. Cadastros</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              </div>
+              <p className="text-2xl font-black text-foreground">
+                {funnelData?.metrics.signups ?? 0}
+              </p>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                <span>{funnelData?.conversion_rates.visit_to_signup ?? '0.0'}%</span>
+                <span className="font-normal text-muted-foreground">de visitas</span>
+              </div>
+            </div>
+
+            {/* 3. 1º Prompt */}
+            <div className="p-4 rounded-xl border bg-card space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                <span>3. Primeiro Prompt</span>
+                <Sparkles className="w-4 h-4 text-amber-500" />
+              </div>
+              <p className="text-2xl font-black text-foreground">
+                {funnelData?.metrics.first_prompts ?? 0}
+              </p>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                <span>{funnelData?.conversion_rates.signup_to_prompt ?? '0.0'}%</span>
+                <span className="font-normal text-muted-foreground">de cadastros</span>
+              </div>
+            </div>
+
+            {/* 4. Checkout */}
+            <div className="p-4 rounded-xl border bg-card space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                <span>4. Início Checkout</span>
+                <CreditCard className="w-4 h-4 text-pink-500" />
+              </div>
+              <p className="text-2xl font-black text-foreground">
+                {funnelData?.metrics.checkout_starts ?? 0}
+              </p>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-pink-600 dark:text-pink-400">
+                <span>{funnelData?.conversion_rates.prompt_to_checkout ?? '0.0'}%</span>
+                <span className="font-normal text-muted-foreground">de quem gerou</span>
+              </div>
+            </div>
+
+            {/* 5. Pagamento Concluído */}
+            <div className="p-4 rounded-xl border bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/30 space-y-2">
+              <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-300 font-bold">
+                <span>5. Pagamento</span>
+                <Crown className="w-4 h-4 text-emerald-600" />
+              </div>
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                {funnelData?.metrics.payments_confirmed ?? 0}
+              </p>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                <span>{funnelData?.conversion_rates.checkout_to_payment ?? '0.0'}%</span>
+                <span className="font-normal text-muted-foreground">de checkout</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Resumo da Eficiência Global */}
+          <div className="p-4 rounded-xl bg-muted/40 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="space-y-0.5">
+              <span className="font-semibold text-foreground">
+                Taxa Global de Conversão (Visita → Cliente Pagante):
+              </span>
+              <p className="text-muted-foreground text-[11px]">
+                Considera todas as interações e registros confirmados no período selecionado (
+                {funnelPeriod}).
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge className="bg-emerald-600 text-white font-black text-sm px-3 py-1">
+                {funnelData?.conversion_rates.global_conversion ?? '0.00'}%
+              </Badge>
+              {Boolean(funnelData?.metrics.cancellations) && (
+                <span className="text-muted-foreground text-[11px]">
+                  Cancelamentos: <strong>{funnelData?.metrics.cancellations}</strong>
+                </span>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Grid: Tabela de Assinaturas & Histórico de Pagamentos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { trackFunnelEvent } from '@/services/events'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -85,6 +86,7 @@ export const Login: React.FC = () => {
     setSignupLoading(true)
     try {
       await signup(signupEmail, signupPassword, signupName)
+      trackFunnelEvent('signup', { email: signupEmail, source: 'login_page' })
       toast({
         title: 'Conta criada com sucesso!',
         description: 'Você já está conectado no plano Gratuito. Aproveite!',

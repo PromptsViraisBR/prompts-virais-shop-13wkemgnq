@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { purchaseExtraRegenerations } from '@/services/regenerationCredits'
 import { createMercadoPagoCheckout } from '@/services/mercadoPago'
+import { trackFunnelEvent } from '@/services/events'
 import { useToast } from '@/hooks/use-toast'
 import { ExternalLink, Lock, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -91,6 +92,11 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
 
     setProcessing(true)
     try {
+      trackFunnelEvent('checkout_start', {
+        type: 'credits',
+        quantity,
+      })
+
       // Inicia checkout oficial no Mercado Pago para compra avulsa de créditos (R$ 1,99 por unidade)
       const res = await createMercadoPagoCheckout({
         type: 'credits',

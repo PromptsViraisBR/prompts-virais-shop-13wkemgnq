@@ -40,6 +40,7 @@ import {
   getMercadoPagoConfigStatus,
   cancelMercadoPagoSubscription,
 } from '@/services/mercadoPago'
+import { trackFunnelEvent } from '@/services/events'
 
 export const Plans: React.FC = () => {
   const { user, plan, subscription, refreshSubscription } = useAuth()
@@ -52,12 +53,13 @@ export const Plans: React.FC = () => {
   const [processing, setProcessing] = useState(false)
   const [mpConfigured, setMpConfigured] = useState<boolean | null>(null)
 
-  // Consultar se as credenciais oficiais do Mercado Pago estão no backend
+  // Consultar se as credenciais oficiais do Mercado Pago estão no backend e registrar evento plans_view
   React.useEffect(() => {
+    trackFunnelEvent('plans_view', { current_plan: plan })
     getMercadoPagoConfigStatus().then((res) => {
       setMpConfigured(res.configured)
     })
-  }, [])
+  }, [plan])
 
   const handleSelectPlan = (targetPlan: PlanType) => {
     if (!user) {
@@ -111,6 +113,11 @@ export const Plans: React.FC = () => {
 
     setProcessing(true)
     try {
+      trackFunnelEvent('checkout_start', {
+        type: 'subscription',
+        plan: selectedPlanForModal,
+      })
+
       const res = await createMercadoPagoCheckout({
         type: 'subscription',
         plan: selectedPlanForModal,

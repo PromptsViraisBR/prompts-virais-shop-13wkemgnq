@@ -1106,6 +1106,23 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       // CASO A.2: PAGAMENTO APROVADO (CONCESSÃO DE ASSINATURA OU CRÉDITOS)
       // =========================================================================
       if (targetUserId && pmtStatus === 'approved') {
+        // Registrar evento de funil: payment_confirmed
+        try {
+          const evCol = $app.findCollectionByNameOrId('events')
+          const evRec = new Record(evCol)
+          evRec.set('user', targetUserId)
+          evRec.set('event_type', 'payment_confirmed')
+          evRec.set(
+            'metadata',
+            JSON.stringify({
+              payment_id: String(resourceId),
+              payment_type: isCreditsPayment ? 'credits' : 'subscription',
+              amount: transactionAmount,
+              plan: planTarget,
+            }),
+          )
+          $app.save(evRec)
+        } catch (_) {}
         if (isCreditsPayment && creditsQty > 0) {
           try {
             let credRecord = null
@@ -1271,6 +1288,23 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         } catch (_) {}
 
         if (preStatus === 'authorized') {
+          // Registrar evento de funil: payment_confirmed
+          try {
+            const evCol = $app.findCollectionByNameOrId('events')
+            const evRec = new Record(evCol)
+            evRec.set('user', targetUserId)
+            evRec.set('event_type', 'payment_confirmed')
+            evRec.set(
+              'metadata',
+              JSON.stringify({
+                preapproval_id: String(resourceId),
+                payment_type: 'subscription_preapproval',
+                plan: 'monthly',
+              }),
+            )
+            $app.save(evRec)
+          } catch (_) {}
+
           const now = new Date()
           const endDate = nextPaymentDate
             ? new Date(nextPaymentDate)
@@ -1309,6 +1343,21 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               `[mp-webhook] Assinatura cancelada para ${targetUserId} (preapproval status=${preStatus})`,
             )
           }
+          // Registrar evento de cancelamento
+          try {
+            const evCol = $app.findCollectionByNameOrId('events')
+            const evRec = new Record(evCol)
+            evRec.set('user', targetUserId)
+            evRec.set('event_type', 'subscription_cancelled')
+            evRec.set(
+              'metadata',
+              JSON.stringify({
+                preapproval_id: String(resourceId),
+                reason: 'preapproval_' + preStatus,
+              }),
+            )
+            $app.save(evRec)
+          } catch (_) {}
         }
       }
 
@@ -1384,6 +1433,22 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
 
     sub.set('status', 'cancelled')
     $app.save(sub)
+
+    // Registrar evento de cancelamento
+    try {
+      const evCol = $app.findCollectionByNameOrId('events')
+      const evRec = new Record(evCol)
+      evRec.set('user', authUser.id)
+      evRec.set('event_type', 'subscription_cancelled')
+      evRec.set(
+        'metadata',
+        JSON.stringify({
+          subscription_id: sub.id,
+          reason: 'user_requested_cancellation',
+        }),
+      )
+      $app.save(evRec)
+    } catch (_) {}
 
     return e.json(200, {
       success: true,

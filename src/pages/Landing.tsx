@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getPrompts } from '@/services/prompts'
+import { trackFunnelEvent } from '@/services/events'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -22,37 +23,37 @@ import {
   Crown,
   Wand2,
   ShoppingBag,
-  TrendingUp,
   ShieldCheck,
-  Eye,
-  Star,
-  Users,
+  Lock,
+  Zap,
+  HelpCircle,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS } from '@/types'
 
 export const Landing: React.FC = () => {
-  const { user, isPaidPlan } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const [samplePrompts, setSamplePrompts] = useState<PromptRecord[]>([])
+  const [premiumTeasers, setPremiumTeasers] = useState<PromptRecord[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
-    // Carrega exatamente 3 prompts com ganchos fortes como amostra grátis para visitantes / vitrine
-    const strongHookIds = ['3pp1iid3x7gx6bv', 'gudc14e8frah6e1', 'ssbe8ohn75zzp6t']
+    // Registrar evento de visita de página (Landing)
+    trackFunnelEvent('page_view', { page: 'landing' })
 
+    // Carrega prompts gratuitos e alguns premium para a "espiada" borrada
     getPrompts({ isFreeOnly: true })
       .then((records) => {
-        // Tenta priorizar os 3 ganchos mais fortes fixos, completando com os primeiros caso algum falte
+        const strongHookIds = ['3pp1iid3x7gx6bv', 'gudc14e8frah6e1', 'ssbe8ohn75zzp6t']
         const selected: PromptRecord[] = []
         strongHookIds.forEach((id) => {
           const found = records.find((r) => r.id === id)
           if (found) selected.push(found)
         })
 
-        // Se por ventura faltar algum, completa com os outros
         if (selected.length < 3) {
           records.forEach((r) => {
             if (selected.length < 3 && !selected.some((s) => s.id === r.id)) {
@@ -60,10 +61,20 @@ export const Landing: React.FC = () => {
             }
           })
         }
-
         setSamplePrompts(selected.slice(0, 3))
       })
       .catch((err) => console.warn('Erro ao carregar exemplos:', err))
+
+    // Carregar biblioteca para espiada premium
+    getPrompts({ isPremiumOnly: true })
+      .then((records) => {
+        if (records && records.length > 0) {
+          setPremiumTeasers(records.slice(0, 3))
+        }
+      })
+      .catch(() => {
+        // Fallback silencioso
+      })
   }, [])
 
   const handleCopy = (e: React.MouseEvent, prompt: PromptRecord) => {
@@ -79,114 +90,96 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="space-y-16 sm:space-y-24 pb-16">
-      {/* HERO SECTION */}
-      <section className="relative overflow-hidden pt-12 sm:pt-20 pb-16 px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/5 via-amber-500/5 to-background">
+      {/* HERO SECTION — MOBILE-FIRST & ALTA CONVERSÃO */}
+      <section className="relative overflow-hidden pt-10 sm:pt-20 pb-14 sm:pb-20 px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
         <div className="max-w-5xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-xs font-bold uppercase tracking-wider animate-in fade-in">
-            <Sparkles className="w-3.5 h-3.5" />
-            Roteiros de Alta Conversão para TikTok Shop & Shopee
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-xs font-bold uppercase tracking-wider animate-in fade-in">
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span>Prompts Prontos para Vídeos Virais que Vendem</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-foreground leading-[1.15]">
-            Venda até 10x mais roupas com{' '}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-foreground leading-[1.15]">
+            Venda até 10x mais no TikTok Shop e Shopee com{' '}
             <span className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
-              Prompts de Roteiros Virais
+              Roteiros que Retêm e Convertem
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Acesso ilimitado a roteiros prontos em estilo <strong>POV (Primeira Pessoa)</strong> e
-            com <strong>Modelo vestindo a peça</strong>. Copie ganchos que prendem a atenção nos
-            primeiros 3 segundos e geram cliques imediatos no carrinho da sua vitrine.
+          <p className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Pare de postar vídeos sem retenção. Acesse roteiros de 10s e 60s em <strong>POV</strong>{' '}
+            e com <strong>Modelo</strong> calibrados para os primeiros 3 segundos — com chamada
+            irresistível para o carrinho.
           </p>
 
-          {/* Ações Hero com destaque principal para o Gerador de Prompt personalizado */}
-          <div className="space-y-4 pt-4">
-            {/* Super CTA chamativo: Gerador de Prompts sob medida para a peça que o lojista quer vender */}
-            <div className="flex justify-center">
-              <Link to="/gerador" className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto px-8 py-7 sm:py-8 text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-2xl shadow-pink-500/40 ring-4 ring-pink-500/20 hover:ring-pink-500/40 hover:scale-[1.03] active:scale-[0.99] transition-all duration-200 rounded-2xl group relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-white/20 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none" />
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="p-1.5 rounded-xl bg-white/20 text-white flex items-center justify-center shadow-inner">
-                      <Wand2 className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
-                    </span>
-                    <div className="text-left leading-tight">
-                      <span className="block text-sm sm:text-base font-extrabold tracking-wide">
-                        ✨ Gerar o Prompt da Minha Roupa (Grátis)
-                      </span>
-                      <span className="block text-[11px] sm:text-xs font-medium text-white/90">
-                        Crie um roteiro viral sob medida para o que você quer vender hoje
-                      </span>
-                    </div>
-                    <ArrowRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1 shrink-0" />
-                  </div>
-                </Button>
-              </Link>
-            </div>
+          {/* CTA EM DESTAQUE ACIMA DA DOBRA (EXPERIMENTAR GRÁTIS + PLANOS) */}
+          <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 max-w-xl mx-auto">
+            <Link
+              to={user ? '/gerador' : '/login'}
+              className="w-full sm:w-auto flex-1"
+              aria-label="Experimentar grátis o gerador de prompts"
+            >
+              <Button
+                size="lg"
+                className="w-full h-14 sm:h-16 px-6 sm:px-8 text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-xl shadow-pink-500/30 rounded-2xl group transition-all"
+              >
+                <Wand2 className="w-5 h-5 mr-2 shrink-0 group-hover:rotate-12 transition-transform" />
+                <span>Experimentar Grátis Agora</span>
+                <ArrowRight className="w-5 h-5 ml-2 shrink-0 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
 
-            {/* CTAs Secundários Harmonizados: Assinatura e Biblioteca Pronta */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link to="/planos" className="w-full sm:w-auto">
-                <Button
-                  size="default"
-                  variant="outline"
-                  className="w-full sm:w-auto px-6 py-5 text-sm font-bold border-pink-500/40 text-foreground hover:bg-pink-500/10 hover:border-pink-500"
-                >
-                  <Crown className="w-4 h-4 mr-2 text-amber-500" />
-                  Assinar e Liberar Todos os Prompts
-                </Button>
-              </Link>
-
-              <Link to="/biblioteca" className="w-full sm:w-auto">
-                <Button
-                  size="default"
-                  variant="ghost"
-                  className="w-full sm:w-auto px-6 py-5 text-sm font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  <ShoppingBag className="w-4 h-4 mr-2 text-pink-500" />
-                  Explorar Prompts Prontos na Biblioteca
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
-                </Button>
-              </Link>
-            </div>
+            <Link
+              to="/planos"
+              className="w-full sm:w-auto"
+              aria-label="Ver comparativo de planos de assinatura"
+            >
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full h-14 sm:h-16 px-6 font-bold border-2 border-pink-500/40 hover:border-pink-500 hover:bg-pink-500/10 rounded-2xl text-foreground text-sm sm:text-base"
+              >
+                <Crown className="w-4 h-4 mr-2 text-amber-500 shrink-0" />
+                <span>Ver Planos PRO</span>
+              </Button>
+            </Link>
           </div>
 
-          {/* Social Proof Badges */}
-          <div className="pt-8 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 pt-1">
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <span>Sem fidelidade • Sem cartão para testar • Cancele quando quiser</span>
+          </p>
+
+          {/* Selos de Prova de Valor */}
+          <div className="pt-6 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Ganchos validados para retenção</span>
+              <span>Ganchos de 0 a 3s validados</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Específico para Moda & Roupas</span>
+              <span>Moda, Beleza, Eletrônicos & Virais</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Gerador para o seu catálogo próprio</span>
+              <span>Gerador com Upload de Fotos</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* EXEMPLOS DE PROMPTS AO VIVO — 3 AMOSTRAS GRÁTIS COM GANCHOS FORTES */}
+      {/* EXEMPLOS AO VIVO — 3 AMOSTRAS GRÁTIS DESBLOQUEADAS */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5" />
-            Amostra Gratuita da Vitrine
+            <span>Amostra Gratuita Imediata</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            3 Roteiros com Ganchos Fortes Liberados
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+            Copie e Use: 3 Roteiros Reais da Nossa Coleção
           </h2>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Copie gratuitamente esses 3 roteiros abaixo para testar nos seus vídeos. Para acessar
-            todos os 40+ roteiros da biblioteca e o gerador inteligente com fotos, crie sua conta
-            grátis.
+            Sem cadastro ou barreira: teste agora um desses roteiros no seu próximo vídeo de
+            vitrine.
           </p>
         </div>
 
@@ -194,7 +187,7 @@ export const Landing: React.FC = () => {
           {samplePrompts.map((prompt, idx) => (
             <Card
               key={prompt.id}
-              className="flex flex-col justify-between border-2 border-pink-500/20 hover:border-pink-500/50 transition-all hover:shadow-xl rounded-2xl bg-card overflow-hidden group"
+              className="flex flex-col justify-between border-2 border-pink-500/20 hover:border-pink-500/50 transition-all hover:shadow-xl rounded-2xl bg-card overflow-hidden"
             >
               <CardHeader className="space-y-2.5 pb-3 bg-muted/20 border-b">
                 <div className="flex items-center justify-between">
@@ -205,7 +198,6 @@ export const Landing: React.FC = () => {
                     Amostra Grátis #{idx + 1}
                   </Badge>
                 </div>
-                {/* Gancho Forte em Destaque no Título com Emoji */}
                 <CardTitle className="text-base sm:text-lg font-bold text-foreground leading-snug line-clamp-2">
                   🎯 "{prompt.hook || prompt.title}"
                 </CardTitle>
@@ -215,7 +207,6 @@ export const Landing: React.FC = () => {
               </CardHeader>
 
               <CardContent className="space-y-3.5 py-4 flex-1">
-                {/* Roteiro quase completo ou completo visível */}
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-pink-600 dark:text-pink-400 uppercase tracking-wider block">
                     📜 Estrutura do Roteiro Cena a Cena
@@ -231,12 +222,12 @@ export const Landing: React.FC = () => {
                     <span>{STYLE_LABELS[prompt.style] || prompt.style}</span>
                   </div>
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                    ✓ Cópia liberada mesmo deslogado
+                    ✓ 100% liberado para teste
                   </span>
                 </div>
               </CardContent>
 
-              <CardFooter className="pt-3 pb-4 border-t flex items-center justify-between bg-muted/10">
+              <CardFooter className="pt-3 pb-4 border-t flex items-center justify-between bg-muted/10 gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -249,6 +240,7 @@ export const Landing: React.FC = () => {
                   size="sm"
                   className="text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold shadow-xs hover:opacity-95"
                   onClick={(e) => handleCopy(e, prompt)}
+                  aria-label="Copiar texto do prompt"
                 >
                   {copiedId === prompt.id ? (
                     <>
@@ -258,7 +250,7 @@ export const Landing: React.FC = () => {
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      Copiar Amostra Grátis
+                      Copiar Amostra
                     </>
                   )}
                 </Button>
@@ -266,45 +258,277 @@ export const Landing: React.FC = () => {
             </Card>
           ))}
         </div>
+      </section>
 
-        {/* CTA Abaixo dos 3 Cards de Amostra */}
-        <div className="p-6 sm:p-8 rounded-3xl border-2 border-pink-500/30 bg-gradient-to-br from-pink-500/10 via-amber-500/5 to-purple-500/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-sm">
-          <div className="space-y-1">
-            <h3 className="text-lg sm:text-xl font-bold text-foreground flex items-center justify-center sm:justify-start gap-2">
-              <Sparkles className="w-5 h-5 text-pink-600" />
-              Gostou dos ganchos? Desbloqueie todos os outros 40+ roteiros!
-            </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              {user
-                ? 'Você já está conectado. Acesse a biblioteca completa e aproveite!'
-                : 'Crie sua conta grátis em menos de 30 segundos para explorar a biblioteca e o gerador com fotos.'}
-            </p>
-          </div>
+      {/* ESPIADA NA BIBLIOTECA PREMIUM (PROMPTS BORRADOS COM CTA DE CONVERSÃO) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <Badge className="bg-amber-500 text-white font-bold text-xs uppercase tracking-wider">
+            Exclusivo Membros PRO
+          </Badge>
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+            Espiada da Biblioteca Premium (40+ Roteiros)
+          </h2>
+          <p className="text-muted-foreground text-sm sm:text-base">
+            Veja uma prévia dos roteiros avançados mais usados pelos criadores com alta conversão.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {!user ? (
-              <>
-                <Link to="/login">
-                  <Button className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold py-5 px-5 shadow-md">
-                    Criar Conta Grátis
-                    <ArrowRight className="w-4 h-4 ml-1.5" />
-                  </Button>
-                </Link>
-                <Link to="/login">
-                  <Button variant="outline" className="font-semibold py-5">
-                    Fazer Login
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <Link to="/biblioteca">
-                <Button className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold py-5 px-5">
-                  Ir para a Biblioteca Completa
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {(premiumTeasers.length > 0
+            ? premiumTeasers
+            : [
+                {
+                  id: 'teaser-1',
+                  title: 'Vestido Canelado com Fenda Lateral',
+                  niche: 'moda_feminina',
+                  style: 'pov',
+                  hook: 'O dia em que parei de comprar roupa cara e achei esse achadinho',
+                },
+                {
+                  id: 'teaser-2',
+                  title: 'Kit Perfume Árabe Marcante',
+                  niche: 'perfumes_cosmeticos',
+                  style: 'modelo',
+                  hook: 'Ninguém passa do meu lado sem perguntar que cheiro surreal é esse',
+                },
+                {
+                  id: 'teaser-3',
+                  title: 'Conjunto Alfaiataria Streetwear Oversized',
+                  niche: 'streetwear',
+                  style: 'unboxing',
+                  hook: 'Será que esse conjunto vale o preço de shopping? Veja os detalhes reais',
+                },
+              ]
+          ).map((item, idx) => (
+            <Card
+              key={item.id || idx}
+              className="relative overflow-hidden border-2 border-amber-500/30 rounded-2xl bg-card shadow-sm"
+            >
+              <CardHeader className="space-y-1.5 pb-2">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-xs uppercase font-bold text-amber-600">
+                    VIP Premium
+                  </Badge>
+                  <Lock className="w-4 h-4 text-amber-500" />
+                </div>
+                <CardTitle className="text-base font-bold text-foreground">{item.title}</CardTitle>
+                <CardDescription className="text-xs">
+                  Gancho de Alta Retenção calibrado
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-3 relative">
+                {/* Texto propositalmente borrado simulando conteúdo bloqueado */}
+                <div className="p-3 rounded-xl bg-muted/60 border text-xs font-mono select-none filter blur-[4px] opacity-70 pointer-events-none space-y-1">
+                  <p>🎬 CENA 1 (0-3s): [GANCHO HIPNÓTICO EM PRIMEIRA PESSOA]</p>
+                  <p>Narração: "POV: Você descobriu a peça perfeita antes de todo mundo..."</p>
+                  <p>🎬 CENA 2 (3-7s): [DETALHES REAIS DA PEÇA E COSTURAS]</p>
+                  <p>Narração: "O caimento no corpo e acabamento surpreendem na hora."</p>
+                  <p>🎬 CENA 3 (7-10s): [CTA PARA O CARRINHO AMARELO COM CUPOM]</p>
+                </div>
+
+                {/* Overlay com CTA de desbloqueio */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-background/80 backdrop-blur-[1px] rounded-xl text-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <p className="text-xs font-bold text-foreground">
+                    Roteiro completo bloqueado para assinantes
+                  </p>
+                  <Link to="/planos">
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs shadow-md"
+                    >
+                      Desbloquear com PRO
+                      <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* SEÇÃO DE COMPARATIVO TRANSPARENTE: GRATUITO × PRO × ANUAL */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <Badge
+            variant="outline"
+            className="text-pink-600 border-pink-500/30 text-xs font-semibold uppercase tracking-wider"
+          >
+            Transparência Total
+          </Badge>
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+            Compare o que cada plano destrava para sua loja
+          </h2>
+          <p className="text-muted-foreground text-sm sm:text-base">
+            Comece grátis e faça upgrade quando quiser acelerar a produção de vídeos.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch pt-2">
+          {/* GRATUITO */}
+          <Card className="flex flex-col justify-between border-2 rounded-2xl bg-card">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-xl font-bold flex items-center justify-between">
+                <span>Gratuito</span>
+                <Sparkles className="w-4 h-4 text-muted-foreground" />
+              </CardTitle>
+              <CardDescription>Para testar seus primeiros vídeos.</CardDescription>
+              <div className="pt-3">
+                <span className="text-3xl font-extrabold">R$ 0</span>
+                <span className="text-muted-foreground text-xs"> /sempre</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs flex-1">
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>3 Prompts de exemplo liberados</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Copiar roteiros para TikTok Shop/Shopee</span>
+              </div>
+              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-70">
+                <Check className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span>Biblioteca completa de 40+ roteiros</span>
+              </div>
+              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-70">
+                <Check className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span>Gerador com Upload de Fotos da Vitrine</span>
+              </div>
+              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-70">
+                <Check className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span>Adaptação inteligente de ângulos</span>
+              </div>
+            </CardContent>
+            <CardFooter className="pt-4 border-t">
+              <Link to="/login" className="w-full">
+                <Button variant="outline" className="w-full font-semibold text-xs h-10">
+                  Criar Conta Grátis
                 </Button>
               </Link>
-            )}
-          </div>
+            </CardFooter>
+          </Card>
+
+          {/* PRO MENSAL (DESTAQUE) */}
+          <Card className="flex flex-col justify-between border-2 border-pink-500 rounded-2xl bg-card shadow-xl relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+              <Badge className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-[10px] uppercase tracking-wider shadow">
+                🔥 MAIS POPULAR • LANÇAMENTO
+              </Badge>
+            </div>
+            <CardHeader className="space-y-1 pt-6">
+              <CardTitle className="text-xl font-bold flex items-center justify-between">
+                <span>PRO Mensal</span>
+                <Zap className="w-5 h-5 text-pink-500" />
+              </CardTitle>
+              <CardDescription>Para criadores e lojistas ativos.</CardDescription>
+              <div className="pt-3 space-y-0.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-semibold text-muted-foreground line-through decoration-rose-500">
+                    R$ 49,90
+                  </span>
+                  <span className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
+                    R$ 19,90
+                  </span>
+                  <span className="text-muted-foreground text-xs font-bold"> /mês</span>
+                </div>
+                <p className="text-[11px] text-pink-600 dark:text-pink-400 font-semibold">
+                  Preço promocional sem fidelidade
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs flex-1">
+              <div className="flex items-start gap-2 bg-pink-500/10 p-2 rounded-lg border border-pink-500/20">
+                <Sparkles className="w-4 h-4 text-pink-600 shrink-0 mt-0.5" />
+                <span className="font-semibold text-pink-950 dark:text-pink-200">
+                  <strong>Gerador Ilimitado com Upload de Fotos:</strong> até 3 fotos da sua vitrine
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Biblioteca 100% liberada</strong> (40+ roteiros e novos semanais)
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Todos os estilos: POV, Modelo e Unboxing ASMR</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Histórico de roteiros salvos na nuvem</span>
+              </div>
+            </CardContent>
+            <CardFooter className="pt-4 border-t">
+              <Link to="/planos" className="w-full">
+                <Button className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs h-10 shadow-md">
+                  Assinar PRO (R$ 19,90/mês)
+                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+
+          {/* ANUAL VIP */}
+          <Card className="flex flex-col justify-between border-2 border-amber-500/60 rounded-2xl bg-card">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+              <Badge className="bg-amber-500 text-white font-bold text-[10px] uppercase tracking-wider shadow">
+                ECONOMIZE 35% 🏆
+              </Badge>
+            </div>
+            <CardHeader className="space-y-1 pt-6">
+              <CardTitle className="text-xl font-bold flex items-center justify-between">
+                <span>Anual VIP</span>
+                <Crown className="w-5 h-5 text-amber-500" />
+              </CardTitle>
+              <CardDescription>Para lojas de alto volume.</CardDescription>
+              <div className="pt-3 space-y-0.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-foreground">R$ 19,90</span>
+                  <span className="text-muted-foreground text-xs"> /mês</span>
+                </div>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+                  Total de R$ 238,80 cobrado em 12 meses
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs flex-1">
+              <div className="flex items-start gap-2 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                <Crown className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span className="font-semibold text-amber-950 dark:text-amber-200">
+                  <strong>Tudo do PRO incluído</strong> por 12 meses garantidos
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Economia de mais de R$ 360 no total anual</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Processamento de IA prioritário</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Suporte direto e badge de Membro VIP</span>
+              </div>
+            </CardContent>
+            <CardFooter className="pt-4 border-t">
+              <Link to="/planos" className="w-full">
+                <Button
+                  variant="outline"
+                  className="w-full border-amber-500 text-foreground hover:bg-amber-500 hover:text-white font-bold text-xs h-10"
+                >
+                  Assinar Anual VIP
+                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
         </div>
       </section>
 
@@ -312,7 +536,7 @@ export const Landing: React.FC = () => {
       <section className="bg-muted/30 border-y py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto space-y-12">
           <div className="text-center max-w-2xl mx-auto space-y-2">
-            <h2 className="text-3xl font-extrabold tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Como funciona o fluxo do sucesso
             </h2>
             <p className="text-muted-foreground text-sm sm:text-base">
@@ -320,15 +544,15 @@ export const Landing: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
             <div className="p-6 rounded-2xl border bg-background space-y-3 relative shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-pink-500/10 text-pink-600 font-extrabold flex items-center justify-center text-lg">
                 1
               </div>
               <h3 className="font-bold text-lg">Escolha ou Gere o Prompt</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Acesse a biblioteca por nicho (Moda Feminina, Perfumes & Cosméticos, Streetwear,
-                Fitness) ou informe a peça exata do seu catálogo no Gerador Inteligente.
+                Acesse a biblioteca por nicho ou envie até 3 fotos da peça da sua vitrine para que a
+                nossa IA monte o roteiro fiel ao produto real.
               </p>
             </div>
 
@@ -338,8 +562,8 @@ export const Landing: React.FC = () => {
               </div>
               <h3 className="font-bold text-lg">Grave em Estilo POV ou Modelo</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Siga a orientação de cenas: ângulo no espelho, detalhes de tecido com as mãos ou
-                modelo caminhando na rua com a roupa.
+                Siga as orientações cena a cena: câmera na primeira pessoa, teste de caimento e foco
+                nos detalhes sem texto na tela.
               </p>
             </div>
 
@@ -349,167 +573,66 @@ export const Landing: React.FC = () => {
               </div>
               <h3 className="font-bold text-lg">Publique com Link na Vitrine</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Use a chamada final para direcionar os espectadores ao carrinho amarelo do TikTok
-                Shop ou sacolinha da Shopee e veja as vendas entrarem.
+                Use a chamada final testada para direcionar os espectadores ao carrinho amarelo do
+                TikTok Shop ou Shopee e multiplique os pedidos.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* PLANOS RESUMIDOS NA LANDING */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <Badge
-            variant="outline"
-            className="text-amber-600 border-amber-500/30 text-xs font-semibold uppercase"
-          >
-            Investimento
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Planos acessíveis que se pagam na primeira venda
-          </h2>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Cancele a qualquer momento. Fluxo demonstrativo nesta primeira versão.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-4">
-          {/* MENSAL PRO */}
-          <Card className="flex flex-col justify-between border-2 border-pink-500 shadow-xl relative">
-            <div className="absolute -top-3 left-6">
-              <Badge className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow animate-pulse">
-                🔥 OFERTA DE LANÇAMENTO
-              </Badge>
-            </div>
-            <CardHeader className="pt-6">
-              <CardTitle className="text-2xl font-bold flex items-center justify-between">
-                <span>Plano PRO</span>
-                <Badge className="bg-pink-500/20 text-pink-700 dark:text-pink-300 border-pink-500/30 text-[10px] font-bold">
-                  Com Upload de Fotos
-                </Badge>
-              </CardTitle>
-              <CardDescription>
-                Acesso total com gerador personalizado para fotos do catálogo da sua vitrine.
-              </CardDescription>
-              <div className="pt-2 space-y-1">
-                <div className="flex items-baseline gap-2.5 flex-wrap">
-                  <span className="text-lg font-semibold text-muted-foreground line-through decoration-rose-500 decoration-2 opacity-80">
-                    R$ 49,90
-                  </span>
-                  <span className="text-4xl font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
-                    R$ 19,90
-                  </span>
-                  <span className="text-muted-foreground text-sm font-bold"> /mês</span>
-                </div>
-                <p className="text-xs font-semibold text-pink-600 dark:text-pink-400">
-                  Preço promocional por tempo limitado — para os primeiros assinantes do site
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Cobrança mensal, sem fidelidade • Cancele quando quiser
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm flex-1">
-              <div className="flex items-center gap-2 bg-pink-500/10 p-2 rounded-lg border border-pink-500/20">
-                <Sparkles className="w-4 h-4 text-pink-600 dark:text-pink-400 shrink-0" />
-                <span className="font-semibold text-xs text-pink-950 dark:text-pink-200">
-                  Gerador inteligente com upload de até 3 fotos da peça
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Biblioteca de prompts 100% liberada (40+ roteiros)</span>{' '}
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Personalize qualquer prompt pré-pronto com fotos</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Estilos POV, Modelo e Unboxing ASMR</span>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Link to="/planos" className="w-full">
-                <Button className="w-full bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold py-5">
-                  Assinar PRO (R$ 19,90/mês)
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-            </CardFooter>
-          </Card>
-
-          {/* ANUAL */}
-          <Card className="flex flex-col justify-between border-2 hover:border-amber-500 transition-colors">
-            <CardHeader className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl font-bold">Anual VIP</CardTitle>
-                <Badge className="bg-amber-500 text-white text-xs font-bold">12 Meses VIP</Badge>
-              </div>
-              <CardDescription>Para lojas e afiliados com visão de longo prazo.</CardDescription>
-              <div className="pt-2 space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-extrabold">R$ 19,90</span>
-                  <span className="text-muted-foreground text-sm font-medium"> /mês</span>
-                </div>
-                <p className="text-xs text-amber-600 font-bold">
-                  Faturado anualmente: R$ 238,80/ano
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  12 meses de acesso contínuo com suporte prioritário
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm flex-1">
-              <div className="flex items-center gap-2 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
-                <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span className="font-semibold text-xs text-amber-950 dark:text-amber-200">
-                  Tudo do PRO: biblioteca completa + gerador com fotos
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Economia de mais de R$ 360 no comparativo anual</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Fila prioritária para geração com IA</span>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Link to="/planos" className="w-full">
-                <Button
-                  variant="outline"
-                  className="w-full font-bold py-5 border-amber-500 text-foreground hover:bg-amber-500 hover:text-white"
-                >
-                  Assinar Anual VIP
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-            </CardFooter>
-          </Card>
+      {/* DÚVIDAS FREQUENTES COMPACTAS */}
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <h3 className="text-xl font-bold flex items-center gap-2 text-foreground">
+          <HelpCircle className="w-5 h-5 text-pink-500" />
+          Perguntas Frequentes
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="p-4 rounded-xl border bg-muted/20 space-y-1.5">
+            <h4 className="font-bold text-foreground">Como o pagamento funciona?</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Tudo é processado pelo ambiente criptografado e oficial do{' '}
+              <strong>Mercado Pago</strong> (Pix, Cartão ou Saldo). O acesso é liberado
+              instantaneamente pelo webhook.
+            </p>
+          </div>
+          <div className="p-4 rounded-xl border bg-muted/20 space-y-1.5">
+            <h4 className="font-bold text-foreground">Posso cancelar quando quiser?</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Sim! Sem multas ou letras miúdas. Você cancela com 1 clique diretamente no seu perfil
+              e continua com acesso até o fim do período já pago.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* CTA FINAL DE CONVERSÃO */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 p-8 sm:p-12 text-white text-center space-y-6 shadow-2xl shadow-pink-500/25">
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
-            Pronto para transformar sua vitrine em uma máquina de vendas?
+          <h2 className="text-2xl sm:text-4xl font-black tracking-tight">
+            Pronto para transformar seus vídeos em máquinas de vendas?
           </h2>
-          <p className="text-white/90 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            Pare de postar vídeos que ninguém assiste até o final. Use roteiros com ganchos
-            comprovados para o TikTok Shop e Shopee.
+          <p className="text-white/90 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+            Pare de perder tempo tentando adivinhar o que funciona. Use os roteiros que já geram
+            cliques e pedidos todos os dias.
           </p>
-          <div className="pt-2">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link to={user ? '/gerador' : '/login'}>
+              <Button
+                size="lg"
+                className="w-full sm:w-auto bg-white text-pink-600 hover:bg-white/90 font-extrabold px-8 py-6 text-base shadow-lg rounded-2xl"
+              >
+                <Sparkles className="w-5 h-5 mr-2 text-amber-500" />
+                Experimentar Grátis Agora
+              </Button>
+            </Link>
             <Link to="/planos">
               <Button
                 size="lg"
-                className="bg-white text-pink-600 hover:bg-white/90 font-extrabold px-8 py-6 text-base shadow-lg"
+                variant="outline"
+                className="w-full sm:w-auto border-2 border-white/60 bg-transparent text-white hover:bg-white/10 font-bold px-8 py-6 text-base rounded-2xl"
               >
-                <Sparkles className="w-5 h-5 mr-2 text-amber-500" />
-                Começar Agora Mesmo
+                Ver Planos Disponíveis
               </Button>
             </Link>
           </div>
@@ -518,3 +641,4 @@ export const Landing: React.FC = () => {
     </div>
   )
 }
+export default Landing

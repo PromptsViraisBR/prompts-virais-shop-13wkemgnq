@@ -6,6 +6,7 @@ export interface PromptFilterOptions {
   niche?: NicheType | 'all'
   style?: StyleType | 'all'
   isFreeOnly?: boolean
+  isPremiumOnly?: boolean
   category?: PromptCategoryType | 'all'
 }
 
@@ -30,6 +31,8 @@ export async function getPrompts(options: PromptFilterOptions = {}): Promise<Pro
 
   if (options.isFreeOnly) {
     filters.push(`is_free = true`)
+  } else if (options.isPremiumOnly) {
+    filters.push(`is_free = false`)
   }
 
   if (options.search && options.search.trim()) {

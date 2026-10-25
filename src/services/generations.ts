@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { trackFunnelEvent } from '@/services/events'
 import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
 
@@ -177,6 +178,18 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
 
 export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<GenerationRecord> {
   const generatedText = buildPromptScript(input)
+
+  // Disparar evento de primeiro prompt de forma segura e idempotente no hook
+  if (input.userId) {
+    trackFunnelEvent(
+      'first_prompt_generated',
+      {
+        product_name: input.productName,
+        niche: input.niche,
+      },
+      input.userId,
+    )
+  }
 
   if (input.referenceImages && input.referenceImages.length > 0) {
     const formData = new FormData()
@@ -499,6 +512,15 @@ ${input.characterName ? `🎯 PERSONAGEM: ${input.characterName}\n` : ''}📌 DI
     // Persiste no banco de dados se houver userId logado
     let createdRecordId: string | undefined = undefined
     if (input.userId) {
+      trackFunnelEvent(
+        'first_prompt_generated',
+        {
+          theme_name: theme,
+          niche: input.niche,
+          source: 'viral_scene_generator',
+        },
+        input.userId,
+      )
       try {
         const fullGeneratedText = `${sceneConcept}\n\n${optionalScript}`
         const recordName = userIdea ? userIdea.slice(0, 60) : theme

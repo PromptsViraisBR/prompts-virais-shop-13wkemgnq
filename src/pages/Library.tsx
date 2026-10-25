@@ -27,27 +27,11 @@ import { toast } from '@/hooks/use-toast'
 import type { PromptRecord, NicheType, StyleType } from '@/types'
 import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS } from '@/types'
 import { formatHookTitle, getEstimatedDuration, getPlatformInfo } from '@/lib/promptHooks'
-import {
-  adaptPromptWithImages,
-  regeneratePromptVariations,
-  PromptVariation,
-} from '@/services/generations'
-import {
-  getUserRegenerationCredits,
-  consumeExtraRegenerationCredit,
-} from '@/services/regenerationCredits'
+import { PromptCustomizeModal } from '@/components/PromptCustomizeModal'
+import { getUserRegenerationCredits } from '@/services/regenerationCredits'
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { ImagePlus, Upload, RefreshCw } from 'lucide-react'
+import { ImagePlus, RefreshCw } from 'lucide-react'
 
 // Lista ordenada de nichos para os chips táteis
 const NICHE_KEYS: NicheType[] = [
@@ -95,20 +79,10 @@ export const Library: React.FC = () => {
   // Modal de Personalização com Fotos e Regeneração com 3 Variações
   const [customizePrompt, setCustomizePrompt] = useState<PromptRecord | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [customFiles, setCustomFiles] = useState<File[]>([])
-  const [customPreviews, setCustomPreviews] = useState<string[]>([])
-  const [customProductName, setCustomProductName] = useState('')
-  const [customVisualDetails, setCustomVisualDetails] = useState('')
-  const [adapting, setAdapting] = useState(false)
-  const [adaptedResult, setAdaptedResult] = useState<string | null>(null)
-  const [copiedAdapted, setCopiedAdapted] = useState(false)
-
-  // Variações e cobrança de extras no modal da biblioteca
-  const [customVariations, setCustomVariations] = useState<PromptVariation[]>([])
-  const [selectedCustomVarId, setSelectedCustomVarId] = useState<string | null>(null)
-  const [copiedCustomVarId, setCopiedCustomVarId] = useState<string | null>(null)
-  const [customRegenerating, setCustomRegenerating] = useState(false)
-  const [hasCustomFreeRegenerated, setHasCustomFreeRegenerated] = useState(false)
+  // Roteiros adaptados persistidos na sessão por promptId para o usuário não perder após fechar
+  const [adaptedPromptsMap, setAdaptedPromptsMap] = useState<
+    Record<string, { text: string; productName: string }>
+  >({})
   const [extraCreditsBalance, setExtraCreditsBalance] = useState<number>(0)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
 
@@ -152,14 +126,6 @@ export const Library: React.FC = () => {
     }
   }
 
-  useEffect(() => {
-    return () => {
-      customPreviews.forEach((url) => {
-        if (url.startsWith('blob:')) URL.revokeObjectURL(url)
-      })
-    }
-  }, [customPreviews])
-
   const openCustomizeModal = (e: React.MouseEvent, prompt: PromptRecord) => {
     e.stopPropagation()
     if (!user) {
@@ -168,166 +134,12 @@ export const Library: React.FC = () => {
       return
     }
     setCustomizePrompt(prompt)
-    setCustomProductName(prompt.title)
-    setCustomVisualDetails('')
-    setCustomFiles([])
-    setCustomPreviews([])
-    setAdaptedResult(null)
-    setCopiedAdapted(false)
-    setCustomVariations([])
-    setSelectedCustomVarId(null)
-    setCopiedCustomVarId(null)
-    setHasCustomFreeRegenerated(false)
     if (user) {
       getUserRegenerationCredits(user.id).then((c) => {
         if (c) setExtraCreditsBalance(c.extra_prompts_balance || 0)
       })
     }
     setModalOpen(true)
-  }
-
-  const handleCopyCustomVariation = (vId: string, text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedCustomVarId(vId)
-    toast({
-      title: 'Variação copiada! 📋✨',
-      description: 'Roteiro copiado para a área de transferência.',
-    })
-    setTimeout(() => setCopiedCustomVarId(null), 2500)
-  }
-
-  const handleCustomRegenerate = async () => {
-    if (!customizePrompt) return
-
-    if (!user) {
-      setAuthGateAction('Regenerar variações do roteiro')
-      setAuthGateOpen(true)
-      return
-    }
-
-    // Se já não há créditos de regeneração e já gerou variações ou usuário sem saldo
-    if (extraCreditsBalance <= 0 && hasCustomFreeRegenerated) {
-      setPaymentModalOpen(true)
-      return
-    }
-
-    setCustomRegenerating(true)
-    try {
-      const res = await regeneratePromptVariations({
-        basePrompt: adaptedResult || customizePrompt.prompt_text,
-        promptTitle: customProductName.trim() || customizePrompt.title,
-        productName: customProductName.trim() || customizePrompt.title,
-        visualDetails: customVisualDetails.trim() || undefined,
-        niche: customizePrompt.niche,
-        imagesCount: customFiles.length,
-        category: 'ecommerce',
-        seed: Math.floor(Math.random() * 1000000),
-      })
-
-      if (res.success && res.variations?.length) {
-        setCustomVariations(res.variations)
-        setSelectedCustomVarId(res.variations[0].id)
-
-        if (hasCustomFreeRegenerated && extraCreditsBalance > 0 && user) {
-          await consumeExtraRegenerationCredit(user.id)
-          setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
-          toast({
-            title: '3 Novas Variações Regeneradas! ⚡',
-            description: '1 crédito extra foi utilizado com sucesso.',
-          })
-        } else {
-          setHasCustomFreeRegenerated(true)
-          toast({
-            title: '3 Novas Variações Geradas! 🎨✨',
-            description: '3 abordagens diferentes (Emocional, Urgência e Prova Social) incluídas.',
-          })
-        }
-      }
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao regenerar variações',
-        description: err.message || 'Tente novamente.',
-        variant: 'destructive',
-      })
-    } finally {
-      setCustomRegenerating(false)
-    }
-  }
-
-  const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-
-    const incoming = Array.from(files)
-    const availableSlots = 3 - customFiles.length
-    if (availableSlots <= 0) {
-      toast({
-        title: 'Limite atingido',
-        description: 'Você pode subir no máximo 3 fotos da peça.',
-        variant: 'destructive',
-      })
-      e.target.value = ''
-      return
-    }
-
-    const accepted = incoming.slice(0, availableSlots)
-    const newUrls = accepted.map((file) => URL.createObjectURL(file))
-    setCustomFiles((prev) => [...prev, ...accepted])
-    setCustomPreviews((prev) => [...prev, ...newUrls])
-    e.target.value = ''
-  }
-
-  const handleRemoveCustomFile = (index: number) => {
-    const url = customPreviews[index]
-    if (url && url.startsWith('blob:')) URL.revokeObjectURL(url)
-    setCustomFiles((prev) => prev.filter((_, i) => i !== index))
-    setCustomPreviews((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const handleAdaptPrompt = async () => {
-    if (!customizePrompt) return
-    setAdapting(true)
-    try {
-      const res = await adaptPromptWithImages({
-        originalPrompt: customizePrompt.prompt_text,
-        promptTitle: customizePrompt.title,
-        productName: customProductName.trim() || customizePrompt.title,
-        visualDetails: customVisualDetails.trim() || undefined,
-        niche: customizePrompt.niche,
-        style: customizePrompt.style,
-        platform: customizePrompt.platform,
-        referenceImages: customFiles,
-        imagesCount: customFiles.length,
-        category: 'ecommerce',
-        iterationSeed: Math.floor(Math.random() * 1000000),
-      })
-
-      if (res.success && res.adapted_prompt) {
-        setAdaptedResult(res.adapted_prompt)
-        toast({
-          title: 'Prompt atualizado com suas fotos! 📸✨',
-          description: 'Roteiro adaptado com sucesso para a sua peça física.',
-        })
-      }
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao adaptar roteiro',
-        description: err.message || 'Tente novamente.',
-        variant: 'destructive',
-      })
-    } finally {
-      setAdapting(false)
-    }
-  }
-
-  const handleCopyAdapted = () => {
-    if (!adaptedResult) return
-    navigator.clipboard.writeText(adaptedResult)
-    setCopiedAdapted(true)
-    toast({
-      title: 'Roteiro adaptado copiado! 📋',
-    })
-    setTimeout(() => setCopiedAdapted(false), 2500)
   }
 
   const handleToggleFavorite = async (e: React.MouseEvent, promptId: string) => {
@@ -380,10 +192,13 @@ export const Library: React.FC = () => {
       return
     }
 
-    navigator.clipboard.writeText(prompt.prompt_text)
+    const textToCopy = adaptedPromptsMap[prompt.id]?.text || prompt.prompt_text
+    navigator.clipboard.writeText(textToCopy)
     setCopiedId(prompt.id)
     toast({
-      title: 'Roteiro copiado com sucesso! 📋✨',
+      title: adaptedPromptsMap[prompt.id]
+        ? 'Roteiro personalizado copiado! 📋✨'
+        : 'Roteiro copiado com sucesso! 📋✨',
       description: 'Pronto para gravar ou colar na sua ferramenta de criação!',
     })
 
@@ -757,10 +572,19 @@ export const Library: React.FC = () => {
                   </CardTitle>
 
                   {/* Subtítulo amigável: nome da peça / contexto da gravação */}
-                  <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5 line-clamp-1">
-                    <span>{nicheEmoji}</span>
-                    <span className="font-semibold text-foreground/90">{prompt.title}</span>
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5 line-clamp-1">
+                      <span>{nicheEmoji}</span>
+                      <span className="font-semibold text-foreground/90">
+                        {adaptedPromptsMap[prompt.id]?.productName || prompt.title}
+                      </span>
+                    </p>
+                    {adaptedPromptsMap[prompt.id] && (
+                      <Badge className="bg-pink-600 text-white text-[9px] py-0 px-1.5 font-bold shrink-0">
+                        Personalizado 📸
+                      </Badge>
+                    )}
+                  </div>
                 </CardHeader>
 
                 <CardContent className="space-y-3 pb-3 flex-1 px-4 sm:px-5">
@@ -874,319 +698,33 @@ export const Library: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Personalizar com Minhas Fotos (Disponível para Grátis e PRO) */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <ImagePlus className="w-5 h-5 text-pink-500" />
-              Personalizar com Minhas Fotos 📸
-            </DialogTitle>
-            <DialogDescription>
-              Suba até 3 fotos da sua peça para que o roteiro pré-pronto se adapte fielmente ao seu
-              produto.
-            </DialogDescription>
-          </DialogHeader>
-
-          {customizePrompt && (
-            <div className="space-y-4 py-2">
-              <div className="p-3 rounded-xl bg-muted/40 border text-xs space-y-1">
-                <span className="font-bold text-muted-foreground uppercase text-[10px]">
-                  Roteiro Base Selecionado:
-                </span>
-                <p className="font-semibold text-foreground">{customizePrompt.title}</p>
-              </div>
-
-              {/* Upload de até 3 fotos */}
-              <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed bg-muted/20 border-pink-500/30">
-                <div className="flex items-center justify-between text-xs">
-                  <Label className="font-bold uppercase tracking-wider text-foreground">
-                    Fotos da Sua Peça ({customFiles.length} de 3)
-                  </Label>
-                </div>
-
-                {customPreviews.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 pt-1">
-                    {customPreviews.map((preview, i) => (
-                      <div
-                        key={i}
-                        className="relative aspect-square rounded-xl overflow-hidden border bg-background"
-                      >
-                        <img
-                          src={preview}
-                          alt="Foto da peça"
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCustomFile(i)}
-                          className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-black"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {customFiles.length < 3 && (
-                  <div>
-                    <label
-                      htmlFor="custom-lib-upload"
-                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl border border-dashed border-pink-500/40 bg-pink-500/5 hover:bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold text-xs cursor-pointer transition-colors"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Anexar Fotos da Minha Peça</span>
-                    </label>
-                    <input
-                      id="custom-lib-upload"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleCustomFileUpload}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Nome do Produto Customizado */}
-              <div className="space-y-1.5 p-3 rounded-xl border border-pink-500/20 bg-pink-500/5">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="custom-prod"
-                    className="text-xs font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Nome do Seu Produto / Peça Real
-                  </Label>
-                  <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold bg-pink-500/10 px-2 py-0.5 rounded-full">
-                    Substitui o original
-                  </span>
-                </div>
-                <Input
-                  id="custom-prod"
-                  value={customProductName}
-                  onChange={(e) => setCustomProductName(e.target.value)}
-                  placeholder="Ex: Espelho de maquiagem LED, Vestido Midi, Capinha de celular..."
-                  className="text-sm bg-background border-pink-500/30 focus-visible:ring-pink-500"
-                />
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  O produto informado aqui substitui integralmente o produto do prompt original (ex:
-                  se o prompt era uma capinha e você quer vender um espelho, o roteiro será
-                  reformulado 100% para o espelho).
-                </p>
-              </div>
-
-              {/* Detalhes Visuais */}
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-vis" className="text-xs font-semibold">
-                  Detalhes Observados nas Fotos (Opcional)
-                </Label>
-                <Textarea
-                  id="custom-vis"
-                  value={customVisualDetails}
-                  onChange={(e) => setCustomVisualDetails(e.target.value)}
-                  placeholder="Ex: caimento rodado, tecido canelado grosso, cor vibrante..."
-                  rows={2}
-                  className="text-xs resize-none"
-                />
-              </div>
-
-              {/* Botões de Ação no Modal: Regenerar Sempre Visível + Atualizar com Fotos */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                <Button
-                  type="button"
-                  onClick={handleCustomRegenerate}
-                  disabled={customRegenerating || adapting}
-                  variant="outline"
-                  className="flex-1 py-5 border-pink-500/40 text-pink-600 dark:text-pink-400 font-bold hover:bg-pink-500/10 gap-2 text-xs shadow-xs"
-                >
-                  {customRegenerating ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
-                      <span>Regenerando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Regenerar Prompt ({extraCreditsBalance} disponíveis)</span>
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  onClick={handleAdaptPrompt}
-                  disabled={adapting || customRegenerating}
-                  className="flex-1 py-5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 text-xs"
-                >
-                  {adapting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Atualizando Roteiro...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Atualizar com Fotos 📸</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Exibição do Roteiro Adaptado e Botão de Regeneração */}
-              {adaptedResult && (
-                <div className="space-y-3 pt-3 border-t">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-pink-600 dark:text-pink-400 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Roteiro Adaptado com Suas Fotos:
-                    </span>
-                  </div>
-
-                  <div className="bg-muted/40 border rounded-xl p-3.5 font-mono text-xs whitespace-pre-wrap max-h-52 overflow-y-auto leading-relaxed select-all">
-                    {adaptedResult}
-                  </div>
-
-                  {/* Ações: Copiar ou Regenerar 3 Variações */}
-                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                    <Button
-                      onClick={handleCopyAdapted}
-                      className="flex-1 py-4 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 text-xs"
-                    >
-                      {copiedAdapted ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          Roteiro Adaptado Copiado!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          Copiar Roteiro Adaptado
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={handleCustomRegenerate}
-                      disabled={customRegenerating}
-                      variant="outline"
-                      className="py-4 border-pink-500/40 text-pink-600 dark:text-pink-400 font-bold hover:bg-pink-500/10 gap-2 text-xs"
-                    >
-                      {customRegenerating ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
-                          <span>Regenerando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Regenerar Prompt ({extraCreditsBalance} disponíveis)</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  {/* Saldo e Informação de Cobrança Extra */}
-                  <div className="text-[11px] text-muted-foreground flex items-center justify-between px-1">
-                    <span>
-                      {hasCustomFreeRegenerated
-                        ? extraCreditsBalance > 0
-                          ? `Saldo: ${extraCreditsBalance} prompt(s) extra(s) liberado(s)`
-                          : 'Próxima regeneração: R$ 1,99 por prompt extra'
-                        : '1º clique de regeneração incluído'}
-                    </span>
-                    {extraCreditsBalance > 0 && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold"
-                      >
-                        {extraCreditsBalance} crédito(s)
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Exibição das 3 Variações no Modal */}
-                  {customVariations.length > 0 && (
-                    <div className="space-y-3 pt-3 border-t">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-pink-500" />3 Variações em Ângulos
-                          Diferentes:
-                        </span>
-                        <Badge className="bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-[10px] font-bold">
-                          1-Clique
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {customVariations.map((v) => (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => setSelectedCustomVarId(v.id)}
-                            className={`p-2 rounded-xl text-left border text-xs transition-all ${
-                              selectedCustomVarId === v.id
-                                ? 'border-pink-500 bg-pink-500/10 text-pink-700 dark:text-pink-300 font-bold shadow-xs'
-                                : 'border-border bg-card hover:bg-muted/30 text-muted-foreground'
-                            }`}
-                          >
-                            <span className="block truncate text-[11px]">{v.badge}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      {selectedCustomVarId &&
-                        (() => {
-                          const cVar = customVariations.find((v) => v.id === selectedCustomVarId)
-                          if (!cVar) return null
-                          const isCopied = copiedCustomVarId === cVar.id
-                          return (
-                            <div className="p-3 rounded-2xl border bg-muted/20 space-y-2 animate-in fade-in-50">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <span className="text-xs font-bold text-foreground">
-                                    {cVar.angle}
-                                  </span>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {cVar.description}
-                                  </p>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    handleCopyCustomVariation(cVar.id, cVar.prompt_text)
-                                  }
-                                  className="h-7 text-xs gap-1 font-bold bg-pink-600 text-white hover:bg-pink-700"
-                                >
-                                  {isCopied ? (
-                                    <>
-                                      <Check className="w-3 h-3" />
-                                      Copiado!
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3 h-3" />
-                                      Copiar
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-
-                              <div className="bg-background border rounded-xl p-3 font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto select-all">
-                                {cVar.prompt_text}
-                              </div>
-                            </div>
-                          )
-                        })()}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Modal Reutilizável: Personalizar com Minhas Fotos (Mantém cenas separadas e salva no histórico) */}
+      <PromptCustomizeModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        prompt={customizePrompt}
+        userId={user?.id}
+        isPaidPlan={isPaidPlan}
+        extraCreditsBalance={extraCreditsBalance}
+        onCreditsUpdated={(newBal) => setExtraCreditsBalance(newBal)}
+        onRequestPayment={() => setPaymentModalOpen(true)}
+        category="ecommerce"
+        initialAdaptedPrompt={customizePrompt ? adaptedPromptsMap[customizePrompt.id]?.text : null}
+        initialProductName={
+          customizePrompt ? adaptedPromptsMap[customizePrompt.id]?.productName : ''
+        }
+        onAdaptedApplied={(newText, newProd) => {
+          if (customizePrompt) {
+            setAdaptedPromptsMap((prev) => ({
+              ...prev,
+              [customizePrompt.id]: {
+                text: newText,
+                productName: newProd || customizePrompt.title,
+              },
+            }))
+          }
+        }}
+      />
 
       {/* Modal de Pagamento Demonstrativo para Regenerações Extras na Biblioteca */}
       {user && (

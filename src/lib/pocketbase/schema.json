@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T14:55:38.126Z",
+  "generatedAt": "2026-10-25T18:15:49.002Z",
   "collections": [
     {
       "name": "users",
@@ -176,6 +176,7 @@
             "pet_acessorios",
             "cozinha_utilidades",
             "relogios_bijus",
+            "perfumes_cosmeticos",
             "historinhas_frutas",
             "infantil_historinhas",
             "terror_suspense",
@@ -359,6 +360,7 @@
             "pet_acessorios",
             "cozinha_utilidades",
             "relogios_bijus",
+            "perfumes_cosmeticos",
             "historinhas_frutas",
             "infantil_historinhas",
             "terror_suspense",

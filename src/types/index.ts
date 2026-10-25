@@ -276,3 +276,15 @@ export const PLATFORM_LABELS: Record<PlatformType, string> = {
   shopee: 'Shopee Vídeo / Vitrine',
   ambos: 'TikTok Shop & Shopee',
 }
+
+export type ImageEngineType = 'nano_banana' | 'chatgpt'
+
+export interface ImageEngineMeta {
+  id: ImageEngineType
+  name: string
+  provider: 'google' | 'openai'
+  description: string
+  is_available: boolean
+  has_key: boolean
+  badge: string
+}

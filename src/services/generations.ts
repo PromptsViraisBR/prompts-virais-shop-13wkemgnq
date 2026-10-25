@@ -33,7 +33,8 @@ export interface AdaptPromptInput {
 
 export interface GenerateViralSceneInput {
   userId?: string
-  themeName: string
+  userIdea?: string
+  themeName?: string
   characterName?: string
   niche: NicheType
   visualDetails?: string
@@ -45,6 +46,7 @@ export interface GenerateViralSceneInput {
 export interface GenerateViralSceneResult {
   success: boolean
   theme_name: string
+  user_idea?: string
   character_name?: string
   niche: NicheType
   niche_label: string
@@ -405,8 +407,10 @@ async function fileToBase64(file: File): Promise<string> {
 export async function generateViralSceneWithImages(
   input: GenerateViralSceneInput,
 ): Promise<GenerateViralSceneResult> {
-  const imagesCount = input.referenceImages?.length || input.imagesCount || 1
+  const imagesCount = input.referenceImages?.length || input.imagesCount || 0
   const seed = input.seed || Math.floor(Math.random() * 1000000)
+  const userIdea = (input.userIdea || '').trim()
+  const theme = (input.themeName || userIdea || input.characterName || 'Roteiro Viral').trim()
 
   // Converter fotos para base64 para envio multimodal ao modelo
   let base64Images: string[] = []
@@ -430,7 +434,9 @@ export async function generateViralSceneWithImages(
           ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
         },
         body: JSON.stringify({
-          theme_name: input.themeName,
+          user_idea: userIdea,
+          script_idea: userIdea,
+          theme_name: theme,
           character_name: input.characterName,
           niche: input.niche,
           visual_details: input.visualDetails,
@@ -446,42 +452,48 @@ export async function generateViralSceneWithImages(
       backendResult = (await response.json()) as GenerateViralSceneResult
     }
 
-    const theme = input.themeName.trim()
     const nicheLabel = NICHE_LABELS[input.niche] || 'Vídeos Virais'
+    const effectiveIdea = userIdea || theme
+    const photoDetails = input.visualDetails
+      ? `🔍 Detalhes da sua imagem: ${input.visualDetails}`
+      : imagesCount > 0
+        ? '🔍 Visual anclado na(s) imagem(ns) enviada(s).'
+        : '🔍 Roteiro direcionado pela sua ideia.'
+
     const sceneConcept =
       backendResult?.scene_concept ||
-      `💡 IDEIA DE CENA VIRAL:\n${theme} vivendo uma situação marcante no nicho de ${nicheLabel}, com enquadramento frontal dinâmico e retenção alta nos primeiros 3 segundos.\n${input.visualDetails ? `🔍 Detalhes da sua imagem: ${input.visualDetails}` : ''}`
+      `💡 IDEIA DE CENA VIRAL:\n"${effectiveIdea}" no universo de ${nicheLabel}, com enquadramento frontal dinâmico e retenção alta nos primeiros 3 segundos.\n${photoDetails}`
 
     const optionalScript =
       backendResult?.optional_script ||
       `[ROTEIRO OPCIONAL SUGERIDO - ~60 SEGUNDOS EM 6 CENAS DE 10S]
 ⏱️ DURAÇÃO ALVO: ~60 Segundos (6 Cenas de até 10s cada)
 🏷️ NICHO: ${nicheLabel}
-🎯 PERSONAGEM/CENA: ${theme}
-📌 DIRETRIZES: Narração PT-BR contínua, vídeo 100% limpo sem texto ou legendas na tela. Roteiro opcional para seguir ou adaptar livremente.
+💡 IDEIA DO ROTEIRO: ${effectiveIdea}
+${input.characterName ? `🎯 PERSONAGEM: ${input.characterName}\n` : ''}📌 DIRETRIZES: Narração PT-BR contínua em áudio, vídeo 100% limpo sem texto ou legendas gravadas na tela.
 
 🎬 CENA 1 (0-10s) - GANCHO HIPNÓTICO (HOOK):
-- Visual: Enquadramento direto baseado na sua imagem de ${theme}.
+- Visual: Enquadramento direto iniciando a situação: "${effectiveIdea}". Vídeo 100% limpo sem texto na tela.
 - Narração (PT-BR): "Se você acha que já viu de tudo na internet, para tudo e olha o que acabou de acontecer aqui!"
 
 🎬 CENA 2 (10-20s) - DESENVOLVIMENTO DO CONTEXTO:
-- Visual: Movimento fluido revelando os detalhes observados (${input.visualDetails || 'ambientação viva'}).
+- Visual: A câmera se move em plano médio revelando detalhes de "${effectiveIdea}" (${input.visualDetails || 'ambientação viva da foto'}).
 - Narração (PT-BR): "Ninguém esperava que exatamente hoje esse detalhe fosse descoberto por todo mundo..."
 
-🎬 CENA 3 (20-30s) - REVIRAVOLTA PARTE 1:
-- Visual: O elemento central reage à situação com expressividade.
+🎬 CENA 3 (20-30s) - REVIRAVOLTA / TENSÃO:
+- Visual: Close expressivo diante da reviravolta de "${effectiveIdea}".
 - Narração (PT-BR): "E foi aí que o segredo começou a vir à tona diante de quem estava assistindo!"
 
 🎬 CENA 4 (30-40s) - O CLÍMAX DA CENA:
-- Visual: Câmera lenta suave capturando o ápice visual e a dramaticidade.
+- Visual: Câmera lenta suave capturando o ápice da ação de "${effectiveIdea}".
 - Narração (PT-BR): "Olha a expressão, olha cada detalhe acontecendo em tempo real!"
 
 🎬 CENA 5 (40-50s) - A RESOLUÇÃO DA HISTÓRIA:
-- Visual: Desfecho estético harmonioso.
+- Visual: O desfecho da situação com harmonia estética.
 - Narração (PT-BR): "No final das contas, ficou provado que essa cena merecia ficar gravada pra sempre!"
 
 🎬 CENA 6 (50-60s) - FECHAMENTO E ENGAGEMENT (CTA):
-- Visual: O personagem se despede com carisma e a imagem se fecha com suavidade.
+- Visual: O personagem se despede com carisma e a imagem se fecha com suavidade. Fade-out limpo.
 - Narração (PT-BR): "O que você faria no lugar dele? Comente aqui embaixo e siga para o próximo episódio!"`
 
     // Persiste no banco de dados se houver userId logado
@@ -489,11 +501,12 @@ export async function generateViralSceneWithImages(
     if (input.userId) {
       try {
         const fullGeneratedText = `${sceneConcept}\n\n${optionalScript}`
+        const recordName = userIdea ? userIdea.slice(0, 60) : theme
 
         if (input.referenceImages && input.referenceImages.length > 0) {
           const formData = new FormData()
           formData.append('user', input.userId)
-          formData.append('product_name', theme)
+          formData.append('product_name', recordName)
           formData.append('niche', input.niche)
           formData.append('style', 'pov')
           formData.append('platform', 'ambos')
@@ -511,7 +524,7 @@ export async function generateViralSceneWithImages(
         } else {
           const rec = await pb.collection('generations').create<GenerationRecord>({
             user: input.userId,
-            product_name: theme,
+            product_name: recordName,
             niche: input.niche,
             style: 'pov',
             platform: 'ambos',
@@ -529,6 +542,7 @@ export async function generateViralSceneWithImages(
     return {
       success: true,
       theme_name: theme,
+      user_idea: userIdea || undefined,
       character_name: input.characterName,
       niche: input.niche,
       niche_label: nicheLabel,
@@ -541,7 +555,8 @@ export async function generateViralSceneWithImages(
     console.warn('Erro ao gerar cena viral:', err)
     return {
       success: false,
-      theme_name: input.themeName,
+      theme_name: theme,
+      user_idea: userIdea || undefined,
       character_name: input.characterName,
       niche: input.niche,
       niche_label: NICHE_LABELS[input.niche] || 'Vídeos Virais',

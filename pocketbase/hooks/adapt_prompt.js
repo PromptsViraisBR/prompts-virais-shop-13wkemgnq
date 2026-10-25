@@ -220,13 +220,21 @@ routerAdd('POST', '/backend/v1/generate-viral-scene', (e) => {
   try {
     const data = e.requestInfo().body || {}
     const characterName = (data.character_name || '').trim()
-    const themeIdea = (data.theme_name || data.theme || data.idea || '').trim()
-    const characterOrTheme = (characterName || themeIdea || 'Personagem central').trim()
+    const userIdea = (
+      data.user_idea ||
+      data.script_idea ||
+      data.idea ||
+      data.theme_name ||
+      data.theme ||
+      ''
+    ).trim()
+    const themeName = (data.theme_name || userIdea || characterName || 'Personagem central').trim()
+    const characterOrTheme = (characterName || userIdea || themeName).trim()
     const niche = (data.niche || 'historinhas_frutas').trim()
     const visualDetails = (data.visual_details || '').trim()
     const imagesPayload = Array.isArray(data.images) ? data.images : []
     const imageCount = parseInt(
-      data.images_count || (imagesPayload.length > 0 ? imagesPayload.length : '1'),
+      data.images_count || (imagesPayload.length > 0 ? imagesPayload.length : '0'),
       10,
     )
     const seed = data.seed || Math.floor(Math.random() * 1000000)
@@ -335,21 +343,27 @@ routerAdd('POST', '/backend/v1/generate-viral-scene', (e) => {
     let sceneConcept = ''
     let optionalScript = ''
 
+    // Prioridade da ideia digitada pelo usuário conduzindo o roteiro, combinada com a foto
+    const effectiveIdea = userIdea || themeName || characterOrTheme
+    const effectiveChar = characterName || (userIdea ? '' : characterOrTheme)
+
     // Tentar via $ai.chat com prompt estrito de fidelidade à ideia e personagem
     try {
       const systemInstruction = `Você é um diretor e roteirista profissional de canais virais (TikTok, Shorts, Reels) em Português Brasileiro (PT-BR).
 
 REGRAS ABSOLUTAS E OBRIGATÓRIAS:
-1. FIDELIDADE TOTAL À IDEIA E SITUAÇÃO DO USUÁRIO:
-   - A ideia/tema informada pelo usuário ("${themeIdea || characterOrTheme}") é a BASE CENTRAL e MANDATÓRIA de todo o roteiro.
-   - NUNCA crie uma história genérica descolada da ideia dele. Cada uma das 6 cenas DEVE desenvolver exatamente a situação que o usuário pediu.
-2. FIDELIDADE TOTAL AO PERSONAGEM PRINCIPAL:
-   ${characterName ? `- O personagem principal é ESTRITAMENTE "${characterName}". Ele deve aparecer e protagonizar TODAS as 6 cenas.` : `- O elemento principal da história é "${characterOrTheme}". Mantenha coerência absoluta em todas as cenas.`}
-3. COERÊNCIA COM A FOTO/IMAGEM ENVIADA:
-   - Cenário, cores, visual do personagem e objetos devem ser fiéis aos elementos visuais: ${visualSummary || 'conforme a foto enviada pelo usuário'}.
+1. PRIORIDADE MÁXIMA PARA A IDEIA DO USUÁRIO:
+   - A ideia digitada pelo usuário ("${effectiveIdea}") TEM PRIORIDADE ABSOLUTA e DEVE CONDUZIR TODA A HISTÓRIA DO ROTEIRO (ex: "abacate que vira herói", "fuga épica do gato da banheira", etc.).
+   - Se o usuário digitou uma ideia e enviou foto, o roteiro DEVE COMBINAR OS DOIS: a ideia digitada comanda os acontecimentos e o enredo, enquanto a foto ancla o visual (personagem, cores, ambiente, texturas).
+   - Se houver apenas foto, baseie-se nos elementos visuais da foto. Se houver apenas texto/ideia, baseie-se integralmente na ideia digitada.
+   - NUNCA crie uma história genérica. Cada uma das 6 cenas DEVE desenvolver exatamente a ideia informada pelo usuário.
+2. PERSONAGEM PRINCIPAL:
+   ${effectiveChar ? `- Personagem principal: "${effectiveChar}". Ele deve protagonizar e conduzir a história.` : `- Destaque o personagem ou figura central da ideia ("${effectiveIdea}").`}
+3. COERÊNCIA VISUAL COM A FOTO ENVIADA:
+   - Detalhes visuais observados: ${visualSummary || 'Cores vibrantes, expressão do personagem e ambiente da imagem de referência'}.
 4. REGRAS DE VÍDEO VIRAL:
-   - Idioma: Português do Brasil (PT-BR) impecável, sem erros ortográficos.
-   - VÍDEO 100% LIMPO: SEM legendas gravadas, SEM textos na tela, SEM caracteres na imagem. A narração é apenas em áudio.
+   - Idioma: Português do Brasil (PT-BR) impecável, natural e coloquial para vídeos virais.
+   - VÍDEO 100% LIMPO: SEM legendas gravadas na imagem, SEM textos na tela, SEM caracteres impressos no vídeo. A narração é estritamente falada (apenas em áudio).
    - Duração: ~60 segundos divididos em EXATAMENTE 6 cenas de até 10 segundos:
      CENA 1 (0-10s) - GANCHO HIPNÓTICO (HOOK)
      CENA 2 (10-20s) - DESENVOLVIMENTO
@@ -357,23 +371,23 @@ REGRAS ABSOLUTAS E OBRIGATÓRIAS:
      CENA 4 (30-40s) - O CLÍMAX
      CENA 5 (40-50s) - A RESOLUÇÃO
      CENA 6 (50-60s) - CTA / ENGAGEMENT
-   - Cada cena deve conter:
+   - Cada cena deve conter obrigatoriamente:
      - Visual: descrição precisa da ação da cena sem texto na tela
-     - Narração (PT-BR): fala falada envolvente e dinâmica
+     - Narração (PT-BR): fala envolvente para narração em áudio
 5. FORMATO DE RESPOSTA OBRIGATÓRIO:
    Divida a resposta exatamente com a tag [IDEIA_DE_CENA] e a tag [ROTEIRO_OPCIONAL].
-   Em [IDEIA_DE_CENA], entregue um conceito curto (2 a 4 linhas) focado na ideia dele.
+   Em [IDEIA_DE_CENA], entregue o conceito sintetizado (2 a 4 linhas) baseado na ideia do usuário e foto.
    Em [ROTEIRO_OPCIONAL], entregue o roteiro completo de 6 cenas seguindo o padrão CENA 1 (0-10s), CENA 2 (10-20s), etc.`
 
       const userInstruction = `Crie a ideia de cena e o roteiro opcional de 60s (6 cenas de 10s) com fidelidade absoluta a estes dados:
-- Ideia/Tema central obrigatório: "${themeIdea || characterOrTheme}"
-${characterName ? `- Personagem Principal em todas as cenas: "${characterName}"` : ''}
+- Ideia do usuário (PRIORIDADE TOTAL): "${effectiveIdea}"
+${effectiveChar ? `- Personagem Principal: "${effectiveChar}"` : ''}
 - Nicho viral: ${nicheLabel}
-- Detalhes visuais da foto de referência: ${visualSummary || 'preservar personagens, cores e ambiente da imagem'}
+- Detalhes visuais / foto de referência: ${visualSummary || (imageCount > 0 ? 'Fidelidade visual total aos personagens, cores e ambiente da foto anexada' : 'Sem foto anexada, construir visual focado na ideia')}
 - Fotos anexadas: ${imageCount}
 - Variação Seed: #${seed}
 
-Gere agora a [IDEIA_DE_CENA] e o [ROTEIRO_OPCIONAL] 100% alinhados à minha ideia e à minha foto.`
+Gere agora a [IDEIA_DE_CENA] e o [ROTEIRO_OPCIONAL] baseados na ideia digitada e na foto.`
 
       const aiRes = $ai.chat({
         model: 'fast',
@@ -400,53 +414,52 @@ Gere agora a [IDEIA_DE_CENA] e o [ROTEIRO_OPCIONAL] 100% alinhados à minha idei
     }
 
     // Fallbacks dinâmicos contextuais se a IA não responder no formato esperado
-    const activeChar = characterName || characterOrTheme
-    const activeIdea = themeIdea || characterOrTheme
+    const activeChar = characterName || (userIdea ? '' : characterOrTheme) || 'Personagem Principal'
+    const activeIdea = effectiveIdea
 
     if (!sceneConcept) {
-      sceneConcept = `💡 IDEIA DE CENA VIRAL:
-${activeChar} vivendo a situação "${activeIdea}" no universo de ${nicheLabel}. Enquadramento direto e de alto impacto visual nos primeiros 3 segundos, mantendo a coerência com a imagem enviada.${visualSummary ? `\n🔍 Detalhes visuais: ${visualSummary}` : ''}`
+      sceneConcept = `💡 IDEIA DE CENA VIRAL:\n"${activeIdea}" no universo de ${nicheLabel}, com enquadramento frontal dinâmico e retenção alta nos primeiros 3 segundos.\n${visualSummary ? `🔍 Detalhes visuais da foto: ${visualSummary}` : imageCount > 0 ? '🔍 Baseado na composição visual da imagem enviada.' : '🔍 Focado na ideia digitada pelo usuário.'}`
     }
 
     if (!optionalScript) {
       optionalScript = `[ROTEIRO OPCIONAL SUGERIDO - ~60 SEGUNDOS EM 6 CENAS DE 10S]
 ⏱️ DURAÇÃO ALVO: ~60 Segundos (6 Cenas de até 10s cada)
 🏷️ NICHO: ${nicheLabel}
-🎯 PERSONAGEM PRINCIPAL: ${activeChar}
 💡 IDEIA CENTRAL: ${activeIdea}
-📌 DIRETRIZES ESSENCIAIS:
+${activeChar ? `🎯 PERSONAGEM: ${activeChar}\n` : ''}📌 DIRETRIZES ESSENCIAIS:
 - Idioma da narração: Português Brasileiro (PT-BR)
-- Vídeo totalmente limpo: SEM legendas gravadas na tela, SEM textos impressos no vídeo
-- Narração em áudio fluida e expressiva
+- Vídeo totalmente limpo: SEM legendas gravadas na tela, SEM textos impressos no vídeo (narração apenas em áudio)
+- Narração fluida e expressiva
 
 🎬 CENA 1 (0-10s) - GANCHO HIPNÓTICO (HOOK):
-- Visual: Enquadramento direto em ${activeChar} iniciando a cena de ${activeIdea}, com a estética e iluminação fiéis à foto de referência (${visualSummary || 'alta definição'}).
-- Narração (PT-BR): "Se você acha que já viu de tudo na internet hoje, para tudo e olha o que o(a) ${activeChar} aprontou agora!"
+- Visual: Enquadramento direto iniciando a situação: "${activeIdea}", com estética e cores fiéis à foto de referência (${visualSummary || 'alta definição'}). Vídeo 100% limpo sem texto.
+- Narração (PT-BR): "Se você acha que já viu de tudo na internet hoje, para tudo e olha o que acabou de acontecer aqui!"
 
 🎬 CENA 2 (10-20s) - DESENVOLVIMENTO DO CONTEXTO:
-- Visual: A câmera se move em plano médio revelando a situação de ${activeIdea} enquanto ${activeChar} interage com o ambiente ao redor.
-- Narração (PT-BR): "Tudo começou quando parecia mais um dia normal, até que esse detalhe mudou o rumo de tudo..."
+- Visual: A câmera se move em plano médio revelando os detalhes de "${activeIdea}" enquanto o personagem interage com o cenário.
+- Narração (PT-BR): "Tudo começou quando parecia mais um dia qualquer, até que esse detalhe mudou o rumo da história..."
 
 🎬 CENA 3 (20-30s) - A TENSÃO / REVIRAVOLTA:
-- Visual: Close expressivo em ${activeChar} tomando uma atitude inesperada diante do desafio de ${activeIdea}.
-- Narração (PT-BR): "E foi aí que aconteceu o momento que ninguém esperava ver na internet!"
+- Visual: Close expressivo capturando uma atitude inesperada diante do desafio de "${activeIdea}".
+- Narração (PT-BR): "E foi exatamente aí que aconteceu o que ninguém esperava ver na internet!"
 
 🎬 CENA 4 (30-40s) - O CLÍMAX DA HISTÓRIA:
-- Visual: Tomada dinâmica capturando o ápice da ação de ${activeChar} em ${activeIdea}, com iluminação vibrante e vídeo 100% limpo sem texto.
+- Visual: Tomada dinâmica capturando o ápice da ação de "${activeIdea}", com iluminação vibrante e vídeo limpo sem legendas na tela.
 - Narração (PT-BR): "Olha essa reação em tempo real! É exatamente por isso que essa cena merece viralizar!"
 
 🎬 CENA 5 (40-50s) - A RESOLUÇÃO DA CENA:
-- Visual: O desfecho da situação de ${activeIdea} com ${activeChar} demonstrando alívio ou cumplicidade cômica com a câmera.
-- Narração (PT-BR): "No final das contas, ficou provado que essa aventura do(a) ${activeChar} valeu cada segundo!"
+- Visual: O desfecho da situação de "${activeIdea}" com expressão de cumplicidade ou alívio voltada para a lente.
+- Narração (PT-BR): "No final das contas, ficou provado que essa história valeu cada segundo!"
 
 🎬 CENA 6 (50-60s) - FECHAMENTO E ENGAGEMENT (CTA):
-- Visual: ${activeChar} olha diretamente para a lente com atitude e carisma. Fade-out elegante.
-- Narração (PT-BR): "O que você faria se estivesse no lugar dele(a)? Comente a sua opinião sincera aqui embaixo e já segue para não perder a continuação!"`
+- Visual: Enquadramento final estético e carismático. Fade-out suave sem texto na tela.
+- Narração (PT-BR): "O que você faria se estivesse nessa situação? Comente a sua opinião sincera aqui embaixo e já segue para não perder a continuação!"`
     }
 
     return e.json(200, {
       success: true,
       theme_name: themeName,
+      user_idea: userIdea || undefined,
       character_name: characterName || undefined,
       niche,
       niche_label: nicheLabel,

@@ -62,13 +62,13 @@ export const ViralGenerator: React.FC = () => {
   const { user, isPaidPlan } = useAuth()
   const navigate = useNavigate()
 
-  // Form State
-  const [themeName, setThemeName] = useState('')
+  // Form State: A ideia do roteiro é o input principal e conduz a história
+  const [scriptIdea, setScriptIdea] = useState('')
   const [characterName, setCharacterName] = useState('')
   const [niche, setNiche] = useState<NicheType>('historinhas_frutas')
   const [visualDetails, setVisualDetails] = useState('')
 
-  // Upload de fotos (até 3 imagens da imagem criada)
+  // Upload de fotos opcional (até 3 imagens da cena/personagem)
   const [referenceFiles, setReferenceFiles] = useState<File[]>([])
   const [referencePreviews, setReferencePreviews] = useState<string[]>([])
 
@@ -159,15 +159,20 @@ export const ViralGenerator: React.FC = () => {
     e.preventDefault()
 
     if (!user) {
-      setAuthGateAction('Gerar ideia de cena e roteiro opcional para vídeos virais')
+      setAuthGateAction('Gerar roteiro viral a partir da sua ideia e foto')
       setAuthGateOpen(true)
       return
     }
 
-    if (referenceFiles.length === 0 && !themeName.trim() && !characterName.trim()) {
+    const trimmedIdea = scriptIdea.trim()
+    const trimmedChar = characterName.trim()
+
+    // Validação: a pessoa precisa fornecer a ideia OU subir foto (a ideia é o input principal)
+    if (!trimmedIdea && referenceFiles.length === 0 && !trimmedChar) {
       toast({
-        title: 'Suba sua imagem ou digite o tema/personagem',
-        description: 'Suba até 3 imagens já criadas ou defina o personagem da cena.',
+        title: 'Digite a sua ideia para o roteiro ou suba uma foto',
+        description:
+          'Escreva o que você pensou para o roteiro (ex: "o abacate que vira herói") ou envie uma foto.',
         variant: 'destructive',
       })
       return
@@ -175,12 +180,13 @@ export const ViralGenerator: React.FC = () => {
 
     setGenerating(true)
     try {
-      const generatedTheme =
-        characterName.trim() || themeName.trim() || 'Personagem da Imagem Criada'
+      const effectiveTheme = trimmedIdea || trimmedChar || 'Cena baseada na foto enviada'
+
       const genRes = await generateViralSceneWithImages({
         userId: user.id,
-        themeName: generatedTheme,
-        characterName: characterName.trim() || undefined,
+        userIdea: trimmedIdea || undefined,
+        themeName: effectiveTheme,
+        characterName: trimmedChar || undefined,
         niche,
         visualDetails: visualDetails.trim() || undefined,
         referenceImages: referenceFiles,
@@ -193,8 +199,11 @@ export const ViralGenerator: React.FC = () => {
         setVariations([])
         setSelectedVarId(null)
         toast({
-          title: 'Ideia de Cena e Roteiro Opcional Gerados! 🎬✨',
-          description: 'Roteiro de ~60s dividido em 6 cenas de 10s pronto para gravação.',
+          title: 'Roteiro Viral Gerado com Sucesso! 🎬✨',
+          description:
+            referenceFiles.length > 0 && trimmedIdea
+              ? 'Roteiro construído com base na sua ideia e nos detalhes da foto!'
+              : 'Roteiro de ~60s dividido em 6 cenas de 10s pronto para gravação.',
         })
       } else {
         throw new Error(genRes.error || 'Erro ao gerar roteiro viral.')
@@ -209,7 +218,6 @@ export const ViralGenerator: React.FC = () => {
       setGenerating(false)
     }
   }
-
   const handleCopy = (text: string, type: 'concept' | 'script' | 'all') => {
     navigator.clipboard.writeText(text)
     if (type === 'concept') {
@@ -247,10 +255,11 @@ export const ViralGenerator: React.FC = () => {
 
     setRegenerating(true)
     try {
+      const promptTitle = result.user_idea || result.theme_name
       const res = await regeneratePromptVariations({
         basePrompt: result.optional_script,
-        promptTitle: result.theme_name,
-        productName: characterName.trim() || result.theme_name,
+        promptTitle,
+        productName: characterName.trim() || promptTitle,
         characterName: characterName.trim() || undefined,
         visualDetails: visualDetails.trim() || undefined,
         niche: result.niche,
@@ -308,14 +317,14 @@ export const ViralGenerator: React.FC = () => {
             <span>Gerador Exclusivo de Vídeos Virais</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-            <span>Gerador a partir de Imagem Criada</span>
-            <span className="text-2xl">📸🎬</span>
+            <span>Gerador de Roteiro Viral</span>
+            <span className="text-2xl">💡📸🎬</span>
           </h2>
           <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-2xl">
-            Suba a sua imagem já criada (até 3 fotos). A IA analisa a composição visual e gera
-            primeiro <strong>uma Ideia de Cena</strong> (conceito curto e impactante) e, na
-            sequência, <strong>um Roteiro Opcional</strong> de ~60 segundos organizado em 6 cenas de
-            até 10 segundos, 100% limpo sem texto gravado na tela.
+            Dê a sua <strong>ideia para o roteiro</strong> e, opcionalmente,{' '}
+            <strong>suba a sua foto</strong>. A IA combina os dois: a sua ideia conduz toda a
+            narrativa e a foto ancla o visual, gerando um roteiro de{' '}
+            <strong>~60 segundos em 6 cenas de até 10s</strong>, 100% limpo e sem texto na tela.
           </p>
         </div>
 
@@ -351,32 +360,64 @@ export const ViralGenerator: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Coluna Esquerda: Formulário de Upload e Parâmetros */}
-        <Card className="lg:col-span-5 border bg-card/90 shadow-sm rounded-3xl">
-          <CardHeader className="pb-4">
+        {/* Coluna Esquerda: Formulário de Ideia do Roteiro + Upload Opcional */}
+        <Card className="lg:col-span-5 border bg-card/90 shadow-sm rounded-3xl overflow-hidden">
+          <CardHeader className="pb-3 border-b bg-muted/30">
             <CardTitle className="text-base font-bold flex items-center gap-2">
-              <Upload className="w-4 h-4 text-pink-500" />
-              1. Suba sua imagem e escolha o nicho
+              <Lightbulb className="w-4 h-4 text-pink-500" />
+              1. Sua Ideia & Referências Visuais
             </CardTitle>
             <CardDescription className="text-xs">
-              Aceita até 3 imagens já criadas (Midjourney, Flux, DALL-E ou fotos reais).
+              A sua ideia conduz a história; a foto (opcional) define o visual das cenas.
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-4">
             <form onSubmit={handleGenerate} className="space-y-4">
-              {/* Upload de até 3 imagens */}
-              <div className="space-y-2 p-3.5 rounded-2xl border-2 border-dashed border-pink-500/30 bg-pink-500/5">
+              {/* CAMPO PRINCIPAL DESTAQUE: IDEIA DO QUE QUER NO ROTEIRO */}
+              <div className="space-y-2 p-3.5 rounded-2xl border-2 border-pink-500/40 bg-pink-500/10 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="viral-script-idea"
+                    className="text-xs sm:text-sm font-extrabold text-foreground flex items-center gap-1.5"
+                  >
+                    <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>Sua Ideia para o Roteiro</span>
+                    <span className="text-pink-600 text-xs font-bold">*Principal</span>
+                  </Label>
+                  <Badge className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5">
+                    Prioridade na História
+                  </Badge>
+                </div>
+
+                <Textarea
+                  id="viral-script-idea"
+                  value={scriptIdea}
+                  onChange={(e) => setScriptIdea(e.target.value)}
+                  placeholder="Ex: Quero uma historinha do abacate que vira herói e salva a fruteira de um liquidificador vilão..."
+                  rows={3}
+                  className="rounded-xl text-xs sm:text-sm bg-background border-pink-500/40 focus-visible:ring-pink-500 resize-none font-medium leading-relaxed"
+                />
+
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  💡 Escreva o que você quer que aconteça na história. A IA vai usar essa ideia como
+                  enredo principal das 6 cenas!
+                </p>
+              </div>
+
+              {/* Upload de até 3 imagens (OPCIONAL) */}
+              <div className="space-y-2 p-3.5 rounded-2xl border border-dashed border-purple-500/40 bg-purple-500/5">
                 <div className="flex items-center justify-between text-xs font-bold text-foreground">
                   <span className="flex items-center gap-1.5">
-                    <Film className="w-3.5 h-3.5 text-pink-500" />
-                    Sua Imagem Criada ({referenceFiles.length} de 3)
+                    <Film className="w-3.5 h-3.5 text-purple-500" />
+                    Foto de Referência ({referenceFiles.length} de 3)
                   </span>
-                  {referenceFiles.length > 0 && (
-                    <span className="text-[11px] text-pink-600 font-medium">
-                      {referenceFiles.length} foto(s) anexada(s)
-                    </span>
-                  )}
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] text-purple-600 border-purple-500/30 font-semibold"
+                  >
+                    Opcional
+                  </Badge>
                 </div>
 
                 {referencePreviews.length > 0 && (
@@ -388,7 +429,7 @@ export const ViralGenerator: React.FC = () => {
                       >
                         <img
                           src={preview}
-                          alt="Referência viral"
+                          alt="Referência visual"
                           className="w-full h-full object-cover"
                         />
                         <button
@@ -408,13 +449,13 @@ export const ViralGenerator: React.FC = () => {
                   <div>
                     <label
                       htmlFor="viral-image-upload-input"
-                      className="inline-flex items-center justify-center gap-2 w-full py-3 px-3 rounded-xl border border-dashed border-pink-500/40 bg-background hover:bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold text-xs cursor-pointer transition-colors shadow-2xs"
+                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl border border-dashed border-purple-500/40 bg-background hover:bg-purple-500/10 text-purple-600 dark:text-purple-400 font-semibold text-xs cursor-pointer transition-colors shadow-2xs"
                     >
                       <Upload className="w-4 h-4" />
                       <span>
                         {referenceFiles.length === 0
-                          ? 'Clique para subir a sua imagem criada'
-                          : 'Adicionar mais uma imagem (máx 3)'}
+                          ? 'Subir foto para anclar o visual (opcional)'
+                          : 'Adicionar mais uma foto (máx 3)'}
                       </span>
                     </label>
                     <input
@@ -428,8 +469,8 @@ export const ViralGenerator: React.FC = () => {
                   </div>
                 )}
                 <p className="text-[11px] text-muted-foreground leading-tight">
-                  Formatos aceitos: PNG, JPG, WEBP. A imagem servirá de referência para gerar a
-                  ideia e as cenas.
+                  Se você enviar foto, a IA aproveita o visual dela (personagem, cores e ambiente)
+                  para ilustrar a história da sua ideia.
                 </p>
               </div>
 
@@ -453,57 +494,39 @@ export const ViralGenerator: React.FC = () => {
                 </Select>
               </div>
 
-              {/* Troca / Definição de Personagem Central */}
-              <div className="space-y-1.5 p-3 rounded-2xl border border-pink-500/30 bg-pink-500/5">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="viral-character-input"
-                    className="text-xs font-bold text-pink-700 dark:text-pink-300 flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Personagem Principal do Roteiro
-                  </Label>
-                  <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold bg-pink-500/10 px-2 py-0.5 rounded-full">
-                    Troca Inteligente
+              {/* Personagem Principal do Roteiro (Opcional) */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="viral-character-input"
+                  className="text-xs font-semibold text-foreground flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+                    Personagem Principal (Opcional)
                   </span>
-                </div>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    Se omitido, derivado da sua ideia
+                  </span>
+                </Label>
                 <Input
                   id="viral-character-input"
                   value={characterName}
                   onChange={(e) => setCharacterName(e.target.value)}
-                  placeholder="Ex: Pinguim falante, Cachorro detetive, Espelho que fala..."
-                  className="rounded-xl text-xs sm:text-sm h-10 border-pink-500/30 focus-visible:ring-pink-500 bg-background"
-                />
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  Defina o personagem central. Se você estiver adaptando uma história, o personagem
-                  antigo será substituído integralmente por este.
-                </p>
-              </div>
-
-              {/* Tema ou Contexto da Imagem */}
-              <div className="space-y-1.5">
-                <Label htmlFor="viral-theme-input" className="text-xs font-semibold">
-                  Tema ou Situação da Cena
-                </Label>
-                <Input
-                  id="viral-theme-input"
-                  value={themeName}
-                  onChange={(e) => setThemeName(e.target.value)}
-                  placeholder="Ex: Fuga cômica na cozinha, mistério na floresta à noite..."
-                  className="rounded-xl text-xs sm:text-sm h-10"
+                  placeholder="Ex: Abacate Bob, Gato detetive, Cenourinha falante..."
+                  className="rounded-xl text-xs sm:text-sm h-10 bg-background"
                 />
               </div>
 
-              {/* Detalhes Visuais Observados (Opcional) */}
+              {/* Detalhes Visuais Específicos (Opcional) */}
               <div className="space-y-1.5">
                 <Label htmlFor="viral-visual-details" className="text-xs font-semibold">
-                  Detalhes Específicos da Imagem (Opcional)
+                  Detalhes Visuais Específicos (Opcional)
                 </Label>
                 <Textarea
                   id="viral-visual-details"
                   value={visualDetails}
                   onChange={(e) => setVisualDetails(e.target.value)}
-                  placeholder="Ex: Cor vermelha brilhante, olhos grandes 3D, iluminação de estúdio na cozinha, fundo borrado..."
+                  placeholder="Ex: Capa de super-herói vermelha, olhos 3D brilhantes, cozinha iluminada, estilo desenho Pixar..."
                   rows={2}
                   className="rounded-xl text-xs resize-none"
                 />
@@ -514,16 +537,16 @@ export const ViralGenerator: React.FC = () => {
                 <div className="flex items-center justify-between font-bold text-foreground">
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-pink-500" />
-                    Duração & Estrutura Alvo:
+                    Duração & Estrutura Fixa:
                   </span>
                   <Badge variant="secondary" className="text-[10px] font-bold">
-                    ~60 segundos (Cenas de 10s)
+                    ~60s (6 Cenas de 10s)
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  O roteiro opcional é estruturado em <strong>6 cenas de até 10 segundos</strong>,
-                  permitindo renderizar pedaço por pedaço nas IAs de vídeo (Kling, Hailuo, Luma) sem
-                  distorções.
+                  Roteiro de <strong>6 cenas de até 10 segundos</strong>, 100% limpo sem texto na
+                  tela (narração apenas em áudio), ideal para renderizar pedaço por pedaço nas IAs
+                  de vídeo.
                 </p>
               </div>
 
@@ -536,12 +559,12 @@ export const ViralGenerator: React.FC = () => {
                 {generating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Analisando Imagem e Criando Roteiro...</span>
+                    <span>Criando Roteiro a partir da sua Ideia...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    <span>Gerar Ideia de Cena & Roteiro Opcional ✨</span>
+                    <span>Gerar Roteiro Viral (~60s) ✨</span>
                   </>
                 )}
               </Button>
@@ -556,14 +579,15 @@ export const ViralGenerator: React.FC = () => {
               <div className="w-14 h-14 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto text-2xl">
                 🎬
               </div>
-              <div className="space-y-1 max-w-md mx-auto">
+              <div className="space-y-1.5 max-w-md mx-auto">
                 <h3 className="text-base font-extrabold text-foreground">
-                  Nenhuma cena gerada ainda
+                  Nenhum roteiro gerado ainda
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Suba a sua imagem no formulário ao lado e clique em gerar. O sistema devolverá
-                  primeiro a <strong>Ideia de Cena</strong> e logo abaixo o{' '}
-                  <strong>Roteiro Opcional de ~60s em cenas de 10s</strong>.
+                  Digite a sua ideia para o roteiro no campo ao lado (e opcionalmente suba uma foto)
+                  e clique em gerar. O sistema criará a <strong>Ideia de Cena</strong> e o{' '}
+                  <strong>Roteiro Viral de ~60s dividido em 6 cenas de 10s</strong> com cópia cena
+                  por cena!
                 </p>
               </div>
             </Card>
@@ -574,10 +598,11 @@ export const ViralGenerator: React.FC = () => {
               <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto" />
               <div className="space-y-1">
                 <h3 className="font-extrabold text-base text-foreground">
-                  Criando conceito viral e roteiro de 60s...
+                  Conectando a sua ideia e os detalhes visuais...
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Organizando em 6 cenas de até 10 segundos com narração fluida em PT-BR.
+                  Organizando a história em 6 cenas de até 10 segundos com narração em PT-BR e vídeo
+                  limpo.
                 </p>
               </div>
             </Card>
@@ -594,10 +619,10 @@ export const ViralGenerator: React.FC = () => {
                     </div>
                     <div>
                       <CardTitle className="text-sm font-extrabold text-foreground">
-                        1. Ideia de Cena Viral (Conceito Curto)
+                        1. Conceito da Cena (Ideia + Visual)
                       </CardTitle>
                       <span className="text-[10px] text-muted-foreground">
-                        Visão criativa sintetizada para a sua imagem
+                        Visão criativa sintetizada a partir da sua ideia e referência
                       </span>
                     </div>
                   </div>
@@ -616,7 +641,7 @@ export const ViralGenerator: React.FC = () => {
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        Copiar Ideia
+                        Copiar Conceito
                       </>
                     )}
                   </Button>
@@ -628,7 +653,7 @@ export const ViralGenerator: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* 2. ROTEIRO OPCIONAL (60s dividido em Cenas de 10s - Cópia Cena por Cena) */}
+              {/* 2. ROTEIRO COMPLETO (~60s dividido em Cenas de 10s - Cópia Cena por Cena) */}
               <Card className="border rounded-3xl overflow-hidden shadow-sm bg-card">
                 <CardHeader className="bg-muted/30 border-b py-3.5 px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -637,14 +662,14 @@ export const ViralGenerator: React.FC = () => {
                     </div>
                     <div>
                       <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                        <span>2. Roteiro Opcional Sugerido (~60s)</span>
-                        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold">
-                          Opcional / Cenas de 10s
+                        <span>2. Roteiro Viral (~60s em Cenas de 10s)</span>
+                        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                          6 Cenas de 10s
                         </Badge>
                       </CardTitle>
                       <span className="text-[10px] text-muted-foreground">
-                        Dividido em cenas de até 10s para renderizar pedaço por pedaço nas IAs de
-                        vídeo
+                        Baseado na sua ideia e pronto para renderizar nas IAs de vídeo (Kling,
+                        Hailuo, Luma)
                       </span>
                     </div>
                   </div>

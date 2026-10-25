@@ -317,40 +317,6 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
       return e.json(503, { success: false, error: 'Mercado Pago não configurado.' })
     }
 
-      let ts = ''
-      let hashV1 = ''
-      const parts = xSignature.split(',')
-      for (let i = 0; i < parts.length; i++) {
-        const p = parts[i].trim()
-        if (p.startsWith('ts=')) ts = p.substring(3)
-        if (p.startsWith('v1=')) hashV1 = p.substring(3)
-      }
-
-      const dataIdRaw = query['data.id'] || (body.data && body.data.id) || query['id'] || ''
-      const dataIdLower = String(dataIdRaw).toLowerCase().trim()
-
-      let manifest = ''
-      if (dataIdLower) {
-        manifest += `id:${dataIdLower};`
-      }
-      if (xRequestId) {
-        manifest += `request-id:${xRequestId};`
-      }
-      if (ts) {
-        manifest += `ts:${ts};`
-      }
-
-      const calculatedHash = $security.hs256(manifest, webhookSecret)
-      if (calculatedHash !== hashV1) {
-        console.warn('[mp-webhook] Assinatura inválida:', {
-          calculatedHash,
-          hashV1,
-          manifest,
-        })
-        return e.json(401, { success: false, error: 'Assinatura do webhook inválida.' })
-      }
-    }
-
     // 2. Extrair tópico / tipo do evento recebido
     const eventType = (body.type || query.type || body.topic || query.topic || '').toLowerCase()
     const resourceId = query['data.id'] || (body.data && body.data.id) || body.id || query.id || ''
@@ -850,4 +816,3 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
     return e.json(500, { success: false, error: err.message || String(err) })
   }
 })
-

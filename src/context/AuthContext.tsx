@@ -6,6 +6,7 @@ import { getUserSubscription, subscribePlan } from '@/services/subscriptions'
 interface AuthContextType {
   user: UserRecord | null
   subscription: SubscriptionRecord | null
+  isAdmin: boolean
   plan: PlanType
   isPaidPlan: boolean
   isProOrVip: boolean
@@ -109,16 +110,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSubscription(sub)
   }
 
-  // Determina plano: se não tem assinatura ou expirou, fallback para 'free'
-  const plan: PlanType = subscription?.status === 'active' ? subscription.plan : 'free'
-  const isPaidPlan = plan === 'monthly' || plan === 'annual'
-  const isProOrVip = isPaidPlan // Plano PRO (R$ 19,90 em promoção de lançamento) e Anual VIP têm acesso à geração de vídeo
+  // Determina se o usuário é administrador (flag is_admin ou e-mail de admin)
+  const isAdmin = Boolean(user?.is_admin || user?.email === 'juniorrodriguesjr123.jr@gmail.com')
+
+  // Determina plano: admin tem acesso PRO/anual total automático irrestrito
+  const subPlan: PlanType = subscription?.status === 'active' ? subscription.plan : 'free'
+  const plan: PlanType = isAdmin ? (subPlan === 'free' ? 'annual' : subPlan) : subPlan
+  const isPaidPlan = isAdmin || plan === 'monthly' || plan === 'annual'
+  const isProOrVip = isPaidPlan
 
   return (
     <AuthContext.Provider
       value={{
         user,
         subscription,
+        isAdmin,
         plan,
         isPaidPlan,
         isProOrVip,

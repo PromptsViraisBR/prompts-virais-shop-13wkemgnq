@@ -55,7 +55,7 @@ import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/typ
 import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
 
 export const Generator: React.FC = () => {
-  const { user, isPaidPlan } = useAuth()
+  const { user, isAdmin, isPaidPlan } = useAuth()
   const navigate = useNavigate()
 
   // Form State
@@ -319,7 +319,7 @@ export const Generator: React.FC = () => {
     }
 
     // Se não há créditos extras e já usou a cota gratuita ou não há saldo
-    if (extraCreditsBalance <= 0 && hasFreeRegenerated) {
+    if (!isAdmin && extraCreditsBalance <= 0 && hasFreeRegenerated) {
       setPaymentModalOpen(true)
       return
     }
@@ -342,7 +342,12 @@ export const Generator: React.FC = () => {
         setSelectedVariationId(res.variations[0].id)
 
         // Se era uma regeneração extra com crédito, deduz 1 crédito
-        if (hasFreeRegenerated && extraCreditsBalance > 0) {
+        if (isAdmin) {
+          toast({
+            title: '3 Novas Variações Geradas! 🎨👑',
+            description: 'Acesso Admin PRO Total — regenerações ilimitadas.',
+          })
+        } else if (hasFreeRegenerated && extraCreditsBalance > 0) {
           await consumeExtraRegenerationCredit(user.id)
           setExtraCreditsBalance((prev) => Math.max(0, prev - 1))
           toast({

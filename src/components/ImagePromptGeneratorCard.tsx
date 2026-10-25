@@ -35,8 +35,7 @@ interface ImagePromptGeneratorCardProps {
 export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> = ({
   onScrollToTools,
 }) => {
-  const { user } = useAuth()
-
+  const { user, isAdmin } = useAuth()
   const [idea, setIdea] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<GenerateImagePromptResult | null>(null)
@@ -122,9 +121,9 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
       return
     }
 
-    const hasFreeAvailable = freeRegenerationsRemaining > 0
+    const hasFreeAvailable = isAdmin || freeRegenerationsRemaining > 0
 
-    if (!hasFreeAvailable && extraCreditsBalance <= 0) {
+    if (!isAdmin && !hasFreeAvailable && extraCreditsBalance <= 0) {
       setPaymentModalOpen(true)
       return
     }
@@ -140,7 +139,12 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
       if (res.success && res.prompt) {
         setResult(res)
 
-        if (hasFreeAvailable) {
+        if (isAdmin) {
+          toast({
+            title: 'Nova Versão do Prompt Gerada! ✍️👑',
+            description: 'Acesso Admin PRO Ilimitado — sem consumo de créditos.',
+          })
+        } else if (hasFreeAvailable) {
           const recorded = recordViralRegenerationUsed(user.id, viralStorageKey)
           toast({
             title: 'Nova Versão do Prompt Gerada! ✍️✨',
@@ -207,9 +211,11 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
               Regenerações:
             </span>
             <span className="font-extrabold text-pink-600 dark:text-pink-400">
-              {user
-                ? `${freeRegenerationsRemaining} grátis ${extraCreditsBalance > 0 ? `+ ${extraCreditsBalance} extras` : ''}`
-                : '2 grátis no login'}
+              {isAdmin
+                ? 'Ilimitadas (Admin PRO)'
+                : user
+                  ? `${freeRegenerationsRemaining} grátis ${extraCreditsBalance > 0 ? `+ ${extraCreditsBalance} extras` : ''}`
+                  : '2 grátis no login'}
             </span>
           </div>
           <Button
@@ -217,6 +223,13 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
             size="sm"
             variant="outline"
             onClick={() => {
+              if (isAdmin) {
+                toast({
+                  title: 'Acesso Admin PRO Total 👑',
+                  description: 'Você já possui regenerações ilimitadas na sua conta!',
+                })
+                return
+              }
               if (!user) {
                 setAuthGateAction('Adquirir créditos de regeneração')
                 setAuthGateOpen(true)
@@ -226,7 +239,7 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
             }}
             className="h-8 text-xs font-bold border-pink-500/40 text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-950/20"
           >
-            + Extras
+            {isAdmin ? '👑 PRO Total' : '+ Extras'}
           </Button>
         </div>
       </div>

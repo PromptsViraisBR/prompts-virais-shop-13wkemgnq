@@ -63,21 +63,29 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
     }
 
     // 2. Validação obrigatória de PLANO PRO no BACKEND
-    // Procura assinatura ativa do usuário na coleção subscriptions
+    // Admin tem acesso PRO total automaticamente
+    const isAdmin =
+      authUser.getBool('is_admin') ||
+      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+
     let isProActive = false
-    try {
-      const activeSubs = $app.findRecordsByFilter(
-        'subscriptions',
-        `user = "${authUser.id}" && status = "active" && (plan = "monthly" || plan = "annual")`,
-        '-created',
-        1,
-        0,
-      )
-      if (activeSubs && activeSubs.length > 0) {
-        isProActive = true
+    if (isAdmin) {
+      isProActive = true
+    } else {
+      try {
+        const activeSubs = $app.findRecordsByFilter(
+          'subscriptions',
+          `user = "${authUser.id}" && status = "active" && (plan = "monthly" || plan = "annual")`,
+          '-created',
+          1,
+          0,
+        )
+        if (activeSubs && activeSubs.length > 0) {
+          isProActive = true
+        }
+      } catch (subErr) {
+        console.warn('[generate-image] Erro ao verificar assinatura:', subErr)
       }
-    } catch (subErr) {
-      console.warn('[generate-image] Erro ao verificar assinatura:', subErr)
     }
 
     if (!isProActive) {

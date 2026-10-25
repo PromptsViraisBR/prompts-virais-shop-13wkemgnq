@@ -34,6 +34,7 @@ import {
   type PromptVariation,
 } from '@/services/generations'
 import { consumeExtraRegenerationCredit } from '@/services/regenerationCredits'
+import { useAuth } from '@/context/AuthContext'
 
 export interface PromptCustomizeModalProps {
   open: boolean
@@ -73,6 +74,7 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
   initialProductName = '',
   initialCharacterName = '',
 }) => {
+  const { isAdmin } = useAuth()
   const isViral = category === 'virais' || prompt?.category === 'virais'
 
   // Estados locais do modal
@@ -245,7 +247,7 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
   }
 
   const handleRegenerate = async () => {
-    if (extraCreditsBalance <= 0 && hasFreeRegenerated && onRequestPayment) {
+    if (!isAdmin && extraCreditsBalance <= 0 && hasFreeRegenerated && onRequestPayment) {
       onRequestPayment()
       return
     }
@@ -272,7 +274,12 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
         setVariations(res.variations)
         setSelectedVarId(res.variations[0].id)
 
-        if (hasFreeRegenerated && extraCreditsBalance > 0 && userId) {
+        if (isAdmin) {
+          toast({
+            title: '3 Novas Variações Geradas! 🎨👑',
+            description: 'Acesso Admin PRO Total — regenerações ilimitadas.',
+          })
+        } else if (hasFreeRegenerated && extraCreditsBalance > 0 && userId) {
           await consumeExtraRegenerationCredit(userId)
           if (onCreditsUpdated) {
             onCreditsUpdated(Math.max(0, extraCreditsBalance - 1))
@@ -506,7 +513,10 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
               ) : (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 text-pink-500" />
-                  <span>Regenerar Prompt ({extraCreditsBalance} disponíveis)</span>
+                  <span>
+                    Regenerar Prompt (
+                    {isAdmin ? 'Ilimitado 👑' : `${extraCreditsBalance} disponíveis`})
+                  </span>
                 </>
               )}
             </Button>

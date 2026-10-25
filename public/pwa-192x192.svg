@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="192" y2="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="50%" stop-color="#db2777" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="192" height="192" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <!-- Background com cantos arredondados -->
+  <rect width="192" height="192" rx="42" fill="url(#bg)" />
+  <!-- Ícone de Câmera / Roteiro / Play / Sparkles -->
+  <g filter="url(#shadow)" fill="#ffffff">
+    <!-- Câmera de vídeo estilizada -->
+    <rect x="42" y="58" width="76" height="76" rx="18" fill="#ffffff" />
+    <!-- Lente triangular lateral -->
+    <path d="M124 78 L152 64 C154 63 156 64.5 156 67 V125 C156 127.5 154 129 152 128 L124 114 Z" fill="#ffffff" />
+    <!-- Brilho / Estrela mágica no canto -->
+    <path d="M78 76 L81 87 L92 90 L81 93 L78 104 L75 93 L64 90 L75 87 Z" fill="#db2777" />
+    <!-- Pequeno círculo de foco -->
+    <circle cx="100" cy="80" r="4" fill="#f59e0b" />
+  </g>
+</svg>

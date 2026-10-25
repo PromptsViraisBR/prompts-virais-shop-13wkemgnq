@@ -51,22 +51,29 @@ routerAdd('POST', '/backend/v1/adapt-prompt', (e) => {
     const iterationSeed = data.iteration_seed || data.seed || Math.floor(Math.random() * 1000000)
 
     const authUser = e.auth
-    // Verificação de acesso: Se o usuário estiver logado, checa se é PRO ou possui créditos extras
-    // Se não for PRO nem tiver créditos, bloqueia no servidor
+    // Verificação de acesso: Se o usuário for admin ou tiver assinatura ativa PRO ou créditos extras
     if (authUser) {
       let isProActive = false
-      try {
-        const subs = $app.findRecordsByFilter(
-          'subscriptions',
-          `user = "${authUser.id}" && status = "active" && (plan = "monthly" || plan = "annual")`,
-          '-created',
-          1,
-          0,
-        )
-        if (subs && subs.length > 0) isProActive = true
-      } catch (_) {}
+      const isAdmin =
+        authUser.getBool('is_admin') ||
+        authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
 
-      // Se não é PRO, verificar se possui créditos extras de regeneração
+      if (isAdmin) {
+        isProActive = true
+      } else {
+        try {
+          const subs = $app.findRecordsByFilter(
+            'subscriptions',
+            `user = "${authUser.id}" && status = "active" && (plan = "monthly" || plan = "annual")`,
+            '-created',
+            1,
+            0,
+          )
+          if (subs && subs.length > 0) isProActive = true
+        } catch (_) {}
+      }
+
+      // Se não é PRO nem admin, verificar se possui créditos extras de regeneração
       if (!isProActive) {
         let hasCredits = false
         try {

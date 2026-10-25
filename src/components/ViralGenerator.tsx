@@ -59,7 +59,7 @@ import type { NicheType } from '@/types'
 import { NICHE_LABELS, NICHE_EMOJIS, VIRAL_NICHE_KEYS } from '@/types'
 
 export const ViralGenerator: React.FC = () => {
-  const { user, isPaidPlan } = useAuth()
+  const { user, isAdmin, isPaidPlan } = useAuth()
   const navigate = useNavigate()
 
   // Form State: A ideia do roteiro é o input principal e conduz a história
@@ -246,9 +246,9 @@ export const ViralGenerator: React.FC = () => {
       return
     }
 
-    const hasFreeAvailable = freeRegenerationsRemaining > 0
+    const hasFreeAvailable = isAdmin || freeRegenerationsRemaining > 0
 
-    if (!hasFreeAvailable && extraCreditsBalance <= 0) {
+    if (!isAdmin && !hasFreeAvailable && extraCreditsBalance <= 0) {
       setPaymentModalOpen(true)
       return
     }
@@ -272,7 +272,12 @@ export const ViralGenerator: React.FC = () => {
         setVariations(res.variations)
         setSelectedVarId(res.variations[0].id)
 
-        if (hasFreeAvailable) {
+        if (isAdmin) {
+          toast({
+            title: '3 Novas Abordagens Virais (~60s) Regeneradas! 🎬👑',
+            description: 'Acesso PRO Admin Ilimitado — sem consumo de créditos.',
+          })
+        } else if (hasFreeAvailable) {
           const recorded = recordViralRegenerationUsed(user.id, viralStorageKey)
           toast({
             title: '3 Novas Abordagens Virais (~60s) Regeneradas! 🎬✨',
@@ -335,9 +340,11 @@ export const ViralGenerator: React.FC = () => {
               Regenerações Virais:
             </span>
             <span className="font-extrabold text-pink-600 dark:text-pink-400">
-              {user
-                ? `${freeRegenerationsRemaining} grátis ${extraCreditsBalance > 0 ? `+ ${extraCreditsBalance} extras` : ''}`
-                : '2 grátis no login'}
+              {isAdmin
+                ? 'Ilimitadas (Admin PRO)'
+                : user
+                  ? `${freeRegenerationsRemaining} grátis ${extraCreditsBalance > 0 ? `+ ${extraCreditsBalance} extras` : ''}`
+                  : '2 grátis no login'}
             </span>
           </div>
           <Button
@@ -345,6 +352,13 @@ export const ViralGenerator: React.FC = () => {
             size="sm"
             variant="outline"
             onClick={() => {
+              if (isAdmin) {
+                toast({
+                  title: 'Acesso Admin PRO Total 👑',
+                  description: 'Você já possui regenerações ilimitadas na sua conta!',
+                })
+                return
+              }
               if (!user) {
                 setAuthGateAction('Adquirir créditos de regeneração')
                 setAuthGateOpen(true)
@@ -354,7 +368,7 @@ export const ViralGenerator: React.FC = () => {
             }}
             className="h-8 text-xs font-bold border-pink-500/40 text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-950/20"
           >
-            + Extras
+            {isAdmin ? '👑 PRO Total' : '+ Extras'}
           </Button>
         </div>
       </div>

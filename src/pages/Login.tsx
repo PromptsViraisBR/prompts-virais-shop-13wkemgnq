@@ -104,7 +104,7 @@ export const Login: React.FC = () => {
 
   const fillDemoAccount = () => {
     setLoginEmail('juniorrodriguesjr123.jr@gmail.com')
-    setLoginPassword('Skip@Pass')
+    setLoginPassword('Junior@Admin2025!')
   }
 
   return (
@@ -174,14 +174,14 @@ export const Login: React.FC = () => {
                     </p>
                     <p>
                       E-mail:{' '}
-                      <code className="bg-background px-1 py-0.5 rounded text-foreground">
+                      <code className="bg-background px-1 py-0.5 rounded text-foreground font-mono">
                         juniorrodriguesjr123.jr@gmail.com
                       </code>
                     </p>
                     <p>
                       Senha:{' '}
-                      <code className="bg-background px-1 py-0.5 rounded text-foreground">
-                        Skip@Pass
+                      <code className="bg-background px-1 py-0.5 rounded text-foreground font-mono">
+                        Junior@Admin2025!
                       </code>
                     </p>
                     <Button

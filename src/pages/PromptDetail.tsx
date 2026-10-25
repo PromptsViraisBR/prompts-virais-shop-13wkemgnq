@@ -61,7 +61,7 @@ import { PromptCustomizeModal } from '@/components/PromptCustomizeModal'
 
 export const PromptDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
-  const { user, isPaidPlan } = useAuth()
+  const { user, isAdmin, isPaidPlan } = useAuth()
   const navigate = useNavigate()
 
   const [prompt, setPrompt] = useState<PromptRecord | null>(null)
@@ -247,15 +247,17 @@ export const PromptDetail: React.FC = () => {
     const usedViral = isViral ? getViralRegenerationsUsed(user.id, viralKey) : 0
     const hasFreeViralAvailable = isViral && usedViral < VIRAL_REGENERATION_LIMIT
 
-    if (isViral) {
-      if (!hasFreeViralAvailable && extraCreditsBalance <= 0) {
-        setPaymentModalOpen(true)
-        return
-      }
-    } else {
-      if (extraCreditsBalance <= 0 && hasFreeRegenerated) {
-        setPaymentModalOpen(true)
-        return
+    if (!isAdmin) {
+      if (isViral) {
+        if (!hasFreeViralAvailable && extraCreditsBalance <= 0) {
+          setPaymentModalOpen(true)
+          return
+        }
+      } else {
+        if (extraCreditsBalance <= 0 && hasFreeRegenerated) {
+          setPaymentModalOpen(true)
+          return
+        }
       }
     }
 
@@ -275,7 +277,12 @@ export const PromptDetail: React.FC = () => {
         setVariations(res.variations)
         setSelectedVariationId(res.variations[0].id)
 
-        if (isViral) {
+        if (isAdmin) {
+          toast({
+            title: '3 Novas Variações Geradas! 🎬👑',
+            description: 'Acesso Admin PRO Total — regenerações ilimitadas.',
+          })
+        } else if (isViral) {
           if (hasFreeViralAvailable) {
             const recorded = recordViralRegenerationUsed(user.id, viralKey)
             toast({
@@ -361,9 +368,11 @@ export const PromptDetail: React.FC = () => {
               className={`w-3.5 h-3.5 text-pink-500 ${regenerating ? 'animate-spin' : ''}`}
             />
             Regenerar Prompt (
-            {prompt?.category === 'virais' && user
-              ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `detail_${prompt.id}`))} grátis + ${extraCreditsBalance} extras`
-              : `${extraCreditsBalance} disponíveis`}
+            {isAdmin
+              ? 'Ilimitado 👑'
+              : prompt?.category === 'virais' && user
+                ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `detail_${prompt.id}`))} grátis + ${extraCreditsBalance} extras`
+                : `${extraCreditsBalance} disponíveis`}
             )
           </Button>
 
@@ -589,9 +598,11 @@ export const PromptDetail: React.FC = () => {
                 className={`w-3.5 h-3.5 text-pink-500 ${regenerating ? 'animate-spin' : ''}`}
               />
               Regenerar (
-              {prompt?.category === 'virais' && user
-                ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `detail_${prompt.id}`))} grátis`
-                : extraCreditsBalance}
+              {isAdmin
+                ? 'Ilimitado 👑'
+                : prompt?.category === 'virais' && user
+                  ? `${Math.max(0, VIRAL_REGENERATION_LIMIT - getViralRegenerationsUsed(user.id, `detail_${prompt.id}`))} grátis`
+                  : extraCreditsBalance}
               )
             </Button>
 

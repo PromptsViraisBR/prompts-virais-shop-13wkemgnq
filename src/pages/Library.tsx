@@ -57,7 +57,7 @@ const NICHE_KEYS: NicheType[] = [
 const STYLE_KEYS: StyleType[] = ['pov', 'modelo', 'unboxing_vitrine']
 
 export const Library: React.FC = () => {
-  const { user, isPaidPlan } = useAuth()
+  const { user, isAdmin, isPaidPlan } = useAuth()
   const navigate = useNavigate()
 
   const [prompts, setPrompts] = useState<PromptRecord[]>([])

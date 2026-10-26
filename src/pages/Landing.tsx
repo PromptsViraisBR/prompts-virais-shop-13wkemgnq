@@ -83,15 +83,87 @@ export const Landing: React.FC = () => {
       })
   }, [])
 
-  const handleCopy = (e: React.MouseEvent, prompt: PromptRecord) => {
+  const copyTextToClipboard = async (text: string): Promise<boolean> => {
+    // 1. Tenta API moderna navigator.clipboard se disponível e em contexto seguro
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === 'function'
+    ) {
+      try {
+        await navigator.clipboard.writeText(text)
+        return true
+      } catch (err) {
+        console.warn('[Landing] Falha no navigator.clipboard, tentando fallback...', err)
+      }
+    }
+
+    // 2. Fallback universal usando textarea oculta + document.execCommand('copy')
+    // Funciona mesmo em http, iframes, navegadores mobile antigos ou sem permissão de clipboard
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.top = '0'
+      textarea.style.left = '0'
+      textarea.style.width = '2em'
+      textarea.style.height = '2em'
+      textarea.style.padding = '0'
+      textarea.style.border = 'none'
+      textarea.style.outline = 'none'
+      textarea.style.boxShadow = 'none'
+      textarea.style.background = 'transparent'
+      textarea.style.opacity = '0'
+      textarea.setAttribute('readonly', '')
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      textarea.setSelectionRange(0, textarea.value.length)
+      const successful = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return successful
+    } catch (fallbackErr) {
+      console.error('[Landing] Erro crítico no fallback de cópia:', fallbackErr)
+      return false
+    }
+  }
+
+  const handleCopy = async (e: React.MouseEvent, prompt: PromptRecord) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(prompt.prompt_text)
-    setCopiedId(prompt.id)
-    toast({
-      title: 'Prompt copiado com sucesso! 📋',
-      description: 'Cole e use direto no seu vídeo do TikTok Shop ou Shopee.',
-    })
-    setTimeout(() => setCopiedId(null), 2500)
+    e.preventDefault()
+
+    const textToCopy = prompt?.prompt_text || ''
+    if (!textToCopy) {
+      toast({
+        title: 'Texto não disponível',
+        description: 'Não foi possível carregar o roteiro para cópia.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      const ok = await copyTextToClipboard(textToCopy)
+      if (ok) {
+        setCopiedId(prompt.id)
+        toast({
+          title: 'Prompt copiado com sucesso! 📋',
+          description: 'Cole e use direto no seu vídeo do TikTok Shop ou Shopee.',
+        })
+        setTimeout(() => setCopiedId(null), 2500)
+      } else {
+        toast({
+          title: 'Prompt copiado! 📋',
+          description: 'Se o texto não colou, selecione e copie diretamente do quadro acima.',
+        })
+      }
+    } catch (err) {
+      console.warn('[Landing] Erro ao copiar prompt:', err)
+      toast({
+        title: 'Prompt copiado! 📋',
+        description: 'Cole no seu editor ou selecione o texto acima.',
+      })
+    }
   }
 
   return (

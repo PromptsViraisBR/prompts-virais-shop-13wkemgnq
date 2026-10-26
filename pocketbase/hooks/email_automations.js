@@ -852,6 +852,73 @@ routerAdd('GET', '/backend/v1/admin/email-status', (e) => {
       return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
     }
 
+    // Salvaguarda Lazy: se segredos SMTP estiverem disponíveis, garante sincronização
+    try {
+      const sHost = ($os.getenv('SMTP_HOST') || '').trim()
+      const sUser = ($os.getenv('SMTP_USERNAME') || '').trim()
+      const sPass = ($os.getenv('SMTP_PASSWORD') || '').trim()
+      const sPortRaw = ($os.getenv('SMTP_PORT') || '').trim()
+      const sEmail = ($os.getenv('SMTP_SENDER_EMAIL') || '').trim()
+      const sName = ($os.getenv('SMTP_SENDER_NAME') || '').trim()
+
+      if (sHost && sUser && sPass) {
+        let p = 587
+        if (sPortRaw) {
+          const parsed = parseInt(sPortRaw, 10)
+          if (!isNaN(parsed) && parsed > 0) p = parsed
+        }
+
+        const curSettings = $app.settings()
+        if (curSettings) {
+          if (!curSettings.smtp) {
+            curSettings.smtp = {
+              enabled: false,
+              host: '',
+              port: 587,
+              username: '',
+              password: '',
+              authMethod: 'PLAIN',
+              tls: false,
+              localName: '',
+            }
+          }
+          if (!curSettings.meta) {
+            curSettings.meta = {
+              appName: 'Prompts Virais Shop',
+              appURL: 'https://promptsviraisbr.goskip.app',
+              senderAddress: 'noreply@prompts-virais.com',
+              senderName: 'Prompts Virais Shop',
+              hideControls: false,
+              accentColor: '',
+            }
+          }
+
+          const curS = curSettings.smtp || {}
+          const curM = curSettings.meta || {}
+          const needsSync =
+            !curS.enabled ||
+            curS.host !== sHost ||
+            curS.port !== p ||
+            curS.username !== sUser ||
+            curS.password !== sPass ||
+            (sEmail && curM.senderAddress !== sEmail) ||
+            (sName && curM.senderName !== sName)
+
+          if (needsSync) {
+            curSettings.smtp.enabled = true
+            curSettings.smtp.host = sHost
+            curSettings.smtp.port = p
+            curSettings.smtp.username = sUser
+            curSettings.smtp.password = sPass
+            if (p === 465) curSettings.smtp.tls = true
+            if (sEmail) curSettings.meta.senderAddress = sEmail
+            if (sName) curSettings.meta.senderName = sName
+            $app.save(curSettings)
+          }
+        }
+      }
+    } catch (_) {}
+
     let smtpConfigured = false
     let senderAddress = 'noreply@prompts-virais.com'
     let senderName = 'Prompts Virais Shop'

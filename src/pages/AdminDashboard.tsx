@@ -42,8 +42,11 @@ import {
   getEmailStatus,
   runExpirationCheck,
   testTransactionalEmail,
+  getEmailPreview,
   EmailStatusResponse,
+  TransactionalEmailType,
 } from '@/services/emailAutomations'
+import { Eye } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuth()
@@ -62,9 +65,11 @@ export const AdminDashboard: React.FC = () => {
   const [emailStatus, setEmailStatus] = useState<EmailStatusResponse | null>(null)
   const [runningExpiration, setRunningExpiration] = useState(false)
   const [sendingTestEmail, setSendingTestEmail] = useState(false)
-  const [testEmailType, setTestEmailType] = useState<
-    'welcome' | 'subscription_active' | 'payment_failed' | 'access_expired'
-  >('welcome')
+  const [testEmailType, setTestEmailType] = useState<TransactionalEmailType>('pix_reminder')
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [previewHtml, setPreviewHtml] = useState('')
+  const [previewSubject, setPreviewSubject] = useState('')
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // Modal de Estorno/Reembolso
   const [selectedPaymentForRefund, setSelectedPaymentForRefund] = useState<{
@@ -149,9 +154,10 @@ export const AdminDashboard: React.FC = () => {
     setRunningExpiration(true)
     try {
       const res = await runExpirationCheck()
+      const pixCount = res.pix_reminders_count || 0
       toast({
-        title: 'Varredura de vencimento concluída',
-        description: `${res.expired_count} assinaturas processadas no servidor.`,
+        title: 'Varredura e lembretes concluídos',
+        description: `${res.expired_count} vencidas processadas, ${pixCount} lembretes Pix verificados/enviados.`,
       })
       await loadOverview()
     } catch (err: any) {
@@ -170,7 +176,7 @@ export const AdminDashboard: React.FC = () => {
     try {
       const res = await testTransactionalEmail(testEmailType, user?.email)
       toast({
-        title: res.sent_via_mailer ? 'E-mail enviado via Mailer' : 'Disparo simulado com sucesso',
+        title: res.sent_via_mailer ? 'E-mail enviado via Mailer' : 'Disparo processado com sucesso',
         description: res.diagnostic,
       })
       await loadOverview()
@@ -182,6 +188,24 @@ export const AdminDashboard: React.FC = () => {
       })
     } finally {
       setSendingTestEmail(false)
+    }
+  }
+
+  const handleOpenPreview = async () => {
+    setLoadingPreview(true)
+    try {
+      const preview = await getEmailPreview(testEmailType)
+      setPreviewSubject(preview.subject)
+      setPreviewHtml(preview.html)
+      setPreviewModalOpen(true)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao carregar preview',
+        description: err?.message || 'Não foi possível renderizar o template.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingPreview(false)
     }
   }
 
@@ -550,7 +574,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Métricas de Disparos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="p-3.5 rounded-xl border bg-card space-y-1">
               <span className="text-xs text-muted-foreground font-semibold">
                 Boas-Vindas Enviados
@@ -559,6 +583,16 @@ export const AdminDashboard: React.FC = () => {
                 {emailStatus?.metrics.welcome_emails_sent ?? 0}
               </p>
               <p className="text-[11px] text-muted-foreground">Cadastros orientados</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border bg-gradient-to-br from-pink-500/10 to-purple-500/10 border-pink-500/30 space-y-1">
+              <span className="text-xs text-pink-700 dark:text-pink-300 font-bold">
+                Lembretes Pix (3 Dias)
+              </span>
+              <p className="text-2xl font-black text-pink-600 dark:text-pink-400">
+                {emailStatus?.metrics.pix_reminders_notified ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Idempotência por ciclo</p>
             </div>
 
             <div className="p-3.5 rounded-xl border bg-card space-y-1">
@@ -578,41 +612,53 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-2xl font-black text-amber-600 dark:text-amber-400">
                 {emailStatus?.metrics.expired_subscriptions_notified ?? 0}
               </p>
-              <p className="text-[11px] text-muted-foreground">Idempotência garantida</p>
+              <p className="text-[11px] text-muted-foreground">Ao expirar</p>
             </div>
 
             <div className="p-3.5 rounded-xl border bg-card space-y-1">
               <span className="text-xs text-muted-foreground font-semibold">Recusa / Falha MP</span>
-              <p className="text-2xl font-black text-pink-600 dark:text-pink-400">Ativo</p>
+              <p className="text-2xl font-black text-rose-600 dark:text-rose-400">Ativo</p>
               <p className="text-[11px] text-muted-foreground">Disparo em rejected</p>
             </div>
           </div>
 
-          {/* Teste Rápido de Disparo Transacional */}
+          {/* Teste Rápido de Disparo Transacional e Preview */}
           <div className="p-4 rounded-xl border bg-muted/30 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
                   <Send className="w-4 h-4 text-pink-500" />
-                  Testar Envio Transacional para seu E-mail ({user?.email})
+                  Testar / Pré-visualizar E-mail Transacional ({user?.email})
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Valide a composição, formatação e entrega de qualquer um dos 4 fluxos
-                  transacionais.
+                  Valide a formatação, links e entrega dos templates incluindo o lembrete de
+                  renovação Pix.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={testEmailType}
-                  onChange={(e) => setTestEmailType(e.target.value as any)}
-                  className="text-xs bg-background border rounded-lg px-2.5 py-1.5 text-foreground"
+                  onChange={(e) => setTestEmailType(e.target.value as TransactionalEmailType)}
+                  className="text-xs bg-background border rounded-lg px-2.5 py-1.5 text-foreground max-w-[260px]"
                 >
-                  <option value="welcome">1. Boas-Vindas + 3 Passos</option>
-                  <option value="subscription_active">2. Confirmação de Assinatura</option>
-                  <option value="payment_failed">3. Falha de Cobrança / Recusa</option>
-                  <option value="access_expired">4. Fim de Acesso PRO</option>
+                  <option value="pix_reminder">⏰ Lembrete Renovação Pix (3 Dias Antes)</option>
+                  <option value="welcome">✨ 1. Boas-Vindas + 3 Passos</option>
+                  <option value="subscription_active">🎉 2. Confirmação de Assinatura</option>
+                  <option value="payment_failed">⚠️ 3. Falha de Cobrança / Recusa</option>
+                  <option value="access_expired">⌛ 4. Fim de Acesso PRO</option>
                 </select>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={loadingPreview}
+                  onClick={handleOpenPreview}
+                  className="text-xs gap-1.5"
+                >
+                  <Eye className={`w-3.5 h-3.5 ${loadingPreview ? 'animate-spin' : ''}`} />
+                  Ver Preview
+                </Button>
 
                 <Button
                   size="sm"
@@ -813,6 +859,53 @@ export const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Preview de E-mail Transacional */}
+      <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Eye className="w-5 h-5 text-pink-500" />
+              Preview do Template: {previewSubject}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Visualização exata de como o e-mail será renderizado na caixa de entrada do cliente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto border rounded-xl bg-slate-950 p-2 my-2">
+            <iframe
+              title="Preview do E-mail"
+              srcDoc={previewHtml}
+              className="w-full h-[450px] border-0 rounded-lg bg-transparent"
+              sandbox="allow-same-origin"
+            />
+          </div>
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-2">
+            <span className="text-xs text-muted-foreground font-mono truncate max-w-xs">
+              Destino do teste: {user?.email}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPreviewModalOpen(false)}>
+                Fechar
+              </Button>
+              <Button
+                size="sm"
+                disabled={sendingTestEmail}
+                onClick={async () => {
+                  await handleSendTestEmail()
+                  setPreviewModalOpen(false)
+                }}
+                className="gap-1.5 bg-pink-600 hover:bg-pink-700 text-white"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Disparar para meu e-mail
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Confirmação de Estorno / Reembolso */}
       <Dialog

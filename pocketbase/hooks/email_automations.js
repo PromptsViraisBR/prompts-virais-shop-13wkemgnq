@@ -1,15 +1,18 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Automações Transacionais de E-mail e Job Diário de Vencimento (FASE D)
+ * Automações Transacionais de E-mail e Job Diário de Vencimento
  * Prompts Virais Shop
  *
  * 1. onRecordAfterCreateSuccess('users') -> E-mail de Boas-Vindas + Guia de primeiro uso (idempotente)
- * 2. cronAdd('daily_subscription_expiration', '0 3 * * *') -> Varredura diária de assinaturas vencidas (às 03:00)
+ * 2. cronAdd('daily_subscription_expiration', '0 3 * * *') ->
+ *    a) Lembrete automático 3 dias antes do vencimento para assinaturas Mensal PRO pagas via Pix (idempotente)
+ *    b) Varredura de assinaturas vencidas (end_date < agora) -> status='expired' + e-mail de encerramento (idempotente)
  * 3. Rotas auxiliares de diagnóstico/acionamento manual para admin:
  *    - POST /backend/v1/admin/run-expiration-check
  *    - GET  /backend/v1/admin/email-status
  *    - POST /backend/v1/admin/test-transactional-email
+ *    - GET  /backend/v1/admin/email-preview
  *
  * NOTA DE ARQUITETURA JSVM:
  * Todas as funções utilitárias ficam declaradas dentro do escopo de cada callback/rota
@@ -42,7 +45,7 @@ onRecordAfterCreateSuccess((e) => {
     }
 
     let siteUrl = ($os.getenv('SITE_URL') || '').trim()
-    if (!siteUrl) siteUrl = 'https://prompts-virais-shop-16b33.goskip.app'
+    if (!siteUrl) siteUrl = 'https://promptsviraisbr.goskip.app'
     siteUrl = siteUrl.replace(/\/+$/, '')
 
     let senderEmail = 'noreply@prompts-virais.com'
@@ -163,13 +166,13 @@ onRecordAfterCreateSuccess((e) => {
 }, 'users')
 
 // -----------------------------------------------------------------
-// JOB DIÁRIO 2: VARREDURA DE ASSINATURAS VENCIDAS (03:00 DIÁRIO)
+// JOB DIÁRIO 2: LEMBRETE PIX (3 DIAS ANTES) + VARREDURA DE EXPIRADOS (03:00 DIÁRIO)
 // -----------------------------------------------------------------
 cronAdd('daily_subscription_expiration', '0 3 * * *', () => {
-  console.log('[cron-expiration] Iniciando varredura diária de assinaturas vencidas...')
+  console.log('[cron-expiration] Iniciando job diário de lembretes e expiração...')
   try {
     let siteUrl = ($os.getenv('SITE_URL') || '').trim()
-    if (!siteUrl) siteUrl = 'https://prompts-virais-shop-16b33.goskip.app'
+    if (!siteUrl) siteUrl = 'https://promptsviraisbr.goskip.app'
     siteUrl = siteUrl.replace(/\/+$/, '')
 
     let senderEmail = 'noreply@prompts-virais.com'
@@ -186,9 +189,250 @@ cronAdd('daily_subscription_expiration', '0 3 * * *', () => {
     const nowIso = now.toISOString()
     const nowDb = nowIso.replace('T', ' ').substring(0, 19)
 
-    // Buscar assinaturas cujo status é 'active' ou 'cancelled' (mas não expired ainda),
-    // onde end_date < agora OU next_payment_date < há mais de 3 dias
-    // (apenas assinaturas pagas: plan != 'free')
+    // Helper interno para checar se a assinatura foi paga via Pix
+    const checkIsPixSub = (sub) => {
+      // 1. Se tem assinatura recorrente vinculada no Mercado Pago (preapproval), é cartão recorrente
+      if (sub.getString('mp_preapproval_id')) return false
+
+      // 2. Por external_reference gravada na assinatura
+      const subExtRef = sub.getString('external_reference')
+      if (subExtRef && (subExtRef.includes('pix') || subExtRef.includes('_pix_'))) return true
+
+      // 3. Buscar pelo mp_payment_id direto na tabela payments_history
+      const pmtId = sub.getString('mp_payment_id')
+      if (pmtId) {
+        try {
+          const pmt = $app.findFirstRecordByData('payments_history', 'mp_payment_id', pmtId)
+          if (pmt) {
+            const method = (pmt.getString('payment_method_id') || '').toLowerCase()
+            const extRef = (pmt.getString('external_reference') || '').toLowerCase()
+            if (method === 'pix' || extRef.includes('pix')) return true
+          }
+        } catch (_) {}
+      }
+
+      // 4. Buscar último pagamento aprovado de assinatura do usuário
+      const userId = sub.getString('user')
+      if (userId) {
+        try {
+          const pmts = $app.findRecordsByFilter(
+            'payments_history',
+            `user = '${userId}' && status = 'approved' && payment_type = 'subscription'`,
+            '-created',
+            5,
+            0,
+          )
+          if (pmts && pmts.length > 0) {
+            const lastPmt = pmts[0]
+            const method = (lastPmt.getString('payment_method_id') || '').toLowerCase()
+            const extRef = (lastPmt.getString('external_reference') || '').toLowerCase()
+            if (method === 'pix' || extRef.includes('pix')) return true
+          }
+        } catch (_) {}
+      }
+
+      return false
+    }
+
+    // -----------------------------------------------------------------
+    // PARTE A: LEMBRETE DE 3 DIAS PARA ASSINATURA MENSAL PRO VIA PIX
+    // -----------------------------------------------------------------
+    // Janela exata: faltam entre 2 e 4 dias (centro em 3 dias)
+    // 3 dias a partir de agora: [now + 2 dias, now + 4 dias]
+    const windowStart = new Date(now.getTime() + 2 * 24 * 3600 * 1000)
+    const windowEnd = new Date(now.getTime() + 4 * 24 * 3600 * 1000)
+    const windowStartDb = windowStart.toISOString().replace('T', ' ').substring(0, 19)
+    const windowEndDb = windowEnd.toISOString().replace('T', ' ').substring(0, 19)
+
+    let candidateReminders = []
+    try {
+      candidateReminders = $app.findRecordsByFilter(
+        'subscriptions',
+        `plan = 'monthly' && status = 'active' && pix_reminder_notified != true && end_date >= '${windowStartDb}' && end_date <= '${windowEndDb}'`,
+        'created',
+        500,
+        0,
+      )
+    } catch (reminderErr) {
+      console.warn('[cron-expiration] Erro ao buscar assinaturas para lembrete Pix:', reminderErr)
+    }
+
+    console.log(
+      `[cron-expiration] Encontradas ${candidateReminders.length} assinaturas na janela de lembrete de 3 dias.`,
+    )
+
+    let remindersSentCount = 0
+    for (let j = 0; j < candidateReminders.length; j++) {
+      const sub = candidateReminders[j]
+      const isPix = checkIsPixSub(sub)
+      if (!isPix) {
+        continue // Se não for Pix (ex: cartão recorrente com preapproval), não envia lembrete avulso Pix
+      }
+
+      const subId = sub.id
+      const userId = sub.getString('user')
+      let emailRecipient = sub.getString('payer_email')
+      let userName = 'Criador(a)'
+
+      if (userId) {
+        try {
+          const u = $app.findRecordById('_pb_users_auth_', userId)
+          if (u) {
+            if (!emailRecipient) emailRecipient = u.email() || u.getString('email')
+            const uName = u.getString('name')
+            if (uName) userName = uName
+          }
+        } catch (_) {}
+      }
+
+      if (!emailRecipient) {
+        console.warn(`[cron-expiration] Sub ${subId} sem e-mail de destino para lembrete Pix.`)
+        continue
+      }
+
+      // Formatar data de vencimento em PT-BR
+      let expirationDateFormatted = 'em 3 dias'
+      const rawEndDate = sub.getString('end_date')
+      if (rawEndDate) {
+        try {
+          const d = new Date(rawEndDate.replace(' ', 'T'))
+          const day = String(d.getDate()).padStart(2, '0')
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const year = d.getFullYear()
+          expirationDateFormatted = `${day}/${month}/${year}`
+        } catch (_) {}
+      }
+
+      const subject = 'Sua assinatura Mensal PRO vence em 3 dias - Renove via Pix ou Cartão'
+      const htmlBody = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lembrete de Vencimento Mensal PRO</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f17; color: #f1f5f9; margin: 0; padding: 24px; line-height: 1.6;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; padding: 6px 14px; border-radius: 9999px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+        ⏰ Lembrete de Renovação PRO
+      </span>
+      <h1 style="color: #ffffff; font-size: 22px; margin-top: 16px; margin-bottom: 8px;">
+        Olá, ${userName}! Sua mensalidade vence em 3 dias.
+      </h1>
+      <p style="color: #94a3b8; font-size: 14px; margin: 0;">
+        Como seu último pagamento do <strong>Plano Mensal PRO</strong> foi realizado via Pix (pagamento avulso de 30 dias), não há renovação automática.
+      </p>
+    </div>
+
+    <!-- Card de status com data -->
+    <div style="background: #1e293b; border-left: 4px solid #ec4899; padding: 18px 20px; border-radius: 8px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: #94a3b8; font-size: 13px;">Plano Atual:</span>
+        <strong style="color: #ffffff; font-size: 13px;">Mensal PRO (R$ 19,90)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: #94a3b8; font-size: 13px;">Data de Vencimento:</span>
+        <strong style="color: #ec4899; font-size: 13px;">${expirationDateFormatted} (em 3 dias)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #94a3b8; font-size: 13px;">Método Atual:</span>
+        <strong style="color: #38bdf8; font-size: 13px;">Pix (Avulso de 30 dias)</strong>
+      </div>
+    </div>
+
+    <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 20px 0;">
+      Para <strong>não perder seu acesso aos roteiros virais e ao gerador avançado</strong>, escolha como prefere continuar:
+    </p>
+
+    <!-- Opção A: Pagar via Pix -->
+    <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 18px; margin-bottom: 16px;">
+      <h3 style="color: #38bdf8; font-size: 15px; margin: 0 0 6px 0;">⚡ Opção A: Pagar novo ciclo via Pix (R$ 19,90)</h3>
+      <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">
+        Gere um novo código Pix copia-e-cola com QR Code oficial e libere mais 30 dias na hora.
+      </p>
+      <a href="${siteUrl}/planos" style="display: inline-block; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 6px;">
+        Pagar via Pix Agora →
+      </a>
+    </div>
+
+    <!-- Opção B: Cadastrar Cartão (Renovação Automática) -->
+    <div style="background: rgba(236, 72, 153, 0.08); border: 1px solid rgba(236, 72, 153, 0.25); border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+      <h3 style="color: #ec4899; font-size: 15px; margin: 0 0 6px 0;">💳 Opção B: Cadastrar Cartão de Crédito</h3>
+      <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">
+        Prefere tranquilidade? Cadastre um cartão no checkout para ativar a renovação automática mensal e <strong>nunca mais ter cobrança manual ou risco de interrupção</strong>.
+      </p>
+      <a href="${siteUrl}/planos" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 6px;">
+        Cadastrar Cartão & Ativar Renovação →
+      </a>
+    </div>
+
+    <!-- Botão principal -->
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${siteUrl}/planos" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 8px; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
+        Acessar Meus Planos no Site →
+      </a>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0;">
+
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">
+      Prompts Virais Shop • Mensagem transacional de renovação de plano.<br>
+      Caso prefira encerrar o acesso ao final dos 30 dias, nenhuma ação é necessária.
+    </p>
+  </div>
+</body>
+</html>
+`
+
+      let mailSent = false
+      try {
+        const message = new MailerMessage({
+          from: { address: senderEmail, name: senderName },
+          to: [{ address: emailRecipient }],
+          subject: subject,
+          html: htmlBody,
+        })
+        $app.newMailClient().send(message)
+        mailSent = true
+        remindersSentCount++
+        console.log(
+          `[cron-expiration] Lembrete Pix (3 dias) enviado para ${emailRecipient} (sub ${subId})`,
+        )
+      } catch (mailErr) {
+        console.warn(
+          `[cron-expiration] Não foi possível enviar lembrete Pix para ${emailRecipient}: ${mailErr.message || String(mailErr)}`,
+        )
+      }
+
+      // Idempotência garantida: marcar pix_reminder_notified = true
+      sub.set('pix_reminder_notified', true)
+      sub.set('pix_reminder_notified_at', nowIso)
+      $app.save(sub)
+
+      // Registrar no funil de eventos
+      try {
+        const evCol = $app.findCollectionByNameOrId('events')
+        const evRec = new Record(evCol)
+        if (userId) evRec.set('user', userId)
+        evRec.set('event_type', 'pix_renewal_reminder_sent')
+        evRec.set(
+          'metadata',
+          JSON.stringify({
+            subscription_id: subId,
+            recipient: emailRecipient,
+            email_sent: mailSent,
+            end_date: rawEndDate,
+          }),
+        )
+        $app.save(evRec)
+      } catch (_) {}
+    }
+
+    // -----------------------------------------------------------------
+    // PARTE B: VARREDURA DE ASSINATURAS EXPIRADAS (end_date < agora)
+    // -----------------------------------------------------------------
     let candidateSubs = []
     try {
       candidateSubs = $app.findRecordsByFilter(
@@ -309,7 +553,7 @@ cronAdd('daily_subscription_expiration', '0 3 * * *', () => {
     }
 
     console.log(
-      `[cron-expiration] Varredura concluída com sucesso: ${expiredCount} expiradas, ${emailsSentCount} e-mails disparados.`,
+      `[cron-expiration] Varredura diária concluída: ${remindersSentCount} lembretes Pix enviados, ${expiredCount} expiradas processadas, ${emailsSentCount} e-mails de fim de acesso enviados.`,
     )
   } catch (cronErr) {
     console.error('[cron-expiration] Erro crítico no cron de expiração:', cronErr)
@@ -320,7 +564,7 @@ cronAdd('daily_subscription_expiration', '0 3 * * *', () => {
 // ROTAS DE ADMIN PARA DIAGNÓSTICO, TESTES E AUDITORIA
 // -----------------------------------------------------------------
 
-// ROTA A: POST /backend/v1/admin/run-expiration-check (dispara manualmente a varredura)
+// ROTA A: POST /backend/v1/admin/run-expiration-check (dispara manualmente a varredura e os lembretes)
 routerAdd('POST', '/backend/v1/admin/run-expiration-check', (e) => {
   try {
     const authUser = e.auth
@@ -336,7 +580,7 @@ routerAdd('POST', '/backend/v1/admin/run-expiration-check', (e) => {
     }
 
     let siteUrl = ($os.getenv('SITE_URL') || '').trim()
-    if (!siteUrl) siteUrl = 'https://prompts-virais-shop-16b33.goskip.app'
+    if (!siteUrl) siteUrl = 'https://promptsviraisbr.goskip.app'
     siteUrl = siteUrl.replace(/\/+$/, '')
 
     let senderEmail = 'noreply@prompts-virais.com'
@@ -353,6 +597,149 @@ routerAdd('POST', '/backend/v1/admin/run-expiration-check', (e) => {
     const nowIso = now.toISOString()
     const nowDb = nowIso.replace('T', ' ').substring(0, 19)
 
+    // Helper interno para checar se a assinatura foi paga via Pix
+    const checkIsPixSub = (sub) => {
+      if (sub.getString('mp_preapproval_id')) return false
+      const subExtRef = sub.getString('external_reference')
+      if (subExtRef && (subExtRef.includes('pix') || subExtRef.includes('_pix_'))) return true
+
+      const pmtId = sub.getString('mp_payment_id')
+      if (pmtId) {
+        try {
+          const pmt = $app.findFirstRecordByData('payments_history', 'mp_payment_id', pmtId)
+          if (pmt) {
+            const method = (pmt.getString('payment_method_id') || '').toLowerCase()
+            const extRef = (pmt.getString('external_reference') || '').toLowerCase()
+            if (method === 'pix' || extRef.includes('pix')) return true
+          }
+        } catch (_) {}
+      }
+
+      const userId = sub.getString('user')
+      if (userId) {
+        try {
+          const pmts = $app.findRecordsByFilter(
+            'payments_history',
+            `user = '${userId}' && status = 'approved' && payment_type = 'subscription'`,
+            '-created',
+            5,
+            0,
+          )
+          if (pmts && pmts.length > 0) {
+            const lastPmt = pmts[0]
+            const method = (lastPmt.getString('payment_method_id') || '').toLowerCase()
+            const extRef = (lastPmt.getString('external_reference') || '').toLowerCase()
+            if (method === 'pix' || extRef.includes('pix')) return true
+          }
+        } catch (_) {}
+      }
+
+      return false
+    }
+
+    // 1. Processar Lembretes Pix (3 dias)
+    const windowStart = new Date(now.getTime() + 2 * 24 * 3600 * 1000)
+    const windowEnd = new Date(now.getTime() + 4 * 24 * 3600 * 1000)
+    const windowStartDb = windowStart.toISOString().replace('T', ' ').substring(0, 19)
+    const windowEndDb = windowEnd.toISOString().replace('T', ' ').substring(0, 19)
+
+    let candidateReminders = []
+    try {
+      candidateReminders = $app.findRecordsByFilter(
+        'subscriptions',
+        `plan = 'monthly' && status = 'active' && pix_reminder_notified != true && end_date >= '${windowStartDb}' && end_date <= '${windowEndDb}'`,
+        'created',
+        500,
+        0,
+      )
+    } catch (_) {}
+
+    const remindersProcessed = []
+    for (let j = 0; j < candidateReminders.length; j++) {
+      const sub = candidateReminders[j]
+      const isPix = checkIsPixSub(sub)
+      if (!isPix) continue
+
+      const subId = sub.id
+      const userId = sub.getString('user')
+      let emailRecipient = sub.getString('payer_email')
+      let userName = 'Criador(a)'
+
+      if (userId) {
+        try {
+          const u = $app.findRecordById('_pb_users_auth_', userId)
+          if (u) {
+            if (!emailRecipient) emailRecipient = u.email() || u.getString('email')
+            const uName = u.getString('name')
+            if (uName) userName = uName
+          }
+        } catch (_) {}
+      }
+
+      let expirationDateFormatted = 'em 3 dias'
+      const rawEndDate = sub.getString('end_date')
+      if (rawEndDate) {
+        try {
+          const d = new Date(rawEndDate.replace(' ', 'T'))
+          const day = String(d.getDate()).padStart(2, '0')
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const year = d.getFullYear()
+          expirationDateFormatted = `${day}/${month}/${year}`
+        } catch (_) {}
+      }
+
+      let mailSent = false
+      let mailErrDetail = null
+
+      if (emailRecipient) {
+        const subject = 'Sua assinatura Mensal PRO vence em 3 dias - Renove via Pix ou Cartão'
+        const htmlBody = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Lembrete de Vencimento Mensal PRO</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #ec4899; margin-top: 0;">⏰ Olá, ${userName}! Sua mensalidade vence em 3 dias (${expirationDateFormatted})</h2>
+    <p style="color: #cbd5e1;">Como seu plano Mensal PRO foi pago via Pix (pagamento avulso de 30 dias), não há renovação automática.</p>
+    <div style="background: #1e293b; border-left: 4px solid #ec4899; padding: 14px 18px; border-radius: 6px; margin: 18px 0;">
+      <p style="margin: 4px 0;"><strong>Opção A (Pix):</strong> Efetue novo pagamento pelo código Pix de R$ 19,90.</p>
+      <p style="margin: 4px 0;"><strong>Opção B (Cartão):</strong> Cadastre um cartão no site para renovação automática e nunca mais ter essa cobrança manual.</p>
+    </div>
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${siteUrl}/planos" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Renovar Acesso PRO Agora</a>
+    </div>
+  </div>
+</body>
+</html>`
+        try {
+          const message = new MailerMessage({
+            from: { address: senderEmail, name: senderName },
+            to: [{ address: emailRecipient }],
+            subject: subject,
+            html: htmlBody,
+          })
+          $app.newMailClient().send(message)
+          mailSent = true
+        } catch (mErr) {
+          mailErrDetail = mErr.message || String(mErr)
+        }
+
+        sub.set('pix_reminder_notified', true)
+        sub.set('pix_reminder_notified_at', nowIso)
+        $app.save(sub)
+
+        remindersProcessed.push({
+          id: subId,
+          user_id: userId,
+          email: emailRecipient,
+          email_sent: mailSent,
+          mail_error: mailErrDetail,
+          end_date: rawEndDate,
+        })
+      }
+    }
+
+    // 2. Processar Assinaturas Vencidas
     let candidateSubs = []
     try {
       candidateSubs = $app.findRecordsByFilter(
@@ -441,6 +828,8 @@ routerAdd('POST', '/backend/v1/admin/run-expiration-check', (e) => {
       success: true,
       executed_at: nowIso,
       expired_count: processed.length,
+      pix_reminders_count: remindersProcessed.length,
+      pix_reminders: remindersProcessed,
       processed: processed,
     })
   } catch (err) {
@@ -483,6 +872,7 @@ routerAdd('GET', '/backend/v1/admin/email-status', (e) => {
     const welcomeEmailsSent = $app.countRecords('_pb_users_auth_', 'welcome_email_sent = true')
     const expiredSubsNotified = $app.countRecords('subscriptions', 'expiration_notified = true')
     const welcomeSubsNotified = $app.countRecords('subscriptions', 'welcome_sub_notified = true')
+    const pixRemindersNotified = $app.countRecords('subscriptions', 'pix_reminder_notified = true')
 
     return e.json(200, {
       success: true,
@@ -494,37 +884,50 @@ routerAdd('GET', '/backend/v1/admin/email-status', (e) => {
         welcome_emails_sent: welcomeEmailsSent,
         expired_subscriptions_notified: expiredSubsNotified,
         subscription_confirmations_notified: welcomeSubsNotified,
+        pix_reminders_notified: pixRemindersNotified,
       },
       automations: [
         {
+          id: 'welcome',
           name: 'Boas-vindas (users.onRecordAfterCreateSuccess)',
           description:
             'Enviado imediatamente após criação da conta com guia de 3 passos e link da biblioteca.',
           status: 'active',
         },
         {
+          id: 'pix_reminder',
+          name: 'Lembrete de Renovação Pix (3 dias antes)',
+          description:
+            'Aviso 3 dias antes do vencimento do plano Mensal PRO pago via Pix avulso com opções de Pix direto ou cadastro de cartão para débito recorrente.',
+          status: 'active',
+        },
+        {
+          id: 'subscription_active',
           name: 'Confirmação de Assinatura (mp_payments webhook)',
           description:
             'Enviado quando o Mercado Pago ativa uma assinatura mensal ou anual com plano, valor e validade.',
           status: 'active',
         },
         {
+          id: 'payment_failed',
           name: 'Falha de Cobrança / Recusa (mp_payments webhook)',
           description:
             'Enviado quando o Mercado Pago reporta pagamento rejected/cancelled com orientações para regularização.',
           status: 'active',
         },
         {
+          id: 'access_expired',
           name: 'Fim de Acesso (job diário ou cancelamento)',
           description:
             'Enviado quando a assinatura expira ou é cancelada com link para reativação (uma única vez por assinatura).',
           status: 'active',
         },
         {
-          name: 'Job Diário de Vencimento (cronAdd)',
+          id: 'cron_job',
+          name: 'Job Diário de Vencimento e Lembretes (cronAdd)',
           schedule: '0 3 * * * (03:00 UTC diariamente)',
           description:
-            'Varre assinaturas com data vencida, marca status expired e dispara notificação idempotente.',
+            'Varre assinaturas ativas com vencimento em 3 dias para disparar lembrete Pix idempotente e expira assinaturas vencidas.',
           status: 'active',
         },
       ],
@@ -551,7 +954,7 @@ routerAdd('POST', '/backend/v1/admin/test-transactional-email', (e) => {
 
     const reqInfo = e.requestInfo()
     const body = reqInfo.body || {}
-    const emailType = (body.type || 'welcome').toLowerCase().trim() // 'welcome' | 'subscription_active' | 'payment_failed' | 'access_expired'
+    const emailType = (body.type || 'welcome').toLowerCase().trim() // 'welcome' | 'pix_reminder' | 'subscription_active' | 'payment_failed' | 'access_expired'
     const targetEmail = (
       body.target_email ||
       authUser.email() ||
@@ -564,7 +967,7 @@ routerAdd('POST', '/backend/v1/admin/test-transactional-email', (e) => {
     }
 
     let siteUrl = ($os.getenv('SITE_URL') || '').trim()
-    if (!siteUrl) siteUrl = 'https://prompts-virais-shop-16b33.goskip.app'
+    if (!siteUrl) siteUrl = 'https://promptsviraisbr.goskip.app'
     siteUrl = siteUrl.replace(/\/+$/, '')
 
     let senderEmail = 'noreply@prompts-virais.com'
@@ -577,10 +980,95 @@ routerAdd('POST', '/backend/v1/admin/test-transactional-email', (e) => {
       }
     } catch (_) {}
 
+    // Simulação da data de vencimento (3 dias a partir de hoje)
+    const in3Days = new Date(Date.now() + 3 * 24 * 3600 * 1000)
+    const dayStr = String(in3Days.getDate()).padStart(2, '0')
+    const monthStr = String(in3Days.getMonth() + 1).padStart(2, '0')
+    const yearStr = in3Days.getFullYear()
+    const simDueDate = `${dayStr}/${monthStr}/${yearStr}`
+
     let subject = ''
     let htmlContent = ''
 
-    if (emailType === 'subscription_active') {
+    if (emailType === 'pix_reminder') {
+      subject = 'Sua assinatura Mensal PRO vence em 3 dias - Renove via Pix ou Cartão'
+      htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lembrete de Vencimento Mensal PRO</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f17; color: #f1f5f9; margin: 0; padding: 24px; line-height: 1.6;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; padding: 6px 14px; border-radius: 9999px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+        ⏰ Lembrete de Renovação PRO
+      </span>
+      <h1 style="color: #ffffff; font-size: 22px; margin-top: 16px; margin-bottom: 8px;">
+        Olá! Sua mensalidade vence em 3 dias.
+      </h1>
+      <p style="color: #94a3b8; font-size: 14px; margin: 0;">
+        Como seu último pagamento do <strong>Plano Mensal PRO</strong> foi realizado via Pix (pagamento avulso de 30 dias), não há renovação automática.
+      </p>
+    </div>
+
+    <div style="background: #1e293b; border-left: 4px solid #ec4899; padding: 18px 20px; border-radius: 8px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: #94a3b8; font-size: 13px;">Plano Atual:</span>
+        <strong style="color: #ffffff; font-size: 13px;">Mensal PRO (R$ 19,90)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: #94a3b8; font-size: 13px;">Data de Vencimento:</span>
+        <strong style="color: #ec4899; font-size: 13px;">${simDueDate} (em 3 dias)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #94a3b8; font-size: 13px;">Método Atual:</span>
+        <strong style="color: #38bdf8; font-size: 13px;">Pix (Avulso de 30 dias)</strong>
+      </div>
+    </div>
+
+    <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 20px 0;">
+      Para <strong>não perder seu acesso aos roteiros virais e ao gerador avançado</strong>, escolha como prefere continuar:
+    </p>
+
+    <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 18px; margin-bottom: 16px;">
+      <h3 style="color: #38bdf8; font-size: 15px; margin: 0 0 6px 0;">⚡ Opção A: Pagar novo ciclo via Pix (R$ 19,90)</h3>
+      <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">
+        Gere um novo código Pix copia-e-cola com QR Code oficial e libere mais 30 dias na hora.
+      </p>
+      <a href="${siteUrl}/planos" style="display: inline-block; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 6px;">
+        Pagar via Pix Agora →
+      </a>
+    </div>
+
+    <div style="background: rgba(236, 72, 153, 0.08); border: 1px solid rgba(236, 72, 153, 0.25); border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+      <h3 style="color: #ec4899; font-size: 15px; margin: 0 0 6px 0;">💳 Opção B: Cadastrar Cartão de Crédito</h3>
+      <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">
+        Prefere tranquilidade? Cadastre um cartão no checkout para ativar a renovação automática mensal e <strong>nunca mais ter cobrança manual ou risco de interrupção</strong>.
+      </p>
+      <a href="${siteUrl}/planos" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 6px;">
+        Cadastrar Cartão & Ativar Renovação →
+      </a>
+    </div>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${siteUrl}/planos" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 8px; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
+        Acessar Meus Planos no Site →
+      </a>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0;">
+
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">
+      Prompts Virais Shop • Mensagem transacional de renovação de plano.<br>
+      Caso prefira encerrar o acesso ao final dos 30 dias, nenhuma ação é necessária.
+    </p>
+  </div>
+</body>
+</html>`
+    } else if (emailType === 'subscription_active') {
       subject = 'Assinatura PRO Ativada - Prompts Virais Shop'
       htmlContent = `
 <!DOCTYPE html>
@@ -664,11 +1152,196 @@ routerAdd('POST', '/backend/v1/admin/test-transactional-email', (e) => {
       success: true,
       type: emailType,
       target_email: targetEmail,
+      subject: subject,
       sent_via_mailer: sent,
       error_from_mailer: errMessage,
       diagnostic: sent
         ? 'E-mail despachado pelo mailer do PocketBase com sucesso.'
         : 'Mailer acionado, mas o envio real depende da configuração de servidor SMTP no painel do PocketBase. A lógica de automação e templates está 100% pronta.',
+    })
+  } catch (err) {
+    return e.json(500, { success: false, error: err.message || String(err) })
+  }
+})
+
+// ROTA D: GET /backend/v1/admin/email-preview (retorna preview HTML renderizado do template)
+routerAdd('GET', '/backend/v1/admin/email-preview', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, { success: false, error: 'Requer autenticação.' })
+    }
+
+    const isAdmin =
+      authUser.getBool('is_admin') ||
+      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    if (!isAdmin) {
+      return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
+    }
+
+    const reqInfo = e.requestInfo()
+    const query = reqInfo.query || {}
+    const emailType = (query.type || 'pix_reminder').toLowerCase().trim()
+
+    let siteUrl = ($os.getenv('SITE_URL') || '').trim()
+    if (!siteUrl) siteUrl = 'https://promptsviraisbr.goskip.app'
+    siteUrl = siteUrl.replace(/\/+$/, '')
+
+    const in3Days = new Date(Date.now() + 3 * 24 * 3600 * 1000)
+    const dayStr = String(in3Days.getDate()).padStart(2, '0')
+    const monthStr = String(in3Days.getMonth() + 1).padStart(2, '0')
+    const yearStr = in3Days.getFullYear()
+    const simDueDate = `${dayStr}/${monthStr}/${yearStr}`
+
+    let subject = ''
+    let htmlContent = ''
+
+    if (emailType === 'pix_reminder') {
+      subject = 'Sua assinatura Mensal PRO vence em 3 dias - Renove via Pix ou Cartão'
+      htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lembrete de Vencimento Mensal PRO</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f17; color: #f1f5f9; margin: 0; padding: 24px; line-height: 1.6;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; padding: 6px 14px; border-radius: 9999px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+        ⏰ Lembrete de Renovação PRO
+      </span>
+      <h1 style="color: #ffffff; font-size: 22px; margin-top: 16px; margin-bottom: 8px;">
+        Olá! Sua mensalidade vence em 3 dias.
+      </h1>
+      <p style="color: #94a3b8; font-size: 14px; margin: 0;">
+        Como seu último pagamento do <strong>Plano Mensal PRO</strong> foi realizado via Pix (pagamento avulso de 30 dias), não há renovação automática.
+      </p>
+    </div>
+
+    <div style="background: #1e293b; border-left: 4px solid #ec4899; padding: 18px 20px; border-radius: 8px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: #94a3b8; font-size: 13px;">Plano Atual:</span>
+        <strong style="color: #ffffff; font-size: 13px;">Mensal PRO (R$ 19,90)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: #94a3b8; font-size: 13px;">Data de Vencimento:</span>
+        <strong style="color: #ec4899; font-size: 13px;">${simDueDate} (em 3 dias)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #94a3b8; font-size: 13px;">Método Atual:</span>
+        <strong style="color: #38bdf8; font-size: 13px;">Pix (Avulso de 30 dias)</strong>
+      </div>
+    </div>
+
+    <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 20px 0;">
+      Para <strong>não perder seu acesso aos roteiros virais e ao gerador avançado</strong>, escolha como prefere continuar:
+    </p>
+
+    <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 18px; margin-bottom: 16px;">
+      <h3 style="color: #38bdf8; font-size: 15px; margin: 0 0 6px 0;">⚡ Opção A: Pagar novo ciclo via Pix (R$ 19,90)</h3>
+      <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">
+        Gere um novo código Pix copia-e-cola com QR Code oficial e libere mais 30 dias na hora.
+      </p>
+      <a href="${siteUrl}/planos" style="display: inline-block; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 6px;">
+        Pagar via Pix Agora →
+      </a>
+    </div>
+
+    <div style="background: rgba(236, 72, 153, 0.08); border: 1px solid rgba(236, 72, 153, 0.25); border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+      <h3 style="color: #ec4899; font-size: 15px; margin: 0 0 6px 0;">💳 Opção B: Cadastrar Cartão de Crédito</h3>
+      <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">
+        Prefere tranquilidade? Cadastre um cartão no checkout para ativar a renovação automática mensal e <strong>nunca mais ter cobrança manual ou risco de interrupção</strong>.
+      </p>
+      <a href="${siteUrl}/planos" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 6px;">
+        Cadastrar Cartão & Ativar Renovação →
+      </a>
+    </div>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${siteUrl}/planos" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 8px; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
+        Acessar Meus Planos no Site →
+      </a>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0;">
+
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">
+      Prompts Virais Shop • Mensagem transacional de renovação de plano.<br>
+      Caso prefira encerrar o acesso ao final dos 30 dias, nenhuma ação é necessária.
+    </p>
+  </div>
+</body>
+</html>`
+    } else if (emailType === 'subscription_active') {
+      subject = 'Assinatura PRO Ativada - Prompts Virais Shop'
+      htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Assinatura Confirmada</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #10b981;">🎉 Pagamento Aprovado!</h2>
+    <p>Sua assinatura <strong>Plano Mensal PRO</strong> foi ativada com sucesso.</p>
+    <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 4px 0;"><strong>Valor:</strong> R$ 19,90</p>
+      <p style="margin: 4px 0;"><strong>Validade:</strong> 30 dias com renovação automática</p>
+      <p style="margin: 4px 0;"><strong>Status:</strong> Ativo</p>
+    </div>
+    <div style="text-align: center;"><a href="${siteUrl}/biblioteca" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Explorar Prompts PRO</a></div>
+  </div>
+</body>
+</html>`
+    } else if (emailType === 'payment_failed') {
+      subject = 'Aviso: Falha no pagamento da sua assinatura - Prompts Virais'
+      htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Falha no Pagamento</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #ef4444;">⚠️ Pagamento não aprovado</h2>
+    <p>A operadora ou o Mercado Pago não autorizou a cobrança da sua assinatura.</p>
+    <div style="text-align: center; margin: 24px 0;"><a href="${siteUrl}/planos" style="background: #ef4444; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Regularizar Pagamento</a></div>
+  </div>
+</body>
+</html>`
+    } else if (emailType === 'access_expired') {
+      subject = 'Seu acesso PRO no Prompts Virais Shop expirou'
+      htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Acesso Expirado</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #ffffff;">Seu período PRO terminou</h2>
+    <p style="color: #94a3b8;">Sua assinatura foi finalizada. Seus dados e biblioteca continuam salvos.</p>
+    <div style="text-align: center; margin: 24px 0;"><a href="${siteUrl}/planos" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Reativar Acesso PRO</a></div>
+  </div>
+</body>
+</html>`
+    } else {
+      subject = 'Bem-vindo ao Prompts Virais Shop! Seu guia de primeiro uso'
+      htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Bem-vindo</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: #ffffff;">Bem-vindo ao Prompts Virais Shop!</h2>
+    <p style="color: #cbd5e1;">1. Escolha o nicho na Biblioteca &bull; 2. Personalize no Gerador &bull; 3. Copie o roteiro e publique.</p>
+    <div style="text-align: center; margin: 24px 0;"><a href="${siteUrl}/biblioteca" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Acessar Biblioteca</a></div>
+  </div>
+</body>
+</html>`
+    }
+
+    return e.json(200, {
+      success: true,
+      type: emailType,
+      subject: subject,
+      html: htmlContent,
     })
   } catch (err) {
     return e.json(500, { success: false, error: err.message || String(err) })

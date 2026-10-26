@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T02:43:05.132Z",
+  "generatedAt": "2026-10-26T02:52:16.694Z",
   "collections": [
     {
       "name": "users",
@@ -196,6 +196,18 @@
         {
           "name": "welcome_sub_notified",
           "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pix_reminder_notified",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pix_reminder_notified_at",
+          "type": "date",
           "required": false,
           "system": false
         }

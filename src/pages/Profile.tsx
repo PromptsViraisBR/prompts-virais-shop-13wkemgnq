@@ -42,7 +42,6 @@ export const Profile: React.FC = () => {
 
   const [name, setName] = useState(user?.name || '')
   const [email, setEmail] = useState(user?.email || '')
-  const [googleAiKey, setGoogleAiKey] = useState(user?.google_ai_api_key || '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
@@ -109,11 +108,10 @@ export const Profile: React.FC = () => {
       await updateProfile({
         name: name.trim(),
         email: email.trim(),
-        google_ai_api_key: googleAiKey.trim(),
       })
       toast({
         title: 'Perfil atualizado!',
-        description: 'Seus dados e preferências foram salvos com sucesso.',
+        description: 'Seus dados foram salvos com sucesso.',
       })
     } catch (err: unknown) {
       console.error(err)
@@ -490,39 +488,6 @@ export const Profile: React.FC = () => {
                       required
                     />
                   </div>
-                </div>
-
-                {/* Chave de API Google AI Studio / Gemini para o Gerador de Imagens com 100% de Fidelidade */}
-                <div className="space-y-2 pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="profile-google-key"
-                      className="text-sm font-semibold flex items-center gap-1.5"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      Chave Google AI Studio (Opcional - Gemini / Nano Banana)
-                    </Label>
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] text-pink-600 dark:text-pink-400 font-semibold hover:underline"
-                    >
-                      Obter chave grátis →
-                    </a>
-                  </div>
-                  <Input
-                    id="profile-google-key"
-                    type="password"
-                    placeholder="AIzaSy..."
-                    value={googleAiKey}
-                    onChange={(e) => setGoogleAiKey(e.target.value)}
-                    className="font-mono text-xs"
-                  />
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Permite gerar imagens com fidelidade facial e de peças físicas no Gerador PRO
-                    utilizando sua cota gratuita da API do Google Gemini.
-                  </p>
                 </div>
               </CardContent>
 

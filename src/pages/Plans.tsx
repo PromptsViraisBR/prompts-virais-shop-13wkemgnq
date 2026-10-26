@@ -152,20 +152,25 @@ export const Plans: React.FC = () => {
           const isAuthErr =
             callErr?.status === 401 ||
             callErr?.data?.status === 401 ||
+            callErr?.code === 'UNAUTHORIZED' ||
             String(callErr?.message || '')
               .toLowerCase()
               .includes('logado') ||
             String(callErr?.message || '')
               .toLowerCase()
-              .includes('autentica')
+              .includes('autentica') ||
+            String(callErr?.message || '')
+              .toLowerCase()
+              .includes('sessão expirada')
 
           if (isAuthErr) {
             toast({
               title: 'Sessão expirada',
-              description: 'Sua sessão expirou. Faça login novamente para continuar.',
+              description:
+                'Sua sessão expirou. Faça login novamente para continuar com o Pix ou Cartão.',
               variant: 'destructive',
             })
-            navigate('/login')
+            navigate('/login?redirect=/plans')
             return
           }
 
@@ -187,15 +192,18 @@ export const Plans: React.FC = () => {
               .includes('logado') ||
             String(res.error || '')
               .toLowerCase()
-              .includes('autentica')
+              .includes('autentica') ||
+            String(res.error || '')
+              .toLowerCase()
+              .includes('sessão expirada')
 
           if (isAuthErr) {
             toast({
               title: 'Sessão expirada',
-              description: 'Faça login para continuar.',
+              description: 'Faça login novamente para continuar seu pagamento.',
               variant: 'destructive',
             })
-            navigate('/login')
+            navigate('/login?redirect=/plans')
             return
           }
 
@@ -258,20 +266,24 @@ export const Plans: React.FC = () => {
     } catch (err: any) {
       const isAuthErr =
         err?.status === 401 ||
+        err?.code === 'UNAUTHORIZED' ||
         String(err?.message || '')
           .toLowerCase()
           .includes('logado') ||
         String(err?.message || '')
           .toLowerCase()
-          .includes('autentica')
+          .includes('autentica') ||
+        String(err?.message || '')
+          .toLowerCase()
+          .includes('sessão expirada')
 
       if (isAuthErr) {
         toast({
           title: 'Sessão expirada',
-          description: 'Sua sessão expirou. Faça login para continuar.',
+          description: 'Sua sessão expirou. Faça login novamente para continuar.',
           variant: 'destructive',
         })
-        navigate('/login')
+        navigate('/login?redirect=/plans')
         return
       }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/context/AuthContext'
 import {
   getAdminOverview,
@@ -59,6 +60,8 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate()
 
   const [data, setData] = useState<AdminOverviewResult | null>(null)
+  const [cancellations, setCancellations] = useState<any[]>([])
+  const [feedbacks, setFeedbacks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -126,10 +129,17 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const [res, fRes, eRes] = await Promise.allSettled([
+      const [res, fRes, eRes, cRes, fbRes] = await Promise.allSettled([
         getAdminOverview(),
         getFunnelMetrics(funnelPeriod),
         getEmailStatus(),
+        pb.collection('events').getList(1, 20, {
+          filter: 'event_type = "subscription_cancelled"',
+          sort: '-created',
+        }),
+        pb.collection('feedback').getList(1, 30, {
+          sort: '-created',
+        }),
       ])
 
       let criticalError = ''
@@ -151,6 +161,18 @@ export const AdminDashboard: React.FC = () => {
         setEmailStatus(eRes.value)
       } else {
         console.warn('getEmailStatus warning:', eRes.reason)
+      }
+
+      if (cRes.status === 'fulfilled') {
+        setCancellations(cRes.value.items || [])
+      } else {
+        console.warn('getCancellations warning:', cRes.reason)
+      }
+
+      if (fbRes.status === 'fulfilled') {
+        setFeedbacks(fbRes.value.items || [])
+      } else {
+        console.warn('getFeedback warning:', fbRes.reason)
       }
 
       // Se falhou por autenticação/permissão em ambos ou se não obteve os dados principais
@@ -758,6 +780,218 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Grid: Tabela de Assinaturas & Histórico de Pagamentos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        {/* NOVA SEÇÃO: CANCELAMENTOS RECENTES & STATUS DO ESTORNO */}
+        <Card className="border-2 border-rose-500/20 lg:col-span-2 shadow-xs">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3">
+            <div>
+              <CardTitle className="text-lg font-bold flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                <RotateCcw className="w-5 h-5 text-rose-500" />
+                Cancelamentos Recentes & Auditoria de Estornos ({cancellations.length})
+              </CardTitle>
+              <CardDescription>
+                Histórico detalhado de cancelamentos. Estornos automáticos tentados pelo MP em até 7
+                dias e alertas para reembolso manual.
+              </CardDescription>
+            </div>
+            <Badge
+              variant="outline"
+              className="text-xs font-semibold self-start sm:self-auto border-rose-500/30 text-rose-600"
+            >
+              Notificação por e-mail ativa
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b text-muted-foreground font-semibold">
+                    <th className="pb-2">Data / Hora</th>
+                    <th className="pb-2">Usuário</th>
+                    <th className="pb-2">Plano</th>
+                    <th className="pb-2">Valor</th>
+                    <th className="pb-2">Status do Estorno</th>
+                    <th className="pb-2">ID Pagamento MP</th>
+                    <th className="pb-2">Detalhes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {cancellations.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                        Nenhum cancelamento registrado recentemente.
+                      </td>
+                    </tr>
+                  ) : (
+                    cancellations.map((ev) => {
+                      let meta: any = {}
+                      try {
+                        meta =
+                          typeof ev.metadata === 'string'
+                            ? JSON.parse(ev.metadata)
+                            : ev.metadata || {}
+                      } catch (_) {
+                        meta = {}
+                      }
+
+                      const refundSuccess =
+                        meta.refund_success === true ||
+                        meta.refund_status === 'estornado automaticamente'
+                      const isPendingManual =
+                        meta.refund_status?.includes('PENDENTE') ||
+                        (meta.refund_attempted && !refundSuccess)
+                      const clientName = meta.user_name || 'Cliente'
+                      const clientEmail = meta.user_email || ev.user || '—'
+                      const planLabel = meta.plan || 'Plano'
+                      const amountVal = meta.refund_amount
+                        ? `R$ ${Number(meta.refund_amount).toFixed(2).replace('.', ',')}`
+                        : '—'
+
+                      return (
+                        <tr key={ev.id} className="hover:bg-muted/30">
+                          <td className="py-2.5 text-muted-foreground whitespace-nowrap">
+                            {ev.created
+                              ? new Date(ev.created).toLocaleString('pt-BR', {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })
+                              : '—'}
+                          </td>
+                          <td className="py-2.5 font-medium">
+                            <span className="block truncate max-w-[160px]" title={clientEmail}>
+                              {clientName}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground truncate max-w-[160px]">
+                              {clientEmail}
+                            </span>
+                          </td>
+                          <td className="py-2.5 uppercase font-bold text-[10px]">
+                            <Badge variant="outline">{planLabel}</Badge>
+                          </td>
+                          <td className="py-2.5 font-bold text-foreground">{amountVal}</td>
+                          <td className="py-2.5">
+                            {refundSuccess ? (
+                              <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px] font-bold">
+                                Estornado Automaticamente
+                              </Badge>
+                            ) : isPendingManual ? (
+                              <Badge className="bg-rose-500/20 text-rose-600 border-rose-500/40 text-[10px] font-extrabold animate-pulse">
+                                PENDENTE DE ESTORNO MANUAL
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] text-muted-foreground"
+                              >
+                                {meta.refund_status || 'Processado'}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-2.5 font-mono text-[10px] text-muted-foreground">
+                            {meta.payment_id || '—'}
+                          </td>
+                          <td
+                            className="py-2.5 text-[11px] text-muted-foreground max-w-xs truncate"
+                            title={meta.refund_reason}
+                          >
+                            {meta.refund_reason ||
+                              meta.reason ||
+                              'Cancelamento solicitado pelo usuário'}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* NOVA SEÇÃO: FEEDBACKS & RELATOS DOS USUÁRIOS */}
+        <Card className="border-2 border-indigo-500/20 lg:col-span-2 shadow-xs">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3">
+            <div>
+              <CardTitle className="text-lg font-bold flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                <Sparkles className="w-5 h-5 text-indigo-500" />
+                Feedbacks, Ideias e Relatos de Bugs Recebidos ({feedbacks.length})
+              </CardTitle>
+              <CardDescription>
+                Mensagens enviadas pelos usuários e visitantes através do botão de feedback da
+                landing page.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b text-muted-foreground font-semibold">
+                    <th className="pb-2">Data</th>
+                    <th className="pb-2">Categoria</th>
+                    <th className="pb-2">Remetente</th>
+                    <th className="pb-2">E-mail</th>
+                    <th className="pb-2">Mensagem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {feedbacks.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                        Nenhum feedback recebido ainda. As sugestões enviadas no site aparecerão
+                        aqui.
+                      </td>
+                    </tr>
+                  ) : (
+                    feedbacks.map((fb) => (
+                      <tr key={fb.id} className="hover:bg-muted/30">
+                        <td className="py-2.5 text-muted-foreground whitespace-nowrap">
+                          {fb.created
+                            ? new Date(fb.created).toLocaleString('pt-BR', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              })
+                            : '—'}
+                        </td>
+                        <td className="py-2.5">
+                          <Badge
+                            className={`text-[10px] capitalize ${
+                              fb.category === 'bug'
+                                ? 'bg-rose-500/15 text-rose-600 border-rose-500/30'
+                                : fb.category === 'idea'
+                                  ? 'bg-amber-500/15 text-amber-600 border-amber-500/30'
+                                  : fb.category === 'compliment'
+                                    ? 'bg-pink-500/15 text-pink-600 border-pink-500/30'
+                                    : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {fb.category || 'outro'}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 font-medium">{fb.name || 'Visitante'}</td>
+                        <td className="py-2.5 text-muted-foreground">
+                          {fb.email ? (
+                            <a
+                              href={`mailto:${fb.email}`}
+                              className="text-pink-600 hover:underline"
+                            >
+                              {fb.email}
+                            </a>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className="py-2.5 max-w-md text-foreground whitespace-pre-wrap leading-relaxed">
+                          {fb.message}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Tabela de Assinaturas */}
         <Card>
           <CardHeader>

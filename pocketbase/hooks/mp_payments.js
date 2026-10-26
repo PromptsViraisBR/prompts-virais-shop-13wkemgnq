@@ -838,7 +838,7 @@ routerAdd('POST', '/backend/v1/mp/create-pix', (e) => {
     const userEmail = (authUser.getString('email') || '').trim()
     const rawUserName = (authUser.getString('name') || '').trim()
 
-    // Sanitizar payer: se name estiver vazio, usar prefixo do email antes do @; nunca enviar first_name vazio/nulo
+    // Sanitizar payer: se name estiver vazio, usar prefixo do email antes do @; nunca enviar first_name/last_name vazio/nulo
     let emailPrefix = 'Cliente'
     if (userEmail && userEmail.includes('@')) {
       const p = userEmail
@@ -876,11 +876,10 @@ routerAdd('POST', '/backend/v1/mp/create-pix', (e) => {
       externalRef = `credits_${userId}_${qty}_${Date.now()}`
     }
 
-    // Configuração de expiração: 30 minutos a partir de agora no formato ISO 8601 estrito aceito pelo MP (ex: YYYY-MM-DDTHH:mm:ss.000-00:00 ou .000Z)
+    // Configuração de expiração: 30 minutos a partir de agora no formato ISO 8601 canônico .000Z
     const expireTimestamp = Date.now() + 30 * 60 * 1000
     const expireDate = new Date(expireTimestamp)
     const isoString = expireDate.toISOString()
-    // Garante milissegundos e timezone explícita compatível com a API de Pagamentos v1 do Mercado Pago
     const dateOfExpiration = isoString.includes('.') ? isoString.split('.')[0] + '.000Z' : isoString
 
     const idempotencyKey = `pix_${externalRef}`
@@ -1286,9 +1285,7 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
         pmtStatus === 'charged_back' ||
         pmtStatusDetail === 'refunded' ||
         pmtStatusDetail === 'by_admin' ||
-        pmtStatusDetail === 'settled' ||
         pmtStatusDetail === 'reimbursed'
-
       let targetUserId = ''
       let isSubscriptionPayment = false
       let planTarget = 'monthly'
@@ -2263,6 +2260,8 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
     }
 
     const preapprovalId = sub.getString('mp_preapproval_id')
+    const subPaymentId = sub.getString('mp_payment_id')
+    const subPlan = sub.getString('plan') || 'monthly'
 
     let mpCancelled = false
     if (preapprovalId && token) {
@@ -2289,6 +2288,144 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
 
     sub.set('status', 'cancelled')
     $app.save(sub)
+
+    // =========================================================================
+    // REQUISITO 2: ESTORNO AUTOMÁTICO NO CANCELAMENTO (PRAZO DE ATÉ 7 DIAS)
+    // Se houver pagamento recente (aprovado) nos últimos 7 dias vinculado à assinatura,
+    // o servidor tenta estornar automaticamente via API oficial do MP (POST /v1/payments/{id}/refunds).
+    // Para Pix, o refund devolve na conta bancária do pagador via Banco Central.
+    // =========================================================================
+    let refundAttempted = false
+    let refundSuccess = false
+    let refundReason = ''
+    let refundPaymentId = ''
+    let refundAmount = 0
+    let targetPaymentRecord = null
+
+    // Localizar pagamento elegível: primeiro pelo sub.mp_payment_id, depois busca no payments_history
+    if (subPaymentId) {
+      try {
+        targetPaymentRecord = $app.findFirstRecordByData(
+          'payments_history',
+          'mp_payment_id',
+          subPaymentId,
+        )
+      } catch (_) {}
+    }
+
+    if (!targetPaymentRecord) {
+      try {
+        const candidatePmts = $app.findRecordsByFilter(
+          'payments_history',
+          `user = "${authUser.id}" && payment_type = "subscription" && status = "approved"`,
+          '-created',
+          5,
+          0,
+        )
+        if (candidatePmts && candidatePmts.length > 0) {
+          targetPaymentRecord = candidatePmts[0]
+        }
+      } catch (_) {}
+    }
+
+    if (targetPaymentRecord) {
+      refundPaymentId = targetPaymentRecord.getString('mp_payment_id')
+      refundAmount = targetPaymentRecord.getFloat('transaction_amount') || 0
+      const pmtCreated = targetPaymentRecord.getDateTime('created')
+      const pmtStatus = targetPaymentRecord.getString('status')
+
+      // Verificar janela de 7 dias (7 * 24 * 3600 * 1000 = 604800000 ms)
+      const pmtTime = pmtCreated ? new Date(pmtCreated).getTime() : 0
+      const diffMs = Date.now() - pmtTime
+      const isWithin7Days = diffMs >= 0 && diffMs <= 7 * 24 * 3600 * 1000
+
+      if (pmtStatus === 'refunded') {
+        refundAttempted = true
+        refundSuccess = true
+        refundReason = 'already_refunded'
+      } else if (!isWithin7Days) {
+        refundAttempted = false
+        refundSuccess = false
+        refundReason = 'Prazo de 7 dias para estorno expirado.'
+      } else if (!token) {
+        refundAttempted = true
+        refundSuccess = false
+        refundReason = 'MERCADO_PAGO_ACCESS_TOKEN ausente no servidor.'
+        targetPaymentRecord.set('status_detail', 'refund_pending_manual_no_token')
+        try {
+          $app.save(targetPaymentRecord)
+        } catch (_) {}
+      } else if (refundPaymentId) {
+        refundAttempted = true
+        console.log(
+          `[cancel-subscription] Tentando estorno automático para pagamento ${refundPaymentId} (R$ ${refundAmount})...`,
+        )
+
+        try {
+          const idempotencyKey = `auto_refund_cancel_${refundPaymentId}_${Date.now()}`
+          const refRes = $http.send({
+            method: 'POST',
+            url: `https://api.mercadopago.com/v1/payments/${refundPaymentId}/refunds`,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+              'X-Idempotency-Key': idempotencyKey,
+            },
+            body: JSON.stringify({}),
+            timeout: 30,
+          })
+
+          const refData = refRes.json || {}
+          if (refRes.statusCode >= 200 && refRes.statusCode < 300) {
+            refundSuccess = true
+            refundReason = 'Estorno automático concluído com sucesso via API Mercado Pago.'
+            targetPaymentRecord.set('status', 'refunded')
+            targetPaymentRecord.set('status_detail', 'refunded_auto_on_cancellation')
+            try {
+              $app.save(targetPaymentRecord)
+            } catch (_) {}
+            console.log(
+              `[cancel-subscription] Estorno automático aprovado! Refund ID: ${refData.id}`,
+            )
+          } else {
+            refundSuccess = false
+            const errMsg =
+              refData.message ||
+              (Array.isArray(refData.cause) && refData.cause[0] && refData.cause[0].description) ||
+              `Erro MP HTTP ${refRes.statusCode}`
+            refundReason = `Falha na API MP: ${errMsg}`
+            targetPaymentRecord.set(
+              'status_detail',
+              'refund_pending_manual: ' + String(errMsg).substring(0, 60),
+            )
+            try {
+              $app.save(targetPaymentRecord)
+            } catch (_) {}
+            console.warn(
+              `[cancel-subscription] Falha no estorno automático (status ${refRes.statusCode}):`,
+              refData,
+            )
+          }
+        } catch (callErr) {
+          refundSuccess = false
+          refundReason = `Exceção de rede ao tentar estorno: ${callErr.message || String(callErr)}`
+          targetPaymentRecord.set('status_detail', 'refund_pending_manual_network_error')
+          try {
+            $app.save(targetPaymentRecord)
+          } catch (_) {}
+          console.warn('[cancel-subscription] Exceção ao tentar estorno automático:', callErr)
+        }
+      }
+    } else {
+      refundReason = 'Nenhum pagamento aprovado recente vinculado à assinatura foi encontrado.'
+    }
+
+    // Status final do estorno para auditoria e avisos
+    const refundStatusLabel = refundSuccess
+      ? 'estornado automaticamente'
+      : refundAttempted || (targetPaymentRecord && !refundSuccess)
+        ? 'PENDENTE DE ESTORNO MANUAL'
+        : 'sem pagamento elegível (< 7 dias)'
 
     // Garantir que exista uma assinatura 'free' ativa para o usuário
     let freeSub = null
@@ -2321,7 +2458,7 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
       console.warn('[cancel-subscription] Aviso ao reativar plano free:', freeErr)
     }
 
-    // Registrar evento de cancelamento
+    // Registrar evento de cancelamento no funil (incluindo dados de estorno)
     try {
       const evCol = $app.findCollectionByNameOrId('events')
       const evRec = new Record(evCol)
@@ -2331,13 +2468,110 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
         'metadata',
         JSON.stringify({
           subscription_id: sub.id,
-          plan: sub.getString('plan'),
+          plan: subPlan,
           payment_type: preapprovalId ? 'preapproval' : 'pix_or_single',
+          user_name: authUser.getString('name') || '',
+          user_email: authUser.getString('email') || '',
+          refund_attempted: refundAttempted,
+          refund_success: refundSuccess,
+          refund_status: refundStatusLabel,
+          refund_reason: refundReason,
+          payment_id: refundPaymentId,
+          refund_amount: refundAmount,
           reason: 'user_requested_cancellation',
         }),
       )
       $app.save(evRec)
     } catch (_) {}
+
+    // =========================================================================
+    // NOTIFICAÇÃO AO ADMIN VIA E-MAIL TRANSACIONAL (SMTP Brevo)
+    // Envio único para: juniorrodriguesjr123.jr@gmail.com
+    // =========================================================================
+    try {
+      const adminEmail = 'juniorrodriguesjr123.jr@gmail.com'
+      const clientEmail = authUser.getString('email') || 'cliente@desconhecido.com'
+      const clientName = authUser.getString('name') || 'Cliente'
+      const dateStr = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+      const amountStr =
+        refundAmount > 0 ? `R$ ${refundAmount.toFixed(2).replace('.', ',')}` : 'R$ 0,00'
+
+      const emailSubject = refundSuccess
+        ? `[Cancelamento & Estorno OK] ${clientName} (${subPlan.toUpperCase()})`
+        : `[ATENÇÃO: Cancelamento recebido — verificar estorno] ${clientName} (${subPlan.toUpperCase()})`
+
+      const emailHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Notificação de Cancelamento</title></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f17; color: #f1f5f9; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px;">
+    <h2 style="color: ${refundSuccess ? '#10b981' : '#ef4444'}; margin-top: 0;">
+      ${refundSuccess ? '✅ Cancelamento com Estorno Automático' : '⚠️ Cancelamento com Estorno Pendente Manual'}
+    </h2>
+    <p>Olá, Administrador! Uma solicitação de cancelamento de assinatura foi processada no sistema.</p>
+
+    <div style="background: #1e293b; border-radius: 8px; padding: 18px; margin: 20px 0;">
+      <p style="margin: 6px 0; color: #cbd5e1;"><strong>Usuário (Nome):</strong> ${clientName}</p>
+      <p style="margin: 6px 0; color: #cbd5e1;"><strong>E-mail:</strong> ${clientEmail}</p>
+      <p style="margin: 6px 0; color: #cbd5e1;"><strong>ID do Usuário:</strong> <code style="color: #f472b6;">${authUser.id}</code></p>
+      <p style="margin: 6px 0; color: #cbd5e1;"><strong>Plano Cancelado:</strong> ${subPlan.toUpperCase()}</p>
+      <p style="margin: 6px 0; color: #cbd5e1;"><strong>Valor Envolvido:</strong> ${amountStr}</p>
+      <p style="margin: 6px 0; color: #cbd5e1;"><strong>Data/Hora:</strong> ${dateStr} (Brasília)</p>
+      <p style="margin: 6px 0; color: #cbd5e1;"><strong>ID Pagamento MP:</strong> ${refundPaymentId || 'N/A'}</p>
+      <p style="margin: 10px 0 4px 0; font-size: 14px;">
+        <strong>Status do Estorno:</strong>
+        <span style="display: inline-block; padding: 4px 10px; border-radius: 6px; font-weight: bold; background: ${refundSuccess ? '#065f46; color: #a7f3d0;' : '#7f1d1d; color: #fecaca;'}">
+          ${refundStatusLabel.toUpperCase()}
+        </span>
+      </p>
+      ${refundReason ? `<p style="margin: 6px 0; font-size: 12px; color: #94a3b8;"><strong>Detalhe:</strong> ${refundReason}</p>` : ''}
+    </div>
+
+    ${
+      !refundSuccess && refundPaymentId
+        ? `
+    <div style="background: #450a0a; border: 1px solid #991b1b; border-radius: 8px; padding: 14px; margin: 16px 0; color: #fecaca; font-size: 13px;">
+      <strong>Ação necessária:</strong> O estorno automático não pôde ser completado. Acesse o painel <code>/admin</code> ou o Mercado Pago para efetuar o reembolso manualmente se o cliente tiver direito.
+    </div>
+    `
+        : ''
+    }
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="https://prompts-virais-shop-16b33.goskip.app/admin" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Abrir Painel Admin →</a>
+    </div>
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">Prompts Virais Shop • Notificação automática interna para o proprietário.</p>
+  </div>
+</body>
+</html>`
+
+      let senderAddress = 'noreply@prompts-virais.com'
+      let senderName = 'Prompts Virais Shop'
+      try {
+        const st = $app.settings()
+        if (st && st.meta) {
+          if (st.meta.senderAddress) senderAddress = st.meta.senderAddress
+          if (st.meta.senderName) senderName = st.meta.senderName
+        }
+      } catch (_) {}
+
+      const mailerMsg = new MailerMessage({
+        from: { address: senderAddress, name: senderName },
+        to: [{ address: adminEmail }],
+        subject: emailSubject,
+        html: emailHtml,
+      })
+      $app.newMailClient().send(mailerMsg)
+      console.log(
+        `[cancel-subscription] E-mail de aviso de cancelamento enviado para ${adminEmail}`,
+      )
+    } catch (mailErr) {
+      console.warn(
+        '[cancel-subscription] Erro ao enviar e-mail ao admin:',
+        mailErr?.message || String(mailErr),
+      )
+    }
 
     return e.json(200, {
       success: true,
@@ -2345,6 +2579,14 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
       message: 'Assinatura cancelada com sucesso.',
       subscription_id: sub.id,
       free_subscription_id: freeSub ? freeSub.id : null,
+      refund: {
+        attempted: refundAttempted,
+        success: refundSuccess,
+        status: refundStatusLabel,
+        amount: refundAmount,
+        payment_id: refundPaymentId,
+        reason: refundReason,
+      },
     })
   } catch (err) {
     return e.json(500, { success: false, error: err.message || String(err) })

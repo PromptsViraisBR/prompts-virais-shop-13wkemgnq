@@ -293,7 +293,7 @@ export const Profile: React.FC = () => {
                       <p className="font-bold text-foreground">+20 Créditos de Indicação PRO</p>
                       <p className="text-[11px] text-muted-foreground">
                         Restam {c.credits_remaining} de {c.credits_granted} créditos • Válido até{' '}
-                        {new Date(c.expires_at).toLocaleDateString('pt-BR')}
+                        {c.expires_at ? new Date(c.expires_at).toLocaleDateString('pt-BR') : '—'}
                       </p>
                     </div>
                     <Badge
@@ -371,7 +371,9 @@ export const Profile: React.FC = () => {
                         Próxima Cobrança (MP)
                       </span>
                       <span className="text-foreground font-semibold">
-                        {new Date(subscription.next_payment_date).toLocaleDateString('pt-BR')}
+                        {subscription.next_payment_date
+                          ? new Date(subscription.next_payment_date).toLocaleDateString('pt-BR')
+                          : '—'}
                       </span>
                     </div>
                   ) : subscription.end_date ? (
@@ -381,7 +383,9 @@ export const Profile: React.FC = () => {
                         Válido até
                       </span>
                       <span className="text-foreground font-semibold">
-                        {new Date(subscription.end_date).toLocaleDateString('pt-BR')}
+                        {subscription.end_date
+                          ? new Date(subscription.end_date).toLocaleDateString('pt-BR')
+                          : '—'}
                       </span>
                     </div>
                   ) : null}

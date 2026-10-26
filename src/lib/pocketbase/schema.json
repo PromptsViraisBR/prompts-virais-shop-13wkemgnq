@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T04:35:33.402Z",
+  "generatedAt": "2026-10-26T05:00:36.096Z",
   "collections": [
     {
       "name": "users",
@@ -944,6 +944,77 @@
         "CREATE INDEX idx_ref_credits_referrer_status ON referral_credits (referrer, status)",
         "CREATE INDEX idx_ref_credits_referrer_expires ON referral_credits (referrer, expires_at)",
         "CREATE UNIQUE INDEX idx_ref_credits_pair ON referral_credits (referrer, referred_user)"
+      ]
+    },
+    {
+      "name": "feedback",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.is_admin = true",
+        "view": "@request.auth.id != '' && @request.auth.is_admin = true",
+        "create": "",
+        "update": "@request.auth.id != '' && @request.auth.is_admin = true",
+        "delete": "@request.auth.id != '' && @request.auth.is_admin = true"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["bug", "idea", "compliment", "other"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["unread", "read", "archived"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_feedback_created ON feedback (created DESC)",
+        "CREATE INDEX idx_feedback_status ON feedback (status)",
+        "CREATE INDEX idx_feedback_user ON feedback (user)"
       ]
     }
   ]

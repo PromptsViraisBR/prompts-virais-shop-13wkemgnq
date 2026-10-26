@@ -110,17 +110,22 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
         } catch (callErr: any) {
           const isAuthErr =
             callErr?.status === 401 ||
+            callErr?.code === 'UNAUTHORIZED' ||
             String(callErr?.message || '')
               .toLowerCase()
               .includes('logado') ||
             String(callErr?.message || '')
               .toLowerCase()
-              .includes('autentica')
+              .includes('autentica') ||
+            String(callErr?.message || '')
+              .toLowerCase()
+              .includes('sessão expirada')
 
           if (isAuthErr) {
             toast({
               title: 'Sessão expirada',
-              description: 'Faça login para continuar.',
+              description:
+                'Sua sessão expirou. Faça login novamente para comprar créditos com Pix ou Cartão.',
               variant: 'destructive',
             })
             return
@@ -144,12 +149,15 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
               .includes('logado') ||
             String(res.error || '')
               .toLowerCase()
-              .includes('autentica')
+              .includes('autentica') ||
+            String(res.error || '')
+              .toLowerCase()
+              .includes('sessão expirada')
 
           if (isAuthErr) {
             toast({
               title: 'Sessão expirada',
-              description: 'Faça login para continuar.',
+              description: 'Sua sessão expirou. Faça login novamente para continuar.',
               variant: 'destructive',
             })
             return
@@ -213,17 +221,21 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
     } catch (err: any) {
       const isAuthErr =
         err?.status === 401 ||
+        err?.code === 'UNAUTHORIZED' ||
         String(err?.message || '')
           .toLowerCase()
           .includes('logado') ||
         String(err?.message || '')
           .toLowerCase()
-          .includes('autentica')
+          .includes('autentica') ||
+        String(err?.message || '')
+          .toLowerCase()
+          .includes('sessão expirada')
 
       if (isAuthErr) {
         toast({
           title: 'Sessão expirada',
-          description: 'Faça login para continuar.',
+          description: 'Sua sessão expirou. Faça login novamente para continuar.',
           variant: 'destructive',
         })
         return

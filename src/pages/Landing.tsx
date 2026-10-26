@@ -27,7 +27,12 @@ import {
   Lock,
   Zap,
   HelpCircle,
+  MessageSquarePlus,
+  Mail,
+  AlertTriangle,
+  Lightbulb,
 } from 'lucide-react'
+import { FeedbackModal } from '@/components/FeedbackModal'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS } from '@/types'
@@ -39,6 +44,7 @@ export const Landing: React.FC = () => {
   const [samplePrompts, setSamplePrompts] = useState<PromptRecord[]>([])
   const [premiumTeasers, setPremiumTeasers] = useState<PromptRecord[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   useEffect(() => {
     // Registrar evento de visita de página (Landing)
@@ -90,8 +96,55 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="space-y-16 sm:space-y-24 pb-16">
+      {/* BANNER INFORMATIVO DISCRETO & ELEGANTE: VERSÃO + APP NOVO + SUPORTE + FEEDBACK */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-amber-500/10 border border-pink-500/20 backdrop-blur-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-start sm:items-center gap-2.5 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0 mt-0.5 sm:mt-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0"
+                >
+                  v0.0.59
+                </Badge>
+                <span className="font-bold text-foreground text-xs sm:text-sm">
+                  O Prompts Virais é novo e estamos aperfeiçoando cada detalhe!
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Por ser uma plataforma recente, pequenos bugs podem acontecer. Caso encontre algo ou
+                precise de suporte, conte com nosso time direto pelo e-mail{' '}
+                <a
+                  href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.59"
+                  className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
+                >
+                  juniorrodriguesjr123.jr@gmail.com
+                </a>
+                . Vamos resolver rapidinho!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end md:self-center shrink-0 w-full sm:w-auto justify-end">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setFeedbackOpen(true)}
+              className="text-xs h-8 gap-1.5 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold shadow-xs rounded-xl"
+            >
+              <MessageSquarePlus className="w-3.5 h-3.5" />
+              <span>Dar Feedback / Ideias</span>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* HERO SECTION — MOBILE-FIRST & ALTA CONVERSÃO */}
-      <section className="relative overflow-hidden pt-10 sm:pt-20 pb-14 sm:pb-20 px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
+      <section className="relative overflow-hidden pt-6 sm:pt-14 pb-14 sm:pb-20 px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
         <div className="max-w-5xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-xs font-bold uppercase tracking-wider animate-in fade-in">
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
@@ -638,6 +691,22 @@ export const Landing: React.FC = () => {
           </div>
         </div>
       </section>
+      {/* BOTÃO FLUTUANTE DE FEEDBACK */}
+      <div className="fixed bottom-5 right-5 z-40">
+        <Button
+          type="button"
+          onClick={() => setFeedbackOpen(true)}
+          className="shadow-xl bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold text-xs h-10 px-3.5 rounded-full border-2 border-white/20 flex items-center gap-2 animate-bounce-subtle"
+          title="Deixe seu feedback ou dê ideias para melhorar o site"
+        >
+          <Lightbulb className="w-4 h-4 text-amber-300" />
+          <span className="hidden sm:inline">Dê sua ideia / Feedback</span>
+          <span className="sm:hidden">Feedback</span>
+        </Button>
+      </div>
+
+      {/* MODAL DE FEEDBACK */}
+      <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </div>
   )
 }

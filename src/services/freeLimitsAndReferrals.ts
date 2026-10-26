@@ -61,13 +61,26 @@ export async function getDailyLimitStatus(tab: 'virais' | 'vendas'): Promise<Dai
     }
   }
 
-  const res = await pb.send<DailyLimitStatus>(`/backend/v1/daily-limits/status?tab=${tab}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-  return res
+  try {
+    const res = await pb.send<DailyLimitStatus>(`/backend/v1/daily-limits/status?tab=${tab}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    return res
+  } catch (err: any) {
+    console.warn('[getDailyLimitStatus] Erro ao consultar backend:', err)
+    return {
+      tab,
+      date: new Date().toISOString().slice(0, 10),
+      count_today: 0,
+      limit: 6,
+      remaining: 6,
+      is_unlimited: false,
+      reason: 'free',
+    }
+  }
 }
 
 /**

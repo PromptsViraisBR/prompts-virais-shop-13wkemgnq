@@ -39,6 +39,26 @@ export interface FunnelMetricsResponse {
   }
 }
 
+export interface ResetAnalyticsResponse {
+  success: boolean
+  message: string
+  deleted_counts: {
+    events: number
+    payments_history: number
+    daily_generation_usage: number
+    video_credits_usage: number
+    users_welcome_flags_reset: number
+    subscriptions_email_flags_reset: number
+  }
+  preserved: {
+    users: boolean
+    subscriptions: boolean
+    prompts: boolean
+    favorites: boolean
+  }
+  error?: string
+}
+
 const SESSION_KEY = 'pv_funnel_session_id'
 
 export function getOrCreateSessionId(): string {
@@ -99,4 +119,14 @@ export async function getFunnelMetrics(
     console.error('[events] Falha ao consultar métricas do funil:', err)
     return null
   }
+}
+
+/**
+ * Zera todos os dados de métricas/estatísticas de teste acumulados (Apenas Admin).
+ * PRESERVA: contas de usuários, assinaturas ativas, prompts e favoritos.
+ */
+export async function resetAnalyticsData(): Promise<ResetAnalyticsResponse> {
+  return await pb.send<ResetAnalyticsResponse>('/backend/v1/admin/reset-analytics', {
+    method: 'POST',
+  })
 }

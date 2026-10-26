@@ -44,6 +44,7 @@ import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
 import { ViralGenerator } from '@/components/ViralGenerator'
 import { ExternalImageToolsCard } from '@/components/ExternalImageToolsCard'
+import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
 import { ImagePromptGeneratorCard } from '@/components/ImagePromptGeneratorCard'
 import { RefreshCw } from 'lucide-react'
 
@@ -375,6 +376,14 @@ export const ViralVideos: React.FC = () => {
       {/* INDICAÇÃO DE FERRAMENTAS EXTERNAS GRATUITAS PARA CRIAÇÃO DE IMAGEM */}
       <section id="ferramentas-imagem-externas" className="scroll-mt-20">
         <ExternalImageToolsCard />
+      </section>
+
+      {/* INDICAÇÃO DE FERRAMENTAS EXTERNAS PARA CRIAÇÃO DE VÍDEO (Flow/Veo, Gemini, Motion 16) */}
+      <section id="ferramentas-video-externas" className="scroll-mt-20">
+        <ExternalVideoToolsCard
+          title="Onde animar e gerar o vídeo do seu roteiro?"
+          description="Depois de escolher ou gerar seu prompt, use estas ferramentas para renderizar suas cenas em alta resolução:"
+        />
       </section>
 
       {/* GERADOR DE ROTEIROS A PARTIR DE IMAGEM CRIADA OU IDEIA */}

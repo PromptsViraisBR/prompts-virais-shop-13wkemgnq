@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
 import {
   saveGeneratedPrompt,
   getUserGenerations,
@@ -995,6 +996,13 @@ export const Generator: React.FC = () => {
                       )}
                     </Button>
                   </div>
+
+                  {/* Sugestão de Ferramentas de Vídeo Externas: Flow/Veo, Gemini, Motion 16 */}
+                  <ExternalVideoToolsCard
+                    title="Para onde levar este roteiro agora?"
+                    description="Copie o roteiro acima e escolha a ferramenta recomendada para renderizar seu vídeo:"
+                    compact
+                  />
 
                   {/* Informação sobre regenerações extras e saldo de créditos */}
                   <div className="text-[11px] text-muted-foreground flex items-center justify-between px-1">

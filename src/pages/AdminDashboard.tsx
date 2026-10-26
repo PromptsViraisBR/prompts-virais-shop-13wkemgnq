@@ -6,7 +6,12 @@ import {
   AdminOverviewResult,
   refundMercadoPagoPayment,
 } from '@/services/mercadoPago'
-import { getFunnelMetrics, FunnelMetricsResponse } from '@/services/events'
+import {
+  getFunnelMetrics,
+  resetAnalyticsData,
+  FunnelMetricsResponse,
+  ResetAnalyticsResponse,
+} from '@/services/events'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +41,7 @@ import {
   Mail,
   Send,
   Inbox,
+  Trash2,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import {
@@ -70,6 +76,11 @@ export const AdminDashboard: React.FC = () => {
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewSubject, setPreviewSubject] = useState('')
   const [loadingPreview, setLoadingPreview] = useState(false)
+
+  // Modal de Zerar / Limpar Dados de Teste
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [resettingData, setResettingData] = useState(false)
+  const [resetResult, setResetResult] = useState<ResetAnalyticsResponse | null>(null)
 
   // Modal de Estorno/Reembolso
   const [selectedPaymentForRefund, setSelectedPaymentForRefund] = useState<{
@@ -246,6 +257,27 @@ export const AdminDashboard: React.FC = () => {
     }
   }
 
+  const handleResetAnalytics = async () => {
+    setResettingData(true)
+    try {
+      const res = await resetAnalyticsData()
+      setResetResult(res)
+      toast({
+        title: 'Dados de teste zerados!',
+        description: `${res.deleted_counts.events} eventos e ${res.deleted_counts.payments_history} pagamentos de teste foram removidos. O painel está pronto para novos acessos reais.`,
+      })
+      await loadOverview()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao zerar dados',
+        description: err?.message || 'Falha ao executar limpeza de estatísticas.',
+        variant: 'destructive',
+      })
+    } finally {
+      setResettingData(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="py-24 text-center space-y-4">
@@ -290,7 +322,19 @@ export const AdminDashboard: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setResetResult(null)
+              setResetModalOpen(true)
+            }}
+            className="gap-1.5 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+          >
+            <Trash2 className="w-4 h-4 text-rose-500" />
+            Limpar dados de teste
+          </Button>
           <Button variant="outline" size="sm" onClick={loadOverview} className="gap-1.5">
             <RefreshCw className="w-4 h-4" />
             Atualizar
@@ -940,6 +984,114 @@ export const AdminDashboard: React.FC = () => {
                 Disparar para meu e-mail
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação para Limpar / Zerar Dados de Teste */}
+      <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
+        <DialogContent className="max-w-md sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="w-5 h-5 text-rose-500" />
+              Zerar Dados de Teste do Painel
+            </DialogTitle>
+            <DialogDescription>
+              Limpe o histórico de métricas, eventos de navegação, funil e pagamentos de teste para
+              começar a divulgação com métricas 100% limpas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-sm">
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 space-y-2 text-xs">
+              <p className="font-semibold text-rose-700 dark:text-rose-300">
+                ⚠️ O que será apagado e zerado:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1">
+                <li>
+                  <strong className="text-foreground">Eventos do funil</strong> (visitas de página,
+                  inícios de checkout, cliques de teste, visualizações de planos);
+                </li>
+                <li>
+                  <strong className="text-foreground">Histórico de pagamentos de teste</strong> da
+                  coleção payments_history;
+                </li>
+                <li>
+                  <strong className="text-foreground">Contadores de uso diário de teste</strong>{' '}
+                  (daily_generation_usage) e créditos de vídeo de teste;
+                </li>
+                <li>
+                  <strong className="text-foreground">Flags de auditoria de e-mails</strong>{' '}
+                  (welcome_email_sent, lembretes de PIX e notificações de teste).
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 space-y-2 text-xs">
+              <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                🛡️ O que permanece 100% SEGURO (não será alterado):
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1">
+                <li>
+                  <strong className="text-foreground">Contas de usuários</strong> (contas criadas,
+                  login e perfis permanecem intactos);
+                </li>
+                <li>
+                  <strong className="text-foreground">Assinaturas ativas</strong> e status de planos
+                  dos usuários;
+                </li>
+                <li>
+                  <strong className="text-foreground">Biblioteca de Prompts</strong> (todos os
+                  prompts e modelos cadastrados);
+                </li>
+                <li>
+                  <strong className="text-foreground">Favoritos</strong> dos usuários.
+                </li>
+              </ul>
+            </div>
+
+            {resetResult && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 p-3 text-xs space-y-1">
+                <p className="font-bold text-emerald-700 dark:text-emerald-300">
+                  ✅ Limpeza realizada com sucesso!
+                </p>
+                <p className="text-muted-foreground">
+                  Eventos removidos: {resetResult.deleted_counts.events} | Pagamentos de teste:{' '}
+                  {resetResult.deleted_counts.payments_history} | Usos diários:{' '}
+                  {resetResult.deleted_counts.daily_generation_usage}.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setResetModalOpen(false)}
+              disabled={resettingData}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleResetAnalytics}
+              disabled={resettingData}
+              className="gap-1.5"
+            >
+              {resettingData ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Limpando dados...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Sim, zerar dados de teste
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -65,6 +65,7 @@ import { Clock, RefreshCw } from 'lucide-react'
 import { PromptInfoCard } from '@/components/PromptInfoCard'
 import { PromptSceneList } from '@/components/PromptSceneList'
 import { PromptCustomizeModal } from '@/components/PromptCustomizeModal'
+import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
 
 export const PromptDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -714,6 +715,13 @@ export const PromptDetail: React.FC = () => {
                 onCopyScene={(sceneIndex, sceneRaw, sceneTitle) => {
                   handleCopyScene(sceneIndex, sceneRaw, sceneTitle)
                 }}
+              />
+
+              {/* Sugestão de Ferramentas de Vídeo: Flow/Veo, Gemini, Motion 16 */}
+              <ExternalVideoToolsCard
+                title="Pronto para gerar seu vídeo?"
+                description="Copie as cenas acima e abra a ferramenta recomendada em uma nova aba para renderizar:"
+                compact
               />
             </div>
           )}

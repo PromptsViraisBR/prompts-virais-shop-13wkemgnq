@@ -22,6 +22,7 @@ import {
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
 import { PromptSceneList } from '@/components/PromptSceneList'
+import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -837,6 +838,13 @@ export const ViralGenerator: React.FC = () => {
                     promptText={result.optional_script}
                     promptTitle={result.character_name || result.theme_name || 'Roteiro Viral'}
                     inModal={false}
+                  />
+
+                  {/* Sugestão de Ferramentas de Vídeo Externas: Google Flow / Veo, Gemini, Motion 16 */}
+                  <ExternalVideoToolsCard
+                    title="Para onde levar este roteiro agora?"
+                    description="Copie as cenas acima e abra uma das opções recomendadas para renderizar seu vídeo:"
+                    compact
                   />
                 </CardContent>
 

@@ -8,6 +8,7 @@ import {
 } from '@/services/imageGeneration'
 import { generateViralSceneWithImages, type GenerateViralSceneResult } from '@/services/generations'
 import { PromptSceneList } from '@/components/PromptSceneList'
+import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
 import { AuthGateModal } from '@/components/AuthGateModal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -961,6 +962,13 @@ export const ViralImageGenerator: React.FC = () => {
                           scriptResult.character_name || scriptResult.theme_name || 'Roteiro Viral'
                         }
                         inModal={false}
+                      />
+
+                      {/* Sugestão de Ferramentas de Vídeo: Flow/Veo, Gemini, Motion 16 */}
+                      <ExternalVideoToolsCard
+                        title="Para onde levar este roteiro agora?"
+                        description="Copie as cenas acima e abra uma das ferramentas recomendadas para transformar em vídeo:"
+                        compact
                       />
                     </CardContent>
 

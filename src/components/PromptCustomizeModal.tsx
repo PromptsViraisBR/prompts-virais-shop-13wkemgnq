@@ -27,6 +27,7 @@ import type { PromptRecord } from '@/types'
 import { toast } from '@/hooks/use-toast'
 import { PromptInfoCard } from '@/components/PromptInfoCard'
 import { PromptSceneList } from '@/components/PromptSceneList'
+import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
 import {
   adaptPromptWithImages,
   regeneratePromptVariations,
@@ -641,6 +642,13 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
                 promptText={adaptedResult}
                 promptTitle={activeProductOrCharacter}
                 inModal={true}
+              />
+
+              {/* Ferramentas de Vídeo Externas Recomendadas */}
+              <ExternalVideoToolsCard
+                title="Para onde levar o roteiro adaptado?"
+                description="Copie as cenas acima e abra uma das opções em nova aba:"
+                compact
               />
 
               {/* Botão Concluir & Manter na Página */}

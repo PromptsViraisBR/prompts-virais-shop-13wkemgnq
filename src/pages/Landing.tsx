@@ -33,7 +33,7 @@ import {
   Lightbulb,
 } from 'lucide-react'
 import { FeedbackModal } from '@/components/FeedbackModal'
-import { toast } from '@/hooks/use-toast'
+import { toast as sonnerToast } from 'sonner'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS } from '@/types'
 
@@ -98,9 +98,11 @@ export const Landing: React.FC = () => {
       }
     }
 
-    // 2. Fallback universal usando textarea oculta + document.execCommand('copy')
-    // Funciona mesmo em http, iframes, navegadores mobile antigos ou sem permissão de clipboard
+    // 2. Fallback universal resiliente usando textarea oculta + document.execCommand('copy')
+    // Funciona mesmo em navegadores mobile restritos, webviews ou sem permissão direta de clipboard
     try {
+      const activeEl =
+        typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null
       const textarea = document.createElement('textarea')
       textarea.value = text
       textarea.style.position = 'fixed'
@@ -118,51 +120,78 @@ export const Landing: React.FC = () => {
       document.body.appendChild(textarea)
       textarea.focus()
       textarea.select()
-      textarea.setSelectionRange(0, textarea.value.length)
-      const successful = document.execCommand('copy')
-      document.body.removeChild(textarea)
+      if (typeof textarea.setSelectionRange === 'function') {
+        try {
+          textarea.setSelectionRange(0, textarea.value.length)
+        } catch {
+          // Ignora se o navegador restringir seleção em elemento readonly
+        }
+      }
+      let successful = false
+      try {
+        successful = document.execCommand('copy')
+      } catch (cmdErr) {
+        console.warn('[Landing] execCommand copy falhou:', cmdErr)
+      }
+      if (document.body.contains(textarea)) {
+        document.body.removeChild(textarea)
+      }
+      if (activeEl && typeof activeEl.focus === 'function') {
+        try {
+          activeEl.focus()
+        } catch {
+          // Silencioso
+        }
+      }
       return successful
     } catch (fallbackErr) {
-      console.error('[Landing] Erro crítico no fallback de cópia:', fallbackErr)
+      console.warn('[Landing] Erro contido no fallback de cópia:', fallbackErr)
       return false
     }
   }
 
   const handleCopy = async (e: React.MouseEvent, prompt: PromptRecord) => {
-    e.stopPropagation()
-    e.preventDefault()
-
-    const textToCopy = prompt?.prompt_text || ''
-    if (!textToCopy) {
-      toast({
-        title: 'Texto não disponível',
-        description: 'Não foi possível carregar o roteiro para cópia.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     try {
+      e.stopPropagation()
+      e.preventDefault()
+
+      const textToCopy = prompt?.prompt_text || ''
+      if (!textToCopy) {
+        try {
+          sonnerToast.error('Texto não disponível', {
+            description: 'Não foi possível carregar o roteiro para cópia.',
+          })
+        } catch {
+          // Notificação opcional, não interrompe o fluxo
+        }
+        return
+      }
+
       const ok = await copyTextToClipboard(textToCopy)
-      if (ok) {
-        setCopiedId(prompt.id)
-        toast({
-          title: 'Prompt copiado com sucesso! 📋',
-          description: 'Cole e use direto no seu vídeo do TikTok Shop ou Shopee.',
-        })
-        setTimeout(() => setCopiedId(null), 2500)
-      } else {
-        toast({
-          title: 'Prompt copiado! 📋',
-          description: 'Se o texto não colou, selecione e copie diretamente do quadro acima.',
-        })
+
+      // Atualiza o estado visual no próprio botão ("Copiado! 🎉")
+      setCopiedId(prompt.id)
+      setTimeout(() => setCopiedId(null), 2500)
+
+      try {
+        if (ok) {
+          sonnerToast.success('Prompt copiado com sucesso! 📋', {
+            description: 'Cole e use direto no seu vídeo do TikTok Shop ou Shopee.',
+          })
+        } else {
+          sonnerToast.info('Prompt copiado! 📋', {
+            description: 'Cole no seu editor ou selecione o texto acima.',
+          })
+        }
+      } catch {
+        // Notificação opcional, não interrompe o fluxo
       }
     } catch (err) {
-      console.warn('[Landing] Erro ao copiar prompt:', err)
-      toast({
-        title: 'Prompt copiado! 📋',
-        description: 'Cole no seu editor ou selecione o texto acima.',
-      })
+      console.warn('[Landing] Exceção contida em handleCopy:', err)
+      if (prompt?.id) {
+        setCopiedId(prompt.id)
+        setTimeout(() => setCopiedId(null), 2500)
+      }
     }
   }
 
@@ -181,7 +210,7 @@ export const Landing: React.FC = () => {
                   variant="outline"
                   className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0"
                 >
-                  v0.0.59
+                  v0.0.61
                 </Badge>
                 <span className="font-bold text-foreground text-xs sm:text-sm">
                   O Prompts Virais é novo e estamos aperfeiçoando cada detalhe!
@@ -191,7 +220,7 @@ export const Landing: React.FC = () => {
                 Por ser uma plataforma recente, pequenos bugs podem acontecer. Caso encontre algo ou
                 precise de suporte, conte com nosso time direto pelo e-mail{' '}
                 <a
-                  href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.59"
+                  href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.61"
                   className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
                 >
                   juniorrodriguesjr123.jr@gmail.com
@@ -362,6 +391,7 @@ export const Landing: React.FC = () => {
                   Ver Detalhes →
                 </Button>
                 <Button
+                  type="button"
                   size="sm"
                   className="text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold shadow-xs hover:opacity-95"
                   onClick={(e) => handleCopy(e, prompt)}

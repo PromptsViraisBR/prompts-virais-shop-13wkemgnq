@@ -256,17 +256,17 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
             </div>
 
             {/* Imagem do QR Code oficial do Mercado Pago com Fallback Gracioso */}
-            <div className="flex flex-col items-center justify-center p-4 bg-muted/30 border rounded-2xl space-y-3">
-              <div className="p-3 bg-white rounded-2xl shadow-md border-2 border-emerald-500/30 flex items-center justify-center min-w-[200px] min-h-[200px]">
+            <div className="flex flex-col items-center justify-center p-3 sm:p-4 bg-muted/30 border rounded-2xl space-y-3 max-w-full overflow-hidden">
+              <div className="p-2 sm:p-3 bg-white rounded-2xl shadow-md border-2 border-emerald-500/30 flex items-center justify-center min-w-[180px] max-w-full">
                 {qrBase64Src && !imageError ? (
                   <img
                     src={qrBase64Src}
                     alt="QR Code Pix Mercado Pago"
                     onError={() => setImageError(true)}
-                    className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
+                    className="w-40 h-40 xs:w-48 xs:h-48 sm:w-56 sm:h-56 object-contain max-w-full"
                   />
                 ) : (
-                  <div className="w-48 h-48 sm:w-56 sm:h-56 flex flex-col items-center justify-center text-center p-3 text-muted-foreground gap-2 bg-emerald-500/5 rounded-xl">
+                  <div className="w-40 h-40 xs:w-48 xs:h-48 sm:w-56 sm:h-56 flex flex-col items-center justify-center text-center p-2 text-muted-foreground gap-2 bg-emerald-500/5 rounded-xl">
                     <QrCode className="w-12 h-12 text-emerald-600" />
                     <span className="text-xs font-bold text-foreground">
                       Use o Pix Copia e Cola
@@ -317,7 +317,7 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
                 <div className="relative">
                   <div
                     onClick={handleCopy}
-                    className="w-full p-2.5 pr-24 rounded-xl bg-muted/60 border text-[11px] font-mono text-muted-foreground truncate cursor-pointer hover:bg-muted select-all"
+                    className="w-full p-2.5 pr-24 rounded-xl bg-muted/60 border text-[11px] font-mono text-muted-foreground truncate cursor-pointer hover:bg-muted select-all break-all"
                   >
                     {pixData.qr_code}
                   </div>
@@ -325,7 +325,7 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
                     type="button"
                     size="sm"
                     onClick={handleCopy}
-                    className={`absolute right-1 top-1 h-7 text-xs font-bold gap-1 rounded-lg ${
+                    className={`absolute right-1 top-1 h-7 text-xs font-bold gap-1 rounded-lg shrink-0 ${
                       copied
                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                         : 'bg-emerald-600 hover:bg-emerald-700 text-white'

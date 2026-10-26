@@ -163,14 +163,14 @@ export const Profile: React.FC = () => {
     plan === 'annual' ? 'Anual VIP' : plan === 'monthly' ? 'PRO (Vídeo IA)' : 'Gratuito'
 
   return (
-    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-8">
+    <div className="py-6 sm:py-12 px-3 xs:px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-6 sm:space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-6">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight break-words">
             Meu Perfil & Assinatura
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Gerencie suas informações cadastrais e acompanhe seu plano ativo.
           </p>
         </div>
@@ -182,10 +182,10 @@ export const Profile: React.FC = () => {
             logout()
             navigate('/')
           }}
-          className="text-destructive hover:bg-destructive/10 gap-2 shrink-0"
+          className="text-destructive hover:bg-destructive/10 gap-2 shrink-0 self-start sm:self-auto min-h-[38px]"
         >
           <LogOut className="w-4 h-4" />
-          Sair da Conta
+          <span>Sair da Conta</span>
         </Button>
       </div>
 

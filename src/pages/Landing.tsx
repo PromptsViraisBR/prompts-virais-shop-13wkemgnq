@@ -245,28 +245,28 @@ export const Landing: React.FC = () => {
       </section>
 
       {/* HERO SECTION — MOBILE-FIRST & ALTA CONVERSÃO */}
-      <section className="relative overflow-hidden pt-6 sm:pt-14 pb-14 sm:pb-20 px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
-        <div className="max-w-5xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-xs font-bold uppercase tracking-wider animate-in fade-in">
+      <section className="relative overflow-hidden pt-6 sm:pt-14 pb-14 sm:pb-20 px-3 xs:px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
+        <div className="max-w-5xl mx-auto text-center space-y-5 sm:space-y-6">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[11px] sm:text-xs font-bold uppercase tracking-wider animate-in fade-in max-w-full">
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            <span>Prompts Prontos para Vídeos Virais que Vendem</span>
+            <span className="truncate">Prompts Prontos para Vídeos Virais que Vendem</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-foreground leading-[1.15]">
+          <h1 className="text-2xl xs:text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-foreground leading-[1.15] break-words">
             Venda até 10x mais no TikTok Shop e Shopee com{' '}
             <span className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
               Roteiros que Retêm e Convertem
             </span>
           </h1>
 
-          <p className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+          <p className="text-sm xs:text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed px-1">
             Pare de postar vídeos sem retenção. Acesse roteiros de 10s e 60s em <strong>POV</strong>{' '}
             e com <strong>Modelo</strong> calibrados para os primeiros 3 segundos — com chamada
             irresistível para o carrinho.
           </p>
 
           {/* CTA EM DESTAQUE ACIMA DA DOBRA (EXPERIMENTAR GRÁTIS + PLANOS) */}
-          <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 max-w-xl mx-auto">
+          <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-xl mx-auto px-1">
             <Link
               to={user ? '/gerador' : '/login'}
               className="w-full sm:w-auto flex-1"
@@ -274,11 +274,11 @@ export const Landing: React.FC = () => {
             >
               <Button
                 size="lg"
-                className="w-full h-14 sm:h-16 px-6 sm:px-8 text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-xl shadow-pink-500/30 rounded-2xl group transition-all"
+                className="w-full min-h-[50px] h-12 xs:h-14 sm:h-16 px-4 xs:px-6 sm:px-8 text-sm xs:text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-xl shadow-pink-500/30 rounded-2xl group transition-all"
               >
-                <Wand2 className="w-5 h-5 mr-2 shrink-0 group-hover:rotate-12 transition-transform" />
-                <span>Experimentar Grátis Agora</span>
-                <ArrowRight className="w-5 h-5 ml-2 shrink-0 group-hover:translate-x-1 transition-transform" />
+                <Wand2 className="w-4 h-4 xs:w-5 xs:h-5 mr-1.5 xs:mr-2 shrink-0 group-hover:rotate-12 transition-transform" />
+                <span className="truncate">Experimentar Grátis Agora</span>
+                <ArrowRight className="w-4 h-4 xs:w-5 xs:h-5 ml-1.5 xs:ml-2 shrink-0 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
 
@@ -290,9 +290,9 @@ export const Landing: React.FC = () => {
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full h-14 sm:h-16 px-6 font-bold border-2 border-pink-500/40 hover:border-pink-500 hover:bg-pink-500/10 rounded-2xl text-foreground text-sm sm:text-base"
+                className="w-full min-h-[50px] h-12 xs:h-14 sm:h-16 px-4 xs:px-6 font-bold border-2 border-pink-500/40 hover:border-pink-500 hover:bg-pink-500/10 rounded-2xl text-foreground text-xs xs:text-sm sm:text-base"
               >
-                <Crown className="w-4 h-4 mr-2 text-amber-500 shrink-0" />
+                <Crown className="w-4 h-4 mr-1.5 xs:mr-2 text-amber-500 shrink-0" />
                 <span>Ver Planos PRO</span>
               </Button>
             </Link>
@@ -771,21 +771,21 @@ export const Landing: React.FC = () => {
             Pare de perder tempo tentando adivinhar o que funciona. Use os roteiros que já geram
             cliques e pedidos todos os dias.
           </p>
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to={user ? '/gerador' : '/login'}>
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md mx-auto">
+            <Link to={user ? '/gerador' : '/login'} className="w-full sm:w-auto">
               <Button
                 size="lg"
-                className="w-full sm:w-auto bg-white text-pink-600 hover:bg-white/90 font-extrabold px-8 py-6 text-base shadow-lg rounded-2xl"
+                className="w-full sm:w-auto min-h-[50px] bg-white text-pink-600 hover:bg-white/90 font-extrabold px-6 sm:px-8 py-4 sm:py-6 text-sm sm:text-base shadow-lg rounded-2xl"
               >
-                <Sparkles className="w-5 h-5 mr-2 text-amber-500" />
-                Experimentar Grátis Agora
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-amber-500 shrink-0" />
+                <span>Experimentar Grátis Agora</span>
               </Button>
             </Link>
-            <Link to="/planos">
+            <Link to="/planos" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto border-2 border-white/60 bg-transparent text-white hover:bg-white/10 font-bold px-8 py-6 text-base rounded-2xl"
+                className="w-full sm:w-auto min-h-[50px] border-2 border-white/60 bg-transparent text-white hover:bg-white/10 font-bold px-6 sm:px-8 py-4 sm:py-6 text-sm sm:text-base rounded-2xl"
               >
                 Ver Planos Disponíveis
               </Button>

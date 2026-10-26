@@ -295,17 +295,17 @@ export const ViralVideos: React.FC = () => {
   }
 
   return (
-    <div className="py-4 sm:py-12 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
+    <div className="py-4 sm:py-12 px-2.5 xs:px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* 1. Cabeçalho Especial Criadores de Conteúdo - Mobile First Centralizado */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-amber-500/10 p-4 sm:p-8 shadow-sm">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-amber-500/10 p-3.5 xs:p-4 sm:p-8 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 text-center lg:text-left items-center">
           <div className="space-y-2.5 max-w-2xl flex flex-col items-center lg:items-start">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-bold tracking-wide">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Para Criadores de Conteúdo, Reels, Shorts & TikTok</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 xs:px-3 py-1 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[11px] sm:text-xs font-bold tracking-wide max-w-full">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Para Criadores de Conteúdo, Reels, Shorts & TikTok</span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+            <h1 className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight break-words">
               Vídeos Virais 🚀🎬
             </h1>
 

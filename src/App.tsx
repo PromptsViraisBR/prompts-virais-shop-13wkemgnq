@@ -9,18 +9,39 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { toast } from '@/hooks/use-toast'
 import Layout from './components/Layout'
 
-// Pages
-import Index from './pages/Index'
-import { Login } from './pages/Login'
-import { Plans } from './pages/Plans'
-import { Library } from './pages/Library'
-import { ViralVideos } from './pages/ViralVideos'
-import { PromptDetail } from './pages/PromptDetail'
-import { Generator } from './pages/Generator'
-import { Profile } from './pages/Profile'
-import { CheckoutSuccess } from './pages/CheckoutSuccess'
-import { AdminDashboard } from './pages/AdminDashboard'
-import NotFound from './pages/NotFound'
+import { lazy, Suspense } from 'react'
+
+// Code-splitting via React.lazy para reduzir o bundle inicial e acelerar o carregamento
+const Index = lazy(() => import('./pages/Index'))
+const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
+const Plans = lazy(() => import('./pages/Plans').then((m) => ({ default: m.Plans })))
+const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })))
+const ViralVideos = lazy(() =>
+  import('./pages/ViralVideos').then((m) => ({ default: m.ViralVideos })),
+)
+const PromptDetail = lazy(() =>
+  import('./pages/PromptDetail').then((m) => ({ default: m.PromptDetail })),
+)
+const Generator = lazy(() => import('./pages/Generator').then((m) => ({ default: m.Generator })))
+const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })))
+const CheckoutSuccess = lazy(() =>
+  import('./pages/CheckoutSuccess').then((m) => ({ default: m.CheckoutSuccess })),
+)
+const AdminDashboard = lazy(() =>
+  import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard })),
+)
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
+const TermsOfUse = lazy(() => import('./pages/TermsOfUse'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+
+function PageFallback() {
+  return (
+    <div className="py-24 text-center space-y-3 min-h-[50vh] flex flex-col items-center justify-center">
+      <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-pink-500 border-t-transparent" />
+      <p className="text-xs text-muted-foreground font-medium animate-pulse">Carregando...</p>
+    </div>
+  )
+}
 
 const App = () => {
   // Listener global para capturar rejeições assíncronas não tratadas (unhandledrejection)
@@ -59,21 +80,25 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/planos" element={<Plans />} />
-                <Route path="/biblioteca" element={<Library />} />
-                <Route path="/virais" element={<ViralVideos />} />
-                <Route path="/prompt/:id" element={<PromptDetail />} />
-                <Route path="/gerador" element={<Generator />} />
-                <Route path="/perfil" element={<Profile />} />
-                <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/planos" element={<Plans />} />
+                  <Route path="/biblioteca" element={<Library />} />
+                  <Route path="/virais" element={<ViralVideos />} />
+                  <Route path="/prompt/:id" element={<PromptDetail />} />
+                  <Route path="/gerador" element={<Generator />} />
+                  <Route path="/perfil" element={<Profile />} />
+                  <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/privacidade" element={<PrivacyPolicy />} />
+                  <Route path="/termos" element={<TermsOfUse />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>

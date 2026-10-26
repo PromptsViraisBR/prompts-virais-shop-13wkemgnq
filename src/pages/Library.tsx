@@ -229,21 +229,21 @@ export const Library: React.FC = () => {
   }
 
   return (
-    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
+    <div className="py-6 sm:py-12 px-3 xs:px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* 1. Cabeçalho Amigável e Acolhedor (TikTok / Shopee Style) */}
-      <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-pink-500/10 via-amber-500/5 to-purple-500/10 p-6 sm:p-8 shadow-sm">
+      <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-pink-500/10 via-amber-500/5 to-purple-500/10 p-4 xs:p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2.5 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-xs font-bold tracking-wide">
-              <Flame className="w-3.5 h-3.5" />
-              <span>Ganchos & Roteiros Testados em Vitrines</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 xs:px-3 py-1 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-[11px] sm:text-xs font-bold tracking-wide max-w-full">
+              <Flame className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Ganchos & Roteiros Testados em Vitrines</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+            <h1 className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight break-words">
               Biblioteca de Prompts Virais 🎬✨
             </h1>
 
-            <p className="text-base sm:text-lg text-muted-foreground font-medium">
+            <p className="text-sm xs:text-base sm:text-lg text-muted-foreground font-medium">
               Escolha seu roteiro viral e copie em 1 toque 🚀 — com gancho nos primeiros 3 segundos,
               caimento perfeito e chamada direta para o carrinho da Shopee ou TikTok Shop!
             </p>

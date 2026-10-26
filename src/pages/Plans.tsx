@@ -298,22 +298,22 @@ export const Plans: React.FC = () => {
   }
 
   return (
-    <div className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
+    <div className="py-6 sm:py-16 px-3 xs:px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8 sm:space-y-12">
       {/* Header */}
-      <div className="text-center max-w-3xl mx-auto space-y-4">
-        <div className="flex items-center justify-center gap-2">
+      <div className="text-center max-w-3xl mx-auto space-y-3 sm:space-y-4">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <Badge
             variant="outline"
-            className="text-pink-600 dark:text-pink-400 border-pink-500/30 px-3 py-1 font-semibold uppercase tracking-wider text-xs"
+            className="text-pink-600 dark:text-pink-400 border-pink-500/30 px-2.5 xs:px-3 py-1 font-semibold uppercase tracking-wider text-[11px] sm:text-xs"
           >
             Planos Transparentes
           </Badge>
-          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-3 py-1 font-bold uppercase tracking-wider text-xs flex items-center gap-1">
+          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 xs:px-3 py-1 font-bold uppercase tracking-wider text-[11px] sm:text-xs flex items-center gap-1">
             <QrCode className="w-3.5 h-3.5" />
             PIX Disponível em Tudo
           </Badge>
         </div>
-        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
+        <h1 className="text-2xl xs:text-3xl sm:text-5xl font-extrabold tracking-tight break-words">
           Multiplique as vendas da sua vitrine com roteiros virais
         </h1>
         <p className="text-muted-foreground text-base sm:text-lg">

@@ -802,7 +802,7 @@ export const AdminDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[620px]">
                 <thead>
                   <tr className="border-b text-muted-foreground font-semibold">
                     <th className="pb-2">Data / Hora</th>
@@ -923,7 +923,7 @@ export const AdminDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[550px]">
                 <thead>
                   <tr className="border-b text-muted-foreground font-semibold">
                     <th className="pb-2">Data</th>
@@ -1005,7 +1005,7 @@ export const AdminDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b text-muted-foreground font-semibold">
                     <th className="pb-2">Usuário / E-mail</th>
@@ -1080,7 +1080,7 @@ export const AdminDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[500px]">
                 <thead>
                   <tr className="border-b text-muted-foreground font-semibold">
                     <th className="pb-2">ID Pagamento</th>

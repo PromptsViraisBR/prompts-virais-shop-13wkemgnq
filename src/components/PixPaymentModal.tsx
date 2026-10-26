@@ -262,6 +262,8 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
                   <img
                     src={qrBase64Src}
                     alt="QR Code Pix Mercado Pago"
+                    loading="lazy"
+                    decoding="async"
                     onError={() => setImageError(true)}
                     className="w-40 h-40 xs:w-48 xs:h-48 sm:w-56 sm:h-56 object-contain max-w-full"
                   />

@@ -396,19 +396,51 @@ export const Footer: React.FC = () => {
 
           <div className="space-y-3">
             <h4 className="text-sm font-semibold tracking-wider text-foreground uppercase">
-              Nichos Principais
+              Legal & Suporte
             </h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Moda Feminina & Vestidos</li>
-              <li>Frutas Humanoides & ASMR</li>
-              <li>Troca de Rosto (Face Swap)</li>
-              <li>Terror 3AM & Comédia Viral</li>
+              <li>
+                <Link to="/privacidade" className="hover:text-pink-600 transition-colors">
+                  Política de Privacidade
+                </Link>
+              </li>
+              <li>
+                <Link to="/termos" className="hover:text-pink-600 transition-colors">
+                  Termos de Uso & Assinatura
+                </Link>
+              </li>
+              <li className="pt-1 text-xs text-muted-foreground">
+                <span className="block font-medium text-foreground">Suporte:</span>
+                <a
+                  href="mailto:juniorrodriguesjr123.jr@gmail.com"
+                  className="hover:underline text-pink-600 dark:text-pink-400 break-all"
+                >
+                  juniorrodriguesjr123.jr@gmail.com
+                </a>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} Prompts Virais Shop. Todos os direitos reservados.</p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
+            <p>© {new Date().getFullYear()} Prompts Virais Shop. Todos os direitos reservados.</p>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/privacidade"
+                className="hover:underline text-muted-foreground hover:text-foreground"
+              >
+                Privacidade
+              </Link>
+              <span>•</span>
+              <Link
+                to="/termos"
+                className="hover:underline text-muted-foreground hover:text-foreground"
+              >
+                Termos de Uso
+              </Link>
+            </div>
+          </div>
           <p className="flex items-center gap-1">
             <span>Desenvolvido para criadores de e-commerce e afiliados</span>
           </p>

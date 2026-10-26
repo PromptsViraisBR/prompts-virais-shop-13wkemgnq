@@ -210,7 +210,7 @@ export const Landing: React.FC = () => {
                   variant="outline"
                   className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0"
                 >
-                  v0.0.61
+                  v0.0.65
                 </Badge>
                 <span className="font-bold text-foreground text-xs sm:text-sm">
                   O Prompts Virais é novo e estamos aperfeiçoando cada detalhe!
@@ -220,13 +220,13 @@ export const Landing: React.FC = () => {
                 Por ser uma plataforma recente, pequenos bugs podem acontecer. Caso encontre algo ou
                 precise de suporte, conte com nosso time direto pelo e-mail{' '}
                 <a
-                  href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.61"
+                  href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.65"
                   className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
                 >
                   juniorrodriguesjr123.jr@gmail.com
                 </a>
                 . Vamos resolver rapidinho!
-              </p>
+              </p>{' '}
             </div>
           </div>
 

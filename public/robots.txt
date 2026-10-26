@@ -1,0 +1,20 @@
+# robots.txt para https://promptsviraisbr.goskip.app
+User-agent: *
+Allow: /
+Allow: /planos
+Allow: /biblioteca
+Allow: /virais
+Allow: /login
+Allow: /privacidade
+Allow: /termos
+
+# Bloquear rotas autenticadas, privadas e checkout
+Disallow: /admin
+Disallow: /perfil
+Disallow: /gerador
+Disallow: /checkout
+Disallow: /checkout/
+Disallow: /checkout/sucesso
+
+# Sitemap oficial
+Sitemap: https://promptsviraisbr.goskip.app/sitemap.xml

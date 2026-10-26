@@ -576,6 +576,27 @@ export const Plans: React.FC = () => {
           protegidos pelo banco emissor. A ativação dos seus recursos PRO ocorre de forma automática
           e instantânea assim que a notificação oficial for confirmada pelo nosso servidor.
         </p>
+        <p className="text-xs text-muted-foreground pt-2 border-t">
+          Ao assinar você concorda com os{' '}
+          <a
+            href="/termos"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-pink-600 dark:text-pink-400 underline hover:text-pink-700"
+          >
+            Termos de Uso
+          </a>{' '}
+          e a{' '}
+          <a
+            href="/privacidade"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-pink-600 dark:text-pink-400 underline hover:text-pink-700"
+          >
+            Política de Privacidade
+          </a>
+          .
+        </p>
       </div>
 
       {/* MODAL DE CHECKOUT SEGURO COM MERCADO PAGO */}
@@ -679,6 +700,29 @@ export const Plans: React.FC = () => {
                 reembolso em até 7 dias, o estorno retorna certinho para a mesma conta do comprador
                 via Mercado Pago.
               </span>
+            </div>
+
+            {/* Disclaimer legal exigido com links visíveis */}
+            <div className="text-[11px] text-muted-foreground text-center px-1 leading-relaxed">
+              Ao assinar você concorda com os{' '}
+              <a
+                href="/termos"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-pink-600 dark:text-pink-400 underline hover:text-pink-700"
+              >
+                Termos de Uso
+              </a>{' '}
+              e a{' '}
+              <a
+                href="/privacidade"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-pink-600 dark:text-pink-400 underline hover:text-pink-700"
+              >
+                Política de Privacidade
+              </a>
+              .
             </div>
 
             {mpConfigured === false && (

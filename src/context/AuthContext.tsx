@@ -13,7 +13,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (email: string, pass: string) => Promise<void>
   signup: (email: string, pass: string, name: string, referralCode?: string) => Promise<void>
-  loginWithOAuth: (provider: 'google' | 'apple') => Promise<{ success: boolean; error?: string }>
+  loginWithOAuth: (provider?: 'google' | 'apple') => Promise<{ success: boolean; error?: string }>
   logout: () => void
   refreshSubscription: () => Promise<void>
   updateProfile: (data: {
@@ -118,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const loginWithOAuth = async (
-    provider: 'google' | 'apple',
+    provider: 'google' | 'apple' = 'google',
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const authData = await pb.collection('users').authWithOAuth2({ provider })

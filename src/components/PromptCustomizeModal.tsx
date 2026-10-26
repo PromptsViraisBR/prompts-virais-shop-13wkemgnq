@@ -644,13 +644,6 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
                 inModal={true}
               />
 
-              {/* Ferramentas de Vídeo Externas Recomendadas */}
-              <ExternalVideoToolsCard
-                title="Para onde levar o roteiro adaptado?"
-                description="Copie as cenas acima e abra uma das opções em nova aba:"
-                compact
-              />
-
               {/* Botão Concluir & Manter na Página */}
               <div className="pt-2 flex justify-end">
                 <Button
@@ -747,6 +740,13 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
                     })()}
                 </div>
               )}
+
+              {/* Ferramentas de Vídeo Externas Recomendadas: logo em seguida ao roteiro e variações */}
+              <ExternalVideoToolsCard
+                title="Para onde levar o roteiro adaptado?"
+                description="Copie as cenas acima e abra uma das opções em nova aba para renderizar:"
+                compact
+              />
             </div>
           )}
         </div>

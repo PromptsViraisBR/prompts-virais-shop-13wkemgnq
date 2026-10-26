@@ -963,13 +963,6 @@ export const ViralImageGenerator: React.FC = () => {
                         }
                         inModal={false}
                       />
-
-                      {/* Sugestão de Ferramentas de Vídeo: Flow/Veo, Gemini, Motion 16 */}
-                      <ExternalVideoToolsCard
-                        title="Para onde levar este roteiro agora?"
-                        description="Copie as cenas acima e abra uma das ferramentas recomendadas para transformar em vídeo:"
-                        compact
-                      />
                     </CardContent>
 
                     <CardFooter className="bg-muted/20 border-t py-3 px-5 flex flex-wrap items-center justify-between gap-2">
@@ -980,6 +973,12 @@ export const ViralImageGenerator: React.FC = () => {
                       </span>
                     </CardFooter>
                   </Card>
+
+                  {/* Sugestão de Ferramentas de Vídeo: Flow/Veo, Gemini, Motion 16 logo após o card do roteiro */}
+                  <ExternalVideoToolsCard
+                    title="Para onde levar este roteiro agora?"
+                    description="Copie as cenas acima e abra uma das ferramentas recomendadas para transformar em vídeo:"
+                  />
                 </div>
               )}
             </div>

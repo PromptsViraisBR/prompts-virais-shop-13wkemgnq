@@ -716,13 +716,6 @@ export const PromptDetail: React.FC = () => {
                   handleCopyScene(sceneIndex, sceneRaw, sceneTitle)
                 }}
               />
-
-              {/* Sugestão de Ferramentas de Vídeo: Flow/Veo, Gemini, Motion 16 */}
-              <ExternalVideoToolsCard
-                title="Pronto para gerar seu vídeo?"
-                description="Copie as cenas acima e abra a ferramenta recomendada em uma nova aba para renderizar:"
-                compact
-              />
             </div>
           )}
         </CardContent>
@@ -802,6 +795,12 @@ export const PromptDetail: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Sugestão de Ferramentas de Vídeo: Flow/Veo, Gemini, Motion 16 logo após roteiro/variações */}
+      <ExternalVideoToolsCard
+        title="Para onde levar este roteiro agora?"
+        description="Copie as cenas acima e abra a ferramenta recomendada em uma nova aba para renderizar:"
+      />
 
       {/* Dicas de Execução para Criadores */}
       <div className="border rounded-2xl p-6 bg-muted/20 space-y-4">

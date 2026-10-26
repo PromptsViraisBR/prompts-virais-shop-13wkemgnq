@@ -839,13 +839,6 @@ export const ViralGenerator: React.FC = () => {
                     promptTitle={result.character_name || result.theme_name || 'Roteiro Viral'}
                     inModal={false}
                   />
-
-                  {/* Sugestão de Ferramentas de Vídeo Externas: Google Flow / Veo, Gemini, Motion 16 */}
-                  <ExternalVideoToolsCard
-                    title="Para onde levar este roteiro agora?"
-                    description="Copie as cenas acima e abra uma das opções recomendadas para renderizar seu vídeo:"
-                    compact
-                  />
                 </CardContent>
 
                 <CardFooter className="bg-muted/20 border-t py-3 px-5 flex flex-wrap items-center justify-between gap-2">
@@ -950,6 +943,12 @@ export const ViralGenerator: React.FC = () => {
                     })()}
                 </Card>
               )}
+
+              {/* Sugestão de Ferramentas de Vídeo: Google Flow / Veo, Gemini, Motion 16 logo após o roteiro e variações */}
+              <ExternalVideoToolsCard
+                title="Para onde levar este roteiro agora?"
+                description="Copie as cenas acima e abra uma das opções recomendadas para renderizar seu vídeo:"
+              />
             </div>
           )}
         </div>

@@ -378,17 +378,17 @@ export const ViralVideos: React.FC = () => {
         <ExternalImageToolsCard />
       </section>
 
+      {/* GERADOR DE ROTEIROS A PARTIR DE IMAGEM CRIADA OU IDEIA */}
+      <section id="gerador-viral" className="scroll-mt-20">
+        <ViralGenerator />
+      </section>
+
       {/* INDICAÇÃO DE FERRAMENTAS EXTERNAS PARA CRIAÇÃO DE VÍDEO (Flow/Veo, Gemini, Motion 16) */}
       <section id="ferramentas-video-externas" className="scroll-mt-20">
         <ExternalVideoToolsCard
           title="Onde animar e gerar o vídeo do seu roteiro?"
           description="Depois de escolher ou gerar seu prompt, use estas ferramentas para renderizar suas cenas em alta resolução:"
         />
-      </section>
-
-      {/* GERADOR DE ROTEIROS A PARTIR DE IMAGEM CRIADA OU IDEIA */}
-      <section id="gerador-viral" className="scroll-mt-20">
-        <ViralGenerator />
       </section>
 
       {/* 2. Barra de Busca e Abas */}

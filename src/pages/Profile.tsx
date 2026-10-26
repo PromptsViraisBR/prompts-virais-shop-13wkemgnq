@@ -27,10 +27,6 @@ import {
   AlertTriangle,
   ArrowRight,
   ShieldAlert,
-  Key,
-  Cpu,
-  Eye,
-  EyeOff,
   Zap,
   Share2,
   Copy,
@@ -46,10 +42,6 @@ export const Profile: React.FC = () => {
 
   const [name, setName] = useState(user?.name || '')
   const [email, setEmail] = useState(user?.email || '')
-  const [xaiApiKey, setXaiApiKey] = useState(user?.xai_api_key || '')
-  const [googleAiApiKey, setGoogleAiApiKey] = useState(user?.google_ai_api_key || '')
-  const [showXaiKey, setShowXaiKey] = useState(false)
-  const [showGoogleKey, setShowGoogleKey] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
@@ -116,12 +108,10 @@ export const Profile: React.FC = () => {
       await updateProfile({
         name,
         email,
-        xai_api_key: xaiApiKey.trim(),
-        google_ai_api_key: googleAiApiKey.trim(),
       })
       toast({
-        title: 'Dados e chaves atualizados!',
-        description: 'Seu perfil e credenciais do Modo Completo foram salvos com sucesso.',
+        title: 'Perfil atualizado!',
+        description: 'Seus dados foram salvos com sucesso.',
       })
     } catch (err: unknown) {
       console.error(err)
@@ -137,21 +127,31 @@ export const Profile: React.FC = () => {
 
   const handleCancelSub = async () => {
     if (!subscription) return
-    if (!confirm('Deseja realmente cancelar sua assinatura? O plano voltará ao Gratuito.')) {
+    if (!confirm('Deseja realmente cancelar sua assinatura? Seu plano voltará para o Gratuito.')) {
       return
     }
 
     setCancelling(true)
     try {
-      await cancelSubscription(subscription.id)
-      await refreshSubscription()
+      const res = await cancelSubscription(subscription.id)
+      if (res.success) {
+        await refreshSubscription()
+        toast({
+          title: 'Assinatura cancelada com sucesso',
+          description: 'Seu plano agora é o Gratuito. Você não terá novas cobranças.',
+        })
+      } else {
+        toast({
+          title: 'Não foi possível cancelar',
+          description: res.error || 'Ocorreu um erro ao cancelar. Tente novamente mais tarde.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: any) {
       toast({
-        title: 'Assinatura cancelada',
-        description: 'Seu plano agora é o Gratuito.',
-      })
-    } catch (err) {
-      toast({
-        title: 'Erro ao cancelar',
+        title: 'Erro ao cancelar assinatura',
+        description:
+          err?.message || 'Falha de comunicação com o servidor. Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {
@@ -485,124 +485,6 @@ export const Profile: React.FC = () => {
                     />
                   </div>
                 </div>
-
-                {/* Seção Chaves de API para Modo Completo */}
-                <div className="pt-4 border-t space-y-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Key className="w-4 h-4 text-purple-500" />
-                      <h3 className="text-sm font-bold text-foreground">
-                        Modo Completo com Chaves de API Próprias
-                      </h3>
-                      <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
-                        Opcional
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Conecte sua própria chave oficial para desbloquear o{' '}
-                      <strong>Modo Completo</strong> nos motores correspondentes. Você gera vídeos e
-                      imagens usando seu próprio saldo da API, sem consumir as cotas diárias do
-                      site!
-                    </p>
-                  </div>
-
-                  {/* Chave Google AI Studio (Flow / Veo / Nano Banana) */}
-                  <div className="space-y-2 p-3.5 rounded-xl border bg-purple-500/5 border-purple-500/20">
-                    <div className="flex items-center justify-between">
-                      <Label
-                        htmlFor="google-key"
-                        className="text-xs font-bold flex items-center gap-1.5"
-                      >
-                        <Cpu className="w-3.5 h-3.5 text-purple-500" />
-                        Chave Google AI Studio (Flow / Veo / Nano Banana)
-                      </Label>
-                      {googleAiApiKey.trim() ? (
-                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
-                          Modo Completo Ativo
-                        </Badge>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">Usa cotas in-app</span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id="google-key"
-                        type={showGoogleKey ? 'text' : 'password'}
-                        placeholder="AIzaSy..."
-                        value={googleAiApiKey}
-                        onChange={(e) => setGoogleAiApiKey(e.target.value)}
-                        className="font-mono text-xs pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowGoogleKey(!showGoogleKey)}
-                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
-                      >
-                        {showGoogleKey ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Obtida em <em>aistudio.google.com</em>. Libera o Flow (Veo 3.1) sem debitar
-                      dos 50 créditos diários do site.
-                    </p>
-                  </div>
-
-                  {/* Chave xAI (Grok Imagine) */}
-                  <div className="space-y-2 p-3.5 rounded-xl border bg-black/5 dark:bg-white/5 border-muted">
-                    <div className="flex items-center justify-between">
-                      <Label
-                        htmlFor="xai-key"
-                        className="text-xs font-bold flex items-center gap-1.5"
-                      >
-                        <Zap className="w-3.5 h-3.5 text-amber-500" />
-                        Chave xAI Oficial (Grok Imagine Video)
-                      </Label>
-                      {xaiApiKey.trim() ? (
-                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
-                          Modo Completo Ativo
-                        </Badge>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">Usa cotas in-app</span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id="xai-key"
-                        type={showXaiKey ? 'text' : 'password'}
-                        placeholder="xai-..."
-                        value={xaiApiKey}
-                        onChange={(e) => setXaiApiKey(e.target.value)}
-                        className="font-mono text-xs pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowXaiKey(!showXaiKey)}
-                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
-                      >
-                        {showXaiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Obtida em <em>console.x.ai</em>. Libera o Grok Imagine Video direto no site
-                      com a sua conta.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-muted/40 border text-xs text-muted-foreground space-y-1">
-                  <p className="font-semibold text-foreground">
-                    Armazenamento Seguro e Criptografado
-                  </p>
-                  <p>
-                    Suas chaves são armazenadas com segurança no seu registro de usuário no Skip
-                    Cloud (PocketBase) e enviadas apenas pelo backend diretamente às APIs oficiais
-                    via conexão TLS protegida.
-                  </p>
-                </div>
               </CardContent>
 
               <CardFooter className="pt-2 border-t flex justify-end">
@@ -611,7 +493,7 @@ export const Profile: React.FC = () => {
                   disabled={savingProfile}
                   className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-semibold"
                 >
-                  {savingProfile ? 'Salvando...' : 'Salvar Perfil e Chaves'}
+                  {savingProfile ? 'Salvando...' : 'Salvar Perfil'}
                 </Button>
               </CardFooter>
             </form>

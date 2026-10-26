@@ -51,7 +51,6 @@ import {
   Wand2,
   ExternalLink,
   AlertTriangle,
-  Key,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import type { NicheType, ImageEngineType, ImageEngineMeta } from '@/types'
@@ -91,7 +90,7 @@ export const ViralImageGenerator: React.FC = () => {
     getImageEngines().then((res) => {
       setEngines(res)
     })
-  }, [user?.google_ai_api_key])
+  }, [])
 
   // Limpar ObjectURLs
   useEffect(() => {
@@ -522,15 +521,6 @@ export const ViralImageGenerator: React.FC = () => {
                     <p className="text-[10px] text-muted-foreground leading-tight">
                       Fidelidade facial e fotos de referência.
                     </p>
-                    {user?.google_ai_api_key ? (
-                      <span className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                        <Check className="w-2.5 h-2.5" /> Chave conectada
-                      </span>
-                    ) : (
-                      <span className="mt-1.5 inline-flex items-center gap-1 text-[9px] text-amber-600 dark:text-amber-400 font-medium">
-                        <Key className="w-2.5 h-2.5" /> Adicionar chave no perfil
-                      </span>
-                    )}
                   </button>
 
                   {/* Motor 2: ChatGPT (OpenAI) */}
@@ -556,28 +546,6 @@ export const ViralImageGenerator: React.FC = () => {
                     </p>
                   </button>
                 </div>
-
-                {/* Aviso contextual de chave para máxima fidelidade */}
-                {!user?.google_ai_api_key && selectedEngine === 'nano_banana' && (
-                  <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2 text-[11px] text-amber-900 dark:text-amber-300">
-                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
-                    <div className="space-y-0.5">
-                      <p className="font-semibold leading-tight">
-                        Para fidelidade fotográfica 100% ao seu texto e referências:
-                      </p>
-                      <p className="leading-relaxed">
-                        Conecte sua chave gratuita da Google AI Studio no seu{' '}
-                        <Link
-                          to="/perfil"
-                          className="font-bold underline text-amber-700 dark:text-amber-200 hover:text-amber-900"
-                        >
-                          Perfil
-                        </Link>
-                        . Sem chave, o sistema opera em modo demonstrativo com imagens de catálogo.
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Upload Opcional de Imagens de Referência (até 3) */}
@@ -785,26 +753,12 @@ export const ViralImageGenerator: React.FC = () => {
                     <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs space-y-2">
                       <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-200">
                         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>Aviso de Modo Demonstrativo (Sem fidelidade de IA)</span>
+                        <span>Aviso de Modo Demonstrativo</span>
                       </div>
                       <p className="leading-relaxed text-[11px]">
                         {generatedImage.notice ||
-                          'Esta imagem é uma prévia demonstrativa do catálogo e NÃO reproduz com fidelidade sua descrição nem suas fotos de referência, pois nenhuma chave externa de IA está configurada no momento.'}
+                          'Esta imagem é uma prévia demonstrativa do catálogo e serve para testar o fluxo de roteiro viral.'}
                       </p>
-                      <div className="pt-1 flex items-center justify-between border-t border-amber-500/20">
-                        <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-                          Quer gerar a imagem exata com o modelo Nano Banana?
-                        </span>
-                        <Link to="/perfil">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-[11px] font-bold border-amber-600/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/15"
-                          >
-                            <Key className="w-3 h-3 mr-1" /> Conectar Chave Gratuita
-                          </Button>
-                        </Link>
-                      </div>
                     </div>
                   ) : (
                     generatedImage.notice && (

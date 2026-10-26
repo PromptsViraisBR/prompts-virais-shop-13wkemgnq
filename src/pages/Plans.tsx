@@ -101,16 +101,24 @@ export const Plans: React.FC = () => {
   const handleDowngradeToFree = async () => {
     try {
       setProcessing(true)
-      await cancelMercadoPagoSubscription(subscription?.id)
-      await refreshSubscription()
-      toast({
-        title: 'Plano revertido para Gratuito',
-        description: 'Sua assinatura anterior foi cancelada com sucesso.',
-      })
-    } catch (err) {
+      const res = await cancelMercadoPagoSubscription(subscription?.id)
+      if (res.success) {
+        await refreshSubscription()
+        toast({
+          title: 'Plano revertido para Gratuito',
+          description: 'Sua assinatura anterior foi cancelada com sucesso.',
+        })
+      } else {
+        toast({
+          title: 'Erro ao cancelar plano',
+          description: res.error || 'Tente novamente em instantes.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: any) {
       toast({
         title: 'Erro ao cancelar plano',
-        description: 'Tente novamente.',
+        description: err?.message || 'Falha na comunicação. Tente novamente.',
         variant: 'destructive',
       })
     } finally {

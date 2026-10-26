@@ -2290,6 +2290,37 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
     sub.set('status', 'cancelled')
     $app.save(sub)
 
+    // Garantir que exista uma assinatura 'free' ativa para o usuário
+    let freeSub = null
+    try {
+      const existingFree = $app.findRecordsByFilter(
+        'subscriptions',
+        `user = "${authUser.id}" && plan = "free"`,
+        '-created',
+        1,
+        0,
+      )
+      if (existingFree && existingFree.length > 0) {
+        freeSub = existingFree[0]
+        freeSub.set('status', 'active')
+        $app.save(freeSub)
+      } else {
+        const subsCol = $app.findCollectionByNameOrId('subscriptions')
+        freeSub = new Record(subsCol)
+        const now = new Date()
+        const end = new Date()
+        end.setFullYear(now.getFullYear() + 10)
+        freeSub.set('user', authUser.id)
+        freeSub.set('plan', 'free')
+        freeSub.set('status', 'active')
+        freeSub.set('start_date', now.toISOString())
+        freeSub.set('end_date', end.toISOString())
+        $app.save(freeSub)
+      }
+    } catch (freeErr) {
+      console.warn('[cancel-subscription] Aviso ao reativar plano free:', freeErr)
+    }
+
     // Registrar evento de cancelamento
     try {
       const evCol = $app.findCollectionByNameOrId('events')
@@ -2300,6 +2331,8 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
         'metadata',
         JSON.stringify({
           subscription_id: sub.id,
+          plan: sub.getString('plan'),
+          payment_type: preapprovalId ? 'preapproval' : 'pix_or_single',
           reason: 'user_requested_cancellation',
         }),
       )
@@ -2310,6 +2343,8 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
       success: true,
       mp_cancelled: mpCancelled,
       message: 'Assinatura cancelada com sucesso.',
+      subscription_id: sub.id,
+      free_subscription_id: freeSub ? freeSub.id : null,
     })
   } catch (err) {
     return e.json(500, { success: false, error: err.message || String(err) })

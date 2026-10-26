@@ -14,11 +14,19 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Sparkles, Video, Lock, Mail, User, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { Sparkles, Video, Lock, Mail, User, ArrowRight, CheckCircle2, KeyRound } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { toast } from '@/hooks/use-toast'
 
 export const Login: React.FC = () => {
-  const { login, signup, loginWithOAuth } = useAuth()
+  const { login, signup, loginWithOAuth, requestPasswordReset } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -57,6 +65,44 @@ export const Login: React.FC = () => {
   const [signupEmail, setSignupEmail] = useState('')
   const [signupPassword, setSignupPassword] = useState('')
   const [signupLoading, setSignupLoading] = useState(false)
+
+  // Password reset modal state
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetSuccess, setResetSuccess] = useState(false)
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetEmail.trim()) {
+      toast({
+        title: 'Informe seu e-mail',
+        description: 'Digite o e-mail cadastrado na sua conta.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setResetLoading(true)
+    try {
+      await requestPasswordReset(resetEmail.trim())
+      setResetSuccess(true)
+      toast({
+        title: 'E-mail de recuperação enviado! ✉️',
+        description: 'Verifique sua caixa de entrada e spam para redefinir sua senha.',
+      })
+    } catch (err: any) {
+      // Por segurança contra enumeração de e-mails, também informa de forma amigável
+      toast({
+        title: 'Solicitação registrada',
+        description:
+          'Se o e-mail estiver cadastrado em nosso sistema, as instruções serão enviadas.',
+      })
+      setResetSuccess(true)
+    } finally {
+      setResetLoading(false)
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -260,6 +306,17 @@ export const Login: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Senha</Label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetEmail(loginEmail || '')
+                          setResetSuccess(false)
+                          setResetModalOpen(true)
+                        }}
+                        className="text-xs text-pink-600 hover:text-pink-700 dark:text-pink-400 font-semibold hover:underline"
+                      >
+                        Esqueceu a senha?
+                      </button>
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -429,6 +486,87 @@ export const Login: React.FC = () => {
           Ao continuar, você concorda com nossos termos de uso e política de privacidade.
         </p>
       </div>
+
+      {/* Modal de Recuperação de Senha */}
+      <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="w-10 h-10 rounded-full bg-pink-500/10 text-pink-600 flex items-center justify-center mb-2">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <DialogTitle className="text-lg font-bold">Recuperar sua Senha</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Enviaremos um link oficial de redefinição de senha para o seu endereço de e-mail
+              cadastrado.
+            </DialogDescription>
+          </DialogHeader>
+
+          {resetSuccess ? (
+            <div className="space-y-4 py-2">
+              <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-800 dark:text-emerald-200 space-y-2">
+                <p className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Instruções enviadas com sucesso!
+                </p>
+                <p>
+                  Enviamos o link de redefinição para <strong>{resetEmail}</strong>. Verifique sua
+                  caixa de entrada e a pasta de spam.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => setResetModalOpen(false)}
+                  className="w-full bg-gradient-to-r from-pink-600 to-amber-500 text-white font-semibold"
+                >
+                  Entendido e Fechar
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form onSubmit={handlePasswordReset}>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email" className="text-xs font-semibold">
+                    Seu E-mail Cadastrado
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      className="pl-9 text-sm"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setResetModalOpen(false)}
+                  disabled={resetLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-semibold gap-1.5"
+                >
+                  {resetLoading ? 'Enviando...' : 'Enviar Link de Redefinição'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

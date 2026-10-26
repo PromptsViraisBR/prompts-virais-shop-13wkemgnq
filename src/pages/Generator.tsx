@@ -890,7 +890,16 @@ export const Generator: React.FC = () => {
 
                   <Button
                     type="submit"
-                    disabled={generating || (!user ? false : !isPaidPlan)}
+                    disabled={
+                      generating ||
+                      Boolean(
+                        user &&
+                        !isPaidPlan &&
+                        !isAdmin &&
+                        dailyLimitStatus &&
+                        dailyLimitStatus.remaining <= 0,
+                      )
+                    }
                     size="lg"
                     className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold shadow-md gap-2"
                   >

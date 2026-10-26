@@ -13,6 +13,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (email: string, pass: string) => Promise<void>
   signup: (email: string, pass: string, name: string, referralCode?: string) => Promise<void>
+  requestPasswordReset: (email: string) => Promise<void>
   loginWithOAuth: (provider?: 'google' | 'apple') => Promise<{ success: boolean; error?: string }>
   logout: () => void
   refreshSubscription: () => Promise<void>
@@ -117,6 +118,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await refreshSubscription()
   }
 
+  const requestPasswordReset = async (email: string) => {
+    const cleanEmail = (email || '').trim().toLowerCase()
+    if (!cleanEmail) throw new Error('Informe seu e-mail para recuperar a senha.')
+    await pb.collection('users').requestPasswordReset(cleanEmail)
+  }
+
   const loginWithOAuth = async (
     provider: 'google' | 'apple' = 'google',
   ): Promise<{ success: boolean; error?: string }> => {
@@ -199,6 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         signup,
+        requestPasswordReset,
         loginWithOAuth,
         logout,
         refreshSubscription,

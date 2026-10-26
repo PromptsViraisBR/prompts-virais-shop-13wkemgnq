@@ -40,6 +40,30 @@ export interface UserRecord {
   is_admin?: boolean
   xai_api_key?: string
   google_ai_api_key?: string
+  referral_code?: string
+  referred_by?: string
+  created: string
+  updated: string
+}
+
+export interface ReferralCreditRecord {
+  id: string
+  referrer: string
+  referred_user: string
+  credits_granted: number
+  credits_remaining: number
+  expires_at: string
+  status: 'active' | 'consumed' | 'expired'
+  created: string
+  updated: string
+}
+
+export interface DailyGenerationUsageRecord {
+  id: string
+  user: string
+  tab: 'virais' | 'vendas'
+  date: string
+  count: number
   created: string
   updated: string
 }

@@ -9,6 +9,11 @@ import {
   PromptVariation,
 } from '@/services/generations'
 import {
+  getDailyLimitStatus,
+  consumeDailyGeneration,
+  DailyLimitStatus,
+} from '@/services/freeLimitsAndReferrals'
+import {
   getUserRegenerationCredits,
   consumeExtraRegenerationCredit,
 } from '@/services/regenerationCredits'
@@ -57,6 +62,17 @@ import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
 export const Generator: React.FC = () => {
   const { user, isAdmin, isPaidPlan } = useAuth()
   const navigate = useNavigate()
+
+  // Limite diário no servidor para vendas (6 prompts/dia no modo grátis)
+  const [dailyLimitStatus, setDailyLimitStatus] = useState<DailyLimitStatus | null>(null)
+
+  useEffect(() => {
+    if (user) {
+      getDailyLimitStatus('vendas')
+        .then((st) => setDailyLimitStatus(st))
+        .catch(() => {})
+    }
+  }, [user])
 
   // Form State
   const [productName, setProductName] = useState('')
@@ -192,17 +208,6 @@ export const Generator: React.FC = () => {
       return
     }
 
-    if (!isPaidPlan) {
-      toast({
-        title: 'Recurso Exclusivo do Plano Pago',
-        description:
-          'O gerador personalizado para fotos do seu catálogo está disponível nos planos Mensal e Anual.',
-        variant: 'destructive',
-      })
-      navigate('/planos')
-      return
-    }
-
     if (!productName.trim()) {
       toast({
         title: 'Informe o nome do produto',
@@ -210,6 +215,41 @@ export const Generator: React.FC = () => {
         variant: 'destructive',
       })
       return
+    }
+
+    // 1. CHECAGEM E CONSUMO DO LIMITE DIÁRIO NO SERVIDOR (6 por dia no modo grátis / ilimitado PRO)
+    try {
+      const limitRes = await consumeDailyGeneration('vendas')
+      setDailyLimitStatus({
+        tab: 'vendas',
+        date: limitRes.date,
+        count_today: limitRes.count_today,
+        limit: limitRes.limit,
+        remaining: limitRes.remaining,
+        is_unlimited: limitRes.is_unlimited,
+        reason: limitRes.is_unlimited ? 'paid_or_admin' : 'free',
+      })
+    } catch (limitErr: any) {
+      if (limitErr.limitReached) {
+        toast({
+          title: 'Limite diário atingido (6/6 prompts)',
+          description:
+            limitErr.message ||
+            'Você atingiu o limite de 6 prompts hoje na aba de Vendas/TikTok Shop. Assine o plano PRO para gerar sem limites!',
+          variant: 'destructive',
+        })
+        return
+      }
+      // Se não for limitReached e o usuário for free sem permissão, redireciona
+      if (!isPaidPlan && !isAdmin) {
+        toast({
+          title: 'Acesse com plano PRO',
+          description: 'Assine um plano para desbloquear todas as funções.',
+          variant: 'destructive',
+        })
+        navigate('/planos')
+        return
+      }
     }
 
     setGenerating(true)
@@ -390,23 +430,23 @@ export const Generator: React.FC = () => {
   }
 
   return (
-    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
-        <div className="space-y-1.5">
+    <div className="py-4 sm:py-12 px-3 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-6 sm:space-y-8">
+      {/* Header - Mobile First */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 sm:pb-6 text-center md:text-left items-center">
+        <div className="space-y-1.5 flex flex-col items-center md:items-start">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Gerador Fiel às Fotos da Peça</span>
+            <span>Gerador TikTok Shop & Shopee</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
-            Gerador de Roteiros Virais 🎬
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground flex flex-wrap items-center justify-center md:justify-start gap-2">
+            <span>Gerador de Vendas 🎬</span>
             {isPaidPlan && (
               <Badge className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs uppercase">
                 PRO Ilimitado
               </Badge>
             )}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
+          <p className="text-xs sm:text-base text-muted-foreground max-w-2xl">
             Suba até 3 fotos da sua peça física ou da vitrine da sua loja. Nossa inteligência cria
             um roteiro viral cena a cena fiel às cores, caimento e detalhes reais do seu produto!
           </p>
@@ -425,62 +465,72 @@ export const Generator: React.FC = () => {
         )}
       </div>
 
-      {/* Alerta para Visitantes Deslogados ou Usuários no Plano Free */}
+      {/* Alerta para Visitantes Deslogados ou Status de Limite Diário no Modo Grátis */}
       {!user ? (
         <Card className="border-2 border-pink-500/30 bg-gradient-to-br from-pink-500/10 via-amber-500/5 to-transparent shadow-sm">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 text-center sm:text-left">
             <div className="flex items-center justify-between">
               <Badge className="bg-pink-600 text-white font-bold text-xs uppercase">
                 Login Necessário
               </Badge>
               <Lock className="w-5 h-5 text-pink-500" />
             </div>
-            <CardTitle className="text-xl font-bold">
-              Entre ou Crie Sua Conta para Usar o Gerador 👗📸
+            <CardTitle className="text-lg sm:text-xl font-bold">
+              Entre ou Crie Sua Conta Grátis para Usar o Gerador 👗📸
             </CardTitle>
-            <CardDescription className="text-sm">
-              Visitantes podem explorar a vitrine na tela inicial com 3 amostras liberadas. Para
-              personalizar roteiros com fotos da sua peça e gerar variações exclusivas, acesse sua
-              conta.
+            <CardDescription className="text-xs sm:text-sm">
+              Usuários cadastrados no modo grátis têm direito a <strong>6 gerações por dia</strong>{' '}
+              de roteiros TikTok Shop/Vendas e <strong>6 gerações por dia</strong> em Vídeos Virais
+              (totalizando 12/dia).
             </CardDescription>
           </CardHeader>
-          <CardFooter className="pt-2 flex flex-wrap gap-2">
-            <Link to="/login">
-              <Button className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 shadow-md">
-                Criar Conta Grátis
+          <CardFooter className="pt-2 flex flex-col sm:flex-row gap-2">
+            <Link to="/login" className="w-full sm:w-auto">
+              <Button className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 shadow-md">
+                Criar Conta Grátis (12 prompts/dia)
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
-            <Link to="/login">
-              <Button variant="outline" className="font-semibold">
+            <Link to="/login" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full font-semibold">
                 Já tenho conta — Entrar
               </Button>
             </Link>
           </CardFooter>
         </Card>
-      ) : !isPaidPlan ? (
-        <Card className="border-2 border-pink-500/30 bg-gradient-to-br from-pink-500/5 via-amber-500/5 to-transparent shadow-sm">
-          <CardHeader className="pb-3">
+      ) : !isPaidPlan && !isAdmin ? (
+        <Card className="border border-pink-500/30 bg-gradient-to-br from-pink-500/5 via-amber-500/5 to-transparent shadow-xs">
+          <CardHeader className="pb-3 text-center sm:text-left">
             <div className="flex items-center justify-between">
-              <Badge className="bg-amber-500 text-white font-bold text-xs uppercase">
-                Recurso Exclusivo PRO
+              <Badge
+                variant="outline"
+                className="text-pink-600 border-pink-500/40 font-bold text-[11px] uppercase"
+              >
+                Modo Gratuito Ativo
               </Badge>
-              <Crown className="w-5 h-5 text-amber-500" />
+              <Sparkles className="w-4 h-4 text-pink-500" />
             </div>
-            <CardTitle className="text-xl font-bold">
-              Gere Roteiros Ilimitados para as Roupas da Sua Loja 👗📸
+            <CardTitle className="text-base sm:text-lg font-bold">
+              Seu Limite Diário na Aba de Vendas:{' '}
+              {dailyLimitStatus
+                ? `${dailyLimitStatus.count_today} de ${dailyLimitStatus.limit} gerados hoje`
+                : '6 prompts/dia'}
             </CardTitle>
-            <CardDescription className="text-sm">
-              Assinantes dos planos Mensal e Anual têm acesso total ao Gerador Inteligente com fotos
-              da vitrine, ganchos comprovados de 0-3 segundos e todos os estilos virais.
+            <CardDescription className="text-xs">
+              Você tem 6 prompts por dia nesta aba e mais 6 na aba de Vídeos Virais. Ao batermos 10
+              assinantes anuais no site, a liberação será automática e ilimitada! Deseja gerar sem
+              limites agora?
             </CardDescription>
           </CardHeader>
-          <CardFooter className="pt-2">
+          <CardFooter className="pt-1 flex flex-wrap gap-2">
             <Link to="/planos">
-              <Button className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2">
-                <Crown className="w-4 h-4" />
-                Desbloquear no Plano PRO
-                <ArrowRight className="w-4 h-4 ml-1" />
+              <Button
+                size="sm"
+                className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-1.5"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                Assinar PRO Ilimitado
+                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
               </Button>
             </Link>
           </CardFooter>
@@ -577,7 +627,7 @@ export const Generator: React.FC = () => {
                     value={productName}
                     onChange={(e) => setProductName(e.target.value)}
                     required
-                    disabled={!user || !isPaidPlan}
+                    disabled={!user}
                     className="py-5"
                   />
                 </div>
@@ -634,7 +684,7 @@ export const Generator: React.FC = () => {
                       <label
                         htmlFor="image-upload-input"
                         className={`inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border border-dashed border-pink-500/40 bg-pink-500/5 hover:bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold text-xs cursor-pointer transition-colors ${
-                          !user || !isPaidPlan ? 'opacity-50 pointer-events-none' : ''
+                          !user ? 'opacity-50 pointer-events-none' : ''
                         }`}
                       >
                         <Upload className="w-4 h-4" />
@@ -647,7 +697,7 @@ export const Generator: React.FC = () => {
                         multiple
                         className="hidden"
                         onChange={handleImageUpload}
-                        disabled={!user || !isPaidPlan || referenceFiles.length >= 3}
+                        disabled={!user || referenceFiles.length >= 3}
                       />
                     </div>
                   )}
@@ -660,9 +710,10 @@ export const Generator: React.FC = () => {
                     <Select
                       value={niche}
                       onValueChange={(val) => setNiche(val as NicheType)}
-                      disabled={!user || !isPaidPlan}
+                      disabled={!user}
                     >
                       <SelectTrigger>
+                        {' '}
                         <SelectValue placeholder="Selecione o nicho" />
                       </SelectTrigger>
                       <SelectContent>
@@ -680,10 +731,10 @@ export const Generator: React.FC = () => {
                     <Select
                       value={style}
                       onValueChange={(val) => setStyle(val as StyleType)}
-                      disabled={!user || !isPaidPlan}
+                      disabled={!user}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o estilo" />
+                        <SelectValue placeholder="Selecione o estilo" />{' '}
                       </SelectTrigger>
                       <SelectContent>
                         {(Object.keys(STYLE_LABELS) as StyleType[]).map((key) => (
@@ -703,10 +754,10 @@ export const Generator: React.FC = () => {
                     <Select
                       value={platform}
                       onValueChange={(val) => setPlatform(val as PlatformType)}
-                      disabled={!user || !isPaidPlan}
+                      disabled={!user}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o canal" />
+                        <SelectValue placeholder="Selecione o canal" />{' '}
                       </SelectTrigger>
                       <SelectContent>
                         {(Object.keys(PLATFORM_LABELS) as PlatformType[]).map((key) => (
@@ -727,7 +778,7 @@ export const Generator: React.FC = () => {
                       placeholder="Ex: Mulheres 20-35 anos, mães, homens streetwear..."
                       value={targetAudience}
                       onChange={(e) => setTargetAudience(e.target.value)}
-                      disabled={!user || !isPaidPlan}
+                      disabled={!user}
                     />
                   </div>
                 </div>
@@ -748,7 +799,7 @@ export const Generator: React.FC = () => {
                     placeholder="Descreva detalhes específicos da foto: cor vinho acetinada, zíper reforçado, cintura com elástico embutido, caimento soltinho..."
                     value={visualDetails}
                     onChange={(e) => setVisualDetails(e.target.value)}
-                    disabled={!user || !isPaidPlan}
+                    disabled={!user}
                     rows={2}
                     className="resize-none"
                   />
@@ -764,7 +815,7 @@ export const Generator: React.FC = () => {
                     placeholder="Ex: Frete grátis hoje, cupom de 1ª compra, envio imediato..."
                     value={details}
                     onChange={(e) => setDetails(e.target.value)}
-                    disabled={!user || !isPaidPlan}
+                    disabled={!user}
                   />
                 </div>
               </CardContent>

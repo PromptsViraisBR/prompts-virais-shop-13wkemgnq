@@ -4,9 +4,14 @@ import { useAuth } from '@/context/AuthContext'
 import {
   generateViralSceneWithImages,
   regeneratePromptVariations,
-  type PromptVariation,
-  type GenerateViralSceneResult,
+  PromptVariation,
+  GenerateViralSceneResult,
 } from '@/services/generations'
+import {
+  getDailyLimitStatus,
+  consumeDailyGeneration,
+  DailyLimitStatus,
+} from '@/services/freeLimitsAndReferrals'
 import {
   getUserRegenerationCredits,
   consumeExtraRegenerationCredit,
@@ -61,6 +66,17 @@ import { NICHE_LABELS, NICHE_EMOJIS, VIRAL_NICHE_KEYS } from '@/types'
 export const ViralGenerator: React.FC = () => {
   const { user, isAdmin, isPaidPlan } = useAuth()
   const navigate = useNavigate()
+
+  // Limite diário no servidor para virais (6 prompts/dia no modo grátis)
+  const [dailyLimitStatus, setDailyLimitStatus] = useState<DailyLimitStatus | null>(null)
+
+  useEffect(() => {
+    if (user) {
+      getDailyLimitStatus('virais')
+        .then((st) => setDailyLimitStatus(st))
+        .catch(() => {})
+    }
+  }, [user])
 
   // Form State: A ideia do roteiro é o input principal e conduz a história
   const [scriptIdea, setScriptIdea] = useState('')
@@ -180,6 +196,33 @@ export const ViralGenerator: React.FC = () => {
 
     setGenerating(true)
     try {
+      // 1. CHECAGEM E CONSUMO DO LIMITE DIÁRIO NO SERVIDOR
+      try {
+        const limitRes = await consumeDailyGeneration('virais')
+        setDailyLimitStatus({
+          tab: 'virais',
+          date: limitRes.date,
+          count_today: limitRes.count_today,
+          limit: limitRes.limit,
+          remaining: limitRes.remaining,
+          is_unlimited: limitRes.is_unlimited,
+          reason: limitRes.is_unlimited ? 'paid_or_admin' : 'free',
+        })
+      } catch (limitErr: any) {
+        if (limitErr.limitReached) {
+          toast({
+            title: 'Limite diário atingido (6/6 prompts)',
+            description:
+              limitErr.message ||
+              'Você atingiu o limite de 6 prompts hoje na aba de Vídeos Virais. Assine o plano PRO para gerar sem limites!',
+            variant: 'destructive',
+          })
+          setGenerating(false)
+          return
+        }
+        throw limitErr
+      }
+
       const effectiveTheme = trimmedIdea || trimmedChar || 'Cena baseada na foto enviada'
 
       const genRes = await generateViralSceneWithImages({
@@ -333,18 +376,45 @@ export const ViralGenerator: React.FC = () => {
           </p>
         </div>
 
-        {/* Status de Regenerações Disponíveis */}
-        <div className="shrink-0 flex items-center gap-2 bg-background/80 border p-2.5 rounded-2xl shadow-xs">
-          <div className="text-right text-xs">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Regenerações Virais:
+        {/* Status de Gerações Diárias & Regenerações Disponíveis */}
+        <div className="shrink-0 flex flex-wrap items-center gap-2 bg-background/80 border p-2.5 rounded-2xl shadow-xs">
+          {/* Contador de Limite Diário (6 por dia no modo grátis) */}
+          <div className="text-left sm:text-right text-xs border-r pr-2.5 sm:border-r">
+            <span className="text-muted-foreground font-medium block text-[10px] uppercase tracking-wider">
+              Prompts Diários (Servidor):
+            </span>
+            <span className="font-extrabold text-xs text-foreground">
+              {isAdmin || isPaidPlan || dailyLimitStatus?.is_unlimited ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                  PRO Ilimitado ✨
+                </span>
+              ) : dailyLimitStatus ? (
+                <span
+                  className={
+                    dailyLimitStatus.remaining <= 1
+                      ? 'text-amber-600 font-black'
+                      : 'text-pink-600 font-bold'
+                  }
+                >
+                  {dailyLimitStatus.count_today} de {dailyLimitStatus.limit} usados (
+                  {dailyLimitStatus.remaining} restantes)
+                </span>
+              ) : (
+                '6 prompts/dia'
+              )}
+            </span>
+          </div>
+
+          <div className="text-left sm:text-right text-xs">
+            <span className="text-muted-foreground font-medium block text-[10px] uppercase tracking-wider">
+              Regenerações:
             </span>
             <span className="font-extrabold text-pink-600 dark:text-pink-400">
               {isAdmin
-                ? 'Ilimitadas (Admin PRO)'
+                ? 'Ilimitadas (Admin)'
                 : user
                   ? `${freeRegenerationsRemaining} grátis ${extraCreditsBalance > 0 ? `+ ${extraCreditsBalance} extras` : ''}`
-                  : '2 grátis no login'}
+                  : '2 no login'}
             </span>
           </div>
           <Button

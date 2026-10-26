@@ -1295,6 +1295,86 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
             console.log(
               `[mp-webhook] Assinatura ${planTarget} ativada para usuário ${targetUserId}`,
             )
+
+            // 🎁 PROGRAMA DE INDICAÇÃO (AFILIADOS):
+            // Se o usuário foi indicado por alguém (referred_by) e fechou plano pago (mensal ou anual),
+            // verificar se o indicador também é assinante pago ativo. Se for, conceder +20 créditos PRO válidos por 30 dias!
+            try {
+              const targetUserRec = $app.findRecordById('_pb_users_auth_', targetUserId)
+              const referrerId = targetUserRec ? targetUserRec.getString('referred_by') : ''
+
+              if (referrerId && referrerId !== targetUserId) {
+                // Verificar se o indicador é assinante pago ativo
+                let referrerIsActive = false
+                try {
+                  const refSubs = $app.findRecordsByFilter(
+                    'subscriptions',
+                    `user = "${referrerId}" && status = "active" && (plan = "monthly" || plan = "annual")`,
+                    '-created',
+                    1,
+                    0,
+                  )
+                  if (refSubs && refSubs.length > 0) {
+                    referrerIsActive = true
+                  }
+                } catch (_) {}
+
+                if (referrerIsActive) {
+                  // Verificar se já não foi concedido crédito para este par (referrer + targetUserId)
+                  let alreadyGranted = false
+                  try {
+                    const existingCreds = $app.findRecordsByFilter(
+                      'referral_credits',
+                      `referrer = "${referrerId}" && referred_user = "${targetUserId}"`,
+                      '-created',
+                      1,
+                      0,
+                    )
+                    if (existingCreds && existingCreds.length > 0) {
+                      alreadyGranted = true
+                    }
+                  } catch (_) {}
+
+                  if (!alreadyGranted) {
+                    const refCredCol = $app.findCollectionByNameOrId('referral_credits')
+                    const newCred = new Record(refCredCol)
+                    const expireAtDate = new Date(now.getTime() + 30 * 24 * 3600 * 1000)
+
+                    newCred.set('referrer', referrerId)
+                    newCred.set('referred_user', targetUserId)
+                    newCred.set('credits_granted', 20)
+                    newCred.set('credits_remaining', 20)
+                    newCred.set('expires_at', expireAtDate.toISOString())
+                    newCred.set('status', 'active')
+                    $app.save(newCred)
+
+                    // Registrar evento no funil
+                    try {
+                      const evCol = $app.findCollectionByNameOrId('events')
+                      const evRec = new Record(evCol)
+                      evRec.set('user', referrerId)
+                      evRec.set('event_type', 'referral_converted')
+                      evRec.set(
+                        'metadata',
+                        JSON.stringify({
+                          referred_user: targetUserId,
+                          credits_granted: 20,
+                          expires_at: expireAtDate.toISOString(),
+                          plan: planTarget,
+                        }),
+                      )
+                      $app.save(evRec)
+                    } catch (_) {}
+
+                    console.log(
+                      `[mp-webhook] Indicação convertida! Usuário ${referrerId} recebeu +20 créditos válidos por 30 dias pela assinatura de ${targetUserId}`,
+                    )
+                  }
+                }
+              }
+            } catch (refErr) {
+              console.warn('[mp-webhook] Erro ao processar bônus de indicação:', refErr)
+            }
           } catch (subSaveErr) {
             console.error('[mp-webhook] Erro ao salvar assinatura:', subSaveErr)
           }
@@ -1573,6 +1653,83 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
           }
 
           console.log(`[mp-webhook] Assinatura mensal ativada via preapproval para ${targetUserId}`)
+
+          // 🎁 PROGRAMA DE INDICAÇÃO (AFILIADOS - PREAPPROVAL):
+          try {
+            const targetUserRec = $app.findRecordById('_pb_users_auth_', targetUserId)
+            const referrerId = targetUserRec ? targetUserRec.getString('referred_by') : ''
+
+            if (referrerId && referrerId !== targetUserId) {
+              let referrerIsActive = false
+              try {
+                const refSubs = $app.findRecordsByFilter(
+                  'subscriptions',
+                  `user = "${referrerId}" && status = "active" && (plan = "monthly" || plan = "annual")`,
+                  '-created',
+                  1,
+                  0,
+                )
+                if (refSubs && refSubs.length > 0) {
+                  referrerIsActive = true
+                }
+              } catch (_) {}
+
+              if (referrerIsActive) {
+                let alreadyGranted = false
+                try {
+                  const existingCreds = $app.findRecordsByFilter(
+                    'referral_credits',
+                    `referrer = "${referrerId}" && referred_user = "${targetUserId}"`,
+                    '-created',
+                    1,
+                    0,
+                  )
+                  if (existingCreds && existingCreds.length > 0) {
+                    alreadyGranted = true
+                  }
+                } catch (_) {}
+
+                if (!alreadyGranted) {
+                  const refCredCol = $app.findCollectionByNameOrId('referral_credits')
+                  const newCred = new Record(refCredCol)
+                  const expireAtDate = new Date(now.getTime() + 30 * 24 * 3600 * 1000)
+
+                  newCred.set('referrer', referrerId)
+                  newCred.set('referred_user', targetUserId)
+                  newCred.set('credits_granted', 20)
+                  newCred.set('credits_remaining', 20)
+                  newCred.set('expires_at', expireAtDate.toISOString())
+                  newCred.set('status', 'active')
+                  $app.save(newCred)
+
+                  try {
+                    const evCol = $app.findCollectionByNameOrId('events')
+                    const evRec = new Record(evCol)
+                    evRec.set('user', referrerId)
+                    evRec.set('event_type', 'referral_converted')
+                    evRec.set(
+                      'metadata',
+                      JSON.stringify({
+                        referred_user: targetUserId,
+                        credits_granted: 20,
+                        expires_at: expireAtDate.toISOString(),
+                        plan: 'monthly_preapproval',
+                      }),
+                    )
+                    $app.save(evRec)
+                  } catch (_) {}
+                  console.log(
+                    `[mp-webhook] Indicação convertida via preapproval para ${referrerId}`,
+                  )
+                }
+              }
+            }
+          } catch (refErr) {
+            console.warn(
+              '[mp-webhook] Erro ao processar bônus de indicação em preapproval:',
+              refErr,
+            )
+          }
         } else if (preStatus === 'cancelled' || preStatus === 'paused') {
           if (subRecord) {
             subRecord.set('status', 'cancelled')

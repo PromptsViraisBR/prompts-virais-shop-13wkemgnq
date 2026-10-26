@@ -12,7 +12,8 @@ interface AuthContextType {
   isProOrVip: boolean
   isLoading: boolean
   login: (email: string, pass: string) => Promise<void>
-  signup: (email: string, pass: string, name: string) => Promise<void>
+  signup: (email: string, pass: string, name: string, referralCode?: string) => Promise<void>
+  loginWithOAuth: (provider: 'google' | 'apple') => Promise<{ success: boolean; error?: string }>
   logout: () => void
   refreshSubscription: () => Promise<void>
   updateProfile: (data: {
@@ -71,13 +72,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await refreshSubscription()
   }
 
-  const signup = async (email: string, pass: string, name: string) => {
-    await pb.collection('users').create({
+  const signup = async (email: string, pass: string, name: string, referralCode?: string) => {
+    // Se foi fornecido referralCode, buscar usuário indicador
+    let referredById: string | undefined = undefined
+    const cleanRef = (referralCode || '').trim()
+    if (cleanRef) {
+      try {
+        const refUser = await pb
+          .collection('users')
+          .getFirstListItem(`referral_code = "${cleanRef}" || id = "${cleanRef}"`)
+        if (refUser) {
+          referredById = refUser.id
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    const createdUser = await pb.collection('users').create({
       email,
       password: pass,
       passwordConfirm: pass,
       name,
+      referred_by: referredById || undefined,
     })
+
+    // Gera referral_code se não preenchido
+    if (!createdUser.referral_code && createdUser.id) {
+      try {
+        await pb.collection('users').update(createdUser.id, {
+          referral_code: createdUser.id.slice(0, 8).toUpperCase(),
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
     // Faz login automático após cadastro
     await pb.collection('users').authWithPassword(email, pass)
     // Cria plano gratuito padrão
@@ -85,6 +115,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await subscribePlan(pb.authStore.record.id, 'free')
     }
     await refreshSubscription()
+  }
+
+  const loginWithOAuth = async (
+    provider: 'google' | 'apple',
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const authData = await pb.collection('users').authWithOAuth2({ provider })
+      if (authData.record?.id) {
+        // Garantir que tem plano gratuito ativo caso novo
+        try {
+          const sub = await getUserSubscription(authData.record.id)
+          if (!sub) {
+            await subscribePlan(authData.record.id, 'free')
+          }
+        } catch {
+          /* intentionally ignored */
+        }
+
+        // Garantir código de indicação gerado
+        const rec = authData.record as unknown as UserRecord
+        if (!rec.referral_code) {
+          try {
+            await pb.collection('users').update(authData.record.id, {
+              referral_code: authData.record.id.slice(0, 8).toUpperCase(),
+            })
+          } catch {
+            /* intentionally ignored */
+          }
+        }
+      }
+      await refreshSubscription()
+      return { success: true }
+    } catch (err: any) {
+      console.warn(`[OAuth] Erro ao autenticar com ${provider}:`, err)
+      const msg = err?.message || String(err)
+      return { success: false, error: msg }
+    }
   }
 
   const logout = () => {
@@ -131,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         signup,
+        loginWithOAuth,
         logout,
         refreshSubscription,
         updateProfile,

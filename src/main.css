@@ -304,4 +304,13 @@
   .ken-burns-active {
     animation: ken-burns-hover 6s ease-in-out infinite alternate;
   }
+
+  /* Utilitários mobile e PWA */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

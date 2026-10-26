@@ -294,17 +294,17 @@ export const ViralVideos: React.FC = () => {
   }
 
   return (
-    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
-      {/* 1. Cabeçalho Especial Criadores de Conteúdo */}
-      <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-amber-500/10 p-6 sm:p-8 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2.5 max-w-2xl">
+    <div className="py-4 sm:py-12 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
+      {/* 1. Cabeçalho Especial Criadores de Conteúdo - Mobile First Centralizado */}
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-amber-500/10 p-4 sm:p-8 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 text-center lg:text-left items-center">
+          <div className="space-y-2.5 max-w-2xl flex flex-col items-center lg:items-start">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-bold tracking-wide">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Para Criadores de Conteúdo, Reels, Shorts & TikTok</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
               Vídeos Virais 🚀🎬
             </h1>
 
@@ -315,7 +315,7 @@ export const ViralVideos: React.FC = () => {
             </p>
 
             {/* Micro badges de garantia */}
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-1.5 sm:gap-2 pt-1 text-[11px] sm:text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1 bg-background/80 px-2.5 py-1 rounded-full border">
                 🇧🇷 Roteiros em PT-BR
               </span>
@@ -323,20 +323,17 @@ export const ViralVideos: React.FC = () => {
                 ⏱️ Roteiro ~60s (Cenas de 10s)
               </span>
               <span className="inline-flex items-center gap-1 bg-background/80 px-2.5 py-1 rounded-full border">
-                ✨ Vídeo 100% limpo sem texto na tela
-              </span>
-              <span className="inline-flex items-center gap-1 bg-background/80 px-2.5 py-1 rounded-full border">
-                ℹ️ Guia passo a passo em cada prompt
+                ✨ 100% limpo sem texto
               </span>
             </div>
           </div>
 
           {!user ? (
-            <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2.5">
-              <Link to="/login">
+            <div className="w-full sm:w-auto shrink-0 flex flex-col gap-2">
+              <Link to="/login" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+                  className="w-full sm:w-auto h-12 px-6 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   Criar Conta Grátis

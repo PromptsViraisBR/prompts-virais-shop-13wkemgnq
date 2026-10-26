@@ -29,7 +29,6 @@ export const Navbar: React.FC = () => {
   const { user, plan, isPaidPlan, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const isActive = (path: string) => location.pathname === path
 
@@ -38,316 +37,295 @@ export const Navbar: React.FC = () => {
     navigate('/')
   }
 
-  const planBadge = () => {
+  const planBadge = (compact = false) => {
     if (plan === 'annual') {
       return (
-        <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 font-semibold gap-1">
+        <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 font-semibold gap-1 text-[11px] px-2 py-0.5">
           <Crown className="w-3 h-3 text-amber-500" />
-          Anual VIP
+          {compact ? 'VIP' : 'Anual VIP'}
         </Badge>
       )
     }
     if (plan === 'monthly') {
       return (
-        <Badge className="bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30 font-semibold gap-1">
+        <Badge className="bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30 font-semibold gap-1 text-[11px] px-2 py-0.5">
           <Sparkles className="w-3 h-3 text-pink-500" />
           PRO
         </Badge>
       )
     }
     return (
-      <Badge variant="outline" className="text-muted-foreground font-medium">
-        Gratuito
+      <Badge
+        variant="outline"
+        className="text-muted-foreground font-medium text-[11px] px-2 py-0.5"
+      >
+        Grátis
       </Badge>
     )
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
-        {/* Logo */}
-        <Link
-          to="/"
-          className="flex items-center gap-2.5 font-bold text-xl tracking-tight transition-opacity hover:opacity-90"
-        >
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-400 flex items-center justify-center text-white shadow-md shadow-pink-500/20">
-            <Video className="w-5 h-5" />
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent font-extrabold text-lg sm:text-xl">
-              Prompts Virais
-            </span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-              TikTok Shop & Shopee
-            </span>
-          </div>
-        </Link>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1.5 lg:gap-2">
-          <Link to="/biblioteca">
-            <Button
-              variant={isActive('/biblioteca') ? 'secondary' : 'ghost'}
-              size="sm"
-              className="gap-2 font-medium"
-            >
-              <BookOpen className="w-4 h-4 text-pink-500" />
-              Biblioteca
-            </Button>
-          </Link>
-
-          <Link to="/virais">
-            <Button
-              variant={isActive('/virais') ? 'secondary' : 'ghost'}
-              size="sm"
-              className="gap-2 font-medium relative"
-            >
-              <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
-              Vídeos Virais
-              <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-extrabold rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20 ml-0.5">
-                NOVO
-              </span>
-            </Button>
-          </Link>
-
-          <Link to="/gerador">
-            <Button
-              variant={isActive('/gerador') ? 'secondary' : 'ghost'}
-              size="sm"
-              className="gap-2 font-medium relative"
-            >
-              <Wand2 className="w-4 h-4 text-amber-500" />
-              Gerador
-              {!isPaidPlan && (
-                <span className="inline-flex items-center px-1.5 py-0.2 text-[10px] font-bold rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 ml-1">
-                  PRO
-                </span>
-              )}
-            </Button>
-          </Link>
-
-          <Link to="/planos">
-            <Button
-              variant={isActive('/planos') ? 'secondary' : 'ghost'}
-              size="sm"
-              className="gap-2 font-medium"
-            >
-              <Crown className="w-4 h-4 text-indigo-500" />
-              Planos
-            </Button>
-          </Link>
-        </nav>
-
-        {/* Desktop User / Auth CTA */}
-        <div className="hidden md:flex items-center gap-3">
-          {user ? (
-            <div className="flex items-center gap-2">
-              <div className="hidden lg:block">{planBadge()}</div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 pl-2">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-pink-500 to-amber-400 text-white flex items-center justify-center text-xs font-bold uppercase">
-                      {user.name ? user.name.charAt(0) : user.email.charAt(0)}
-                    </div>
-                    <span className="max-w-[120px] truncate text-sm font-medium">
-                      {user.name || user.email.split('@')[0]}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                    Conectado como{' '}
-                    <strong className="text-foreground block truncate">{user.email}</strong>
-                  </div>
-                  <div className="px-2 py-1 lg:hidden">{planBadge()}</div>
-                  <DropdownMenuSeparator />
-                  {(user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
-                    <DropdownMenuItem
-                      onClick={() => navigate('/admin')}
-                      className="cursor-pointer gap-2 text-pink-600 dark:text-pink-400 font-semibold"
-                    >
-                      <Crown className="w-4 h-4 text-pink-500" />
-                      Painel Admin Mercado Pago
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onClick={() => navigate('/perfil')}
-                    className="cursor-pointer gap-2"
-                  >
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    Meu Perfil & Assinatura
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => navigate('/planos')}
-                    className="cursor-pointer gap-2"
-                  >
-                    <Crown className="w-4 h-4 text-amber-500" />
-                    Alterar Plano
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="cursor-pointer text-destructive gap-2"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sair da Conta
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link to="/login">
-                <Button variant="ghost" size="sm" className="font-medium gap-1.5">
-                  <LogIn className="w-4 h-4" />
-                  Entrar
-                </Button>
-              </Link>
-              <Link to="/planos">
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-semibold shadow-sm"
-                >
-                  <Sparkles className="w-4 h-4 mr-1.5" />
-                  Assinar Agora
-                </Button>
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile menu button */}
-        <div className="flex md:hidden items-center gap-2">
-          {user && <div className="sm:block hidden">{planBadge()}</div>}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Abrir menu"
+    <header className="sticky top-0 z-50 w-full border-b bg-background/98 backdrop-blur shadow-xs pt-[env(safe-area-inset-top)]">
+      {/* Linha Principal da Navbar */}
+      <div className="w-full px-2.5 sm:px-6">
+        <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
+          {/* Logo Compactada para mobile com visual profissional */}
+          <Link
+            to="/"
+            className="flex items-center gap-2 font-bold tracking-tight shrink-0 transition-opacity hover:opacity-90 py-1"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile drawer */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-b bg-background px-4 py-4 space-y-3 animate-in slide-in-from-top-2">
-          <div className="flex flex-col space-y-1">
-            <Link
-              to="/biblioteca"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-sm ${
-                isActive('/biblioteca') ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 text-pink-500" />
-              Biblioteca de Prompts
-            </Link>
-
-            <Link
-              to="/virais"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center justify-between px-3 py-2 rounded-md font-medium text-sm border border-rose-500/20 bg-rose-500/5 ${
-                isActive('/virais') ? 'bg-rose-500/15 text-foreground font-bold' : 'text-foreground'
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
-                <span>Vídeos Virais (Criadores)</span>
+            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-400 flex items-center justify-center text-white shadow-sm shadow-pink-500/20 shrink-0">
+              <Video className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent font-black text-sm sm:text-lg">
+                Prompts Virais
               </span>
-              <Badge
-                variant="secondary"
-                className="text-[10px] bg-rose-500/15 text-rose-600 font-extrabold border border-rose-500/30"
+              <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground hidden xs:inline">
+                Shop & Virais
+              </span>
+            </div>
+          </Link>
+
+          {/* Abas Superiores no Desktop */}
+          <nav className="hidden lg:flex items-center gap-1">
+            <Link to="/biblioteca">
+              <Button
+                variant={isActive('/biblioteca') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-2 font-medium h-9 text-xs sm:text-sm"
               >
-                NOVO 🔥
-              </Badge>
+                <BookOpen className="w-4 h-4 text-pink-500" />
+                Biblioteca
+              </Button>
             </Link>
 
-            <Link
-              to="/gerador"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center justify-between px-3 py-2 rounded-md font-medium text-sm ${
-                isActive('/gerador') ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
+            <Link to="/virais">
+              <Button
+                variant={isActive('/virais') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-1.5 font-medium h-9 text-xs sm:text-sm relative"
+              >
+                <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
+                Vídeos Virais
+                <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-extrabold rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                  NOVO
+                </span>
+              </Button>
+            </Link>
+
+            <Link to="/gerador">
+              <Button
+                variant={isActive('/gerador') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-1.5 font-medium h-9 text-xs sm:text-sm relative"
+              >
                 <Wand2 className="w-4 h-4 text-amber-500" />
-                Gerador Personalizado
-              </span>
-              {!isPaidPlan && (
-                <Badge variant="secondary" className="text-[10px] text-amber-600">
-                  PRO
-                </Badge>
-              )}
+                Gerador
+                {!isPaidPlan && (
+                  <span className="inline-flex items-center px-1 py-0.2 text-[9px] font-bold rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                    PRO
+                  </span>
+                )}
+              </Button>
             </Link>
 
-            <Link
-              to="/planos"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-sm ${
-                isActive('/planos') ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-              }`}
-            >
-              <Crown className="w-4 h-4 text-indigo-500" />
-              Planos & Preços
+            <Link to="/planos">
+              <Button
+                variant={isActive('/planos') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-2 font-medium h-9 text-xs sm:text-sm"
+              >
+                <Crown className="w-4 h-4 text-indigo-500" />
+                Planos
+              </Button>
             </Link>
-          </div>
+          </nav>
 
-          <div className="pt-2 border-t flex flex-col gap-2">
+          {/* Área de Usuário / Ações */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {user ? (
-              <>
-                <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground">
-                  <span className="truncate">{user.email}</span>
-                  {planBadge()}
-                </div>
-                {(user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
-                  <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className="hidden sm:block">{planBadge()}</div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start gap-2 text-sm border-pink-500/30 text-pink-600"
+                      size="sm"
+                      className="gap-1.5 sm:gap-2 h-9 px-2 sm:px-3 rounded-full border-pink-500/30"
                     >
-                      <Crown className="w-4 h-4 text-pink-500" />
-                      Painel Admin Mercado Pago
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-pink-500 to-amber-400 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                        {user.name ? user.name.charAt(0) : user.email.charAt(0)}
+                      </div>
+                      <span className="max-w-[70px] sm:max-w-[120px] truncate text-xs sm:text-sm font-semibold">
+                        {user.name ? user.name.split(' ')[0] : user.email.split('@')[0]}
+                      </span>
                     </Button>
-                  </Link>
-                )}
-                <Link to="/perfil" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full justify-start gap-2 text-sm">
-                    <User className="w-4 h-4" />
-                    Meu Perfil & Assinatura
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setMobileMenuOpen(false)
-                    handleLogout()
-                  }}
-                  className="w-full justify-start text-destructive gap-2 text-sm"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sair da Conta
-                </Button>
-              </>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      Conectado como{' '}
+                      <strong className="text-foreground block truncate">{user.email}</strong>
+                    </div>
+                    <div className="px-2 py-1">{planBadge()}</div>
+                    <DropdownMenuSeparator />
+                    {(user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
+                      <DropdownMenuItem
+                        onClick={() => navigate('/admin')}
+                        className="cursor-pointer gap-2 text-pink-600 dark:text-pink-400 font-semibold"
+                      >
+                        <Crown className="w-4 h-4 text-pink-500" />
+                        Painel Admin Mercado Pago
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={() => navigate('/perfil')}
+                      className="cursor-pointer gap-2"
+                    >
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      Meu Perfil & Indicação
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => navigate('/planos')}
+                      className="cursor-pointer gap-2"
+                    >
+                      <Crown className="w-4 h-4 text-amber-500" />
+                      Planos de Assinatura
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="cursor-pointer text-destructive gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sair da Conta
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full">
-                    Entrar
+              <div className="flex items-center gap-1.5">
+                <Link to="/login">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-2.5 font-bold text-xs sm:text-sm"
+                  >
+                    <LogIn className="w-3.5 h-3.5 sm:mr-1.5" />
+                    <span>Entrar</span>
                   </Button>
                 </Link>
-                <Link to="/planos" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full bg-gradient-to-r from-pink-600 to-amber-500 text-white">
-                    Assinar
+                <Link to="/planos">
+                  <Button
+                    size="sm"
+                    className="h-9 px-3 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-xs"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1" />
+                    <span>PRO</span>
                   </Button>
                 </Link>
               </div>
             )}
           </div>
         </div>
-      )}
+
+        {/* NAVEGAÇÃO TOTALMENTE VISÍVEL NO MOBILE / PWA / WEB
+            NUNCA ESCONDIDA EM HAMBÚRGUER OU GAVETA!
+            Nomes das abas visíveis, botões generosos para toque no polegar,
+            com scroll horizontal suave em telas estreitas */}
+        <div className="flex lg:hidden items-center gap-1 pb-2 pt-0.5 overflow-x-auto no-scrollbar scroll-smooth -mx-2.5 px-2.5">
+          <Link to="/biblioteca" className="shrink-0">
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                isActive('/biblioteca')
+                  ? 'bg-gradient-to-r from-pink-500/20 to-rose-500/20 text-foreground border border-pink-500/40 shadow-xs'
+                  : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+              <span>Biblioteca</span>
+            </button>
+          </Link>
+
+          <Link to="/virais" className="shrink-0">
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                isActive('/virais')
+                  ? 'bg-gradient-to-r from-rose-500/25 to-pink-500/25 text-foreground border border-rose-500/50 shadow-xs'
+                  : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5 text-rose-500 shrink-0 animate-pulse" />
+              <span>Vídeos Virais</span>
+              <span className="text-[9px] px-1 py-0.2 rounded bg-rose-500 text-white font-black uppercase">
+                Hot
+              </span>
+            </button>
+          </Link>
+
+          <Link to="/gerador" className="shrink-0">
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                isActive('/gerador')
+                  ? 'bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-foreground border border-amber-500/40 shadow-xs'
+                  : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
+              }`}
+            >
+              <Wand2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>Gerador</span>
+              {!isPaidPlan && (
+                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold">
+                  PRO
+                </span>
+              )}
+            </button>
+          </Link>
+
+          <Link to="/planos" className="shrink-0">
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                isActive('/planos')
+                  ? 'bg-gradient-to-r from-indigo-500/20 to-pink-500/20 text-foreground border border-indigo-500/40 shadow-xs'
+                  : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
+              }`}
+            >
+              <Crown className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span>Planos</span>
+            </button>
+          </Link>
+
+          {user && (
+            <Link to="/perfil" className="shrink-0">
+              <button
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                  isActive('/perfil')
+                    ? 'bg-secondary text-foreground border border-border shadow-xs'
+                    : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
+                }`}
+              >
+                <User className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                <span>Perfil</span>
+              </button>
+            </Link>
+          )}
+
+          {user && (user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
+            <Link to="/admin" className="shrink-0">
+              <button
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                  isActive('/admin')
+                    ? 'bg-pink-500/20 text-pink-600 border border-pink-500/40 shadow-xs'
+                    : 'bg-muted/50 text-pink-600/80 hover:text-pink-600 hover:bg-muted border border-transparent'
+                }`}
+              >
+                <Crown className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                <span>Admin</span>
+              </button>
+            </Link>
+          )}
+        </div>
+      </div>
     </header>
   )
 }

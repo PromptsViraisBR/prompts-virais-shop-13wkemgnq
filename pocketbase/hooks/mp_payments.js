@@ -342,9 +342,8 @@ routerAdd('POST', '/backend/v1/mp/admin/refund', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, {
         success: false,
@@ -2312,9 +2311,8 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, {
         success: false,
@@ -2325,16 +2323,45 @@ routerAdd('GET', '/backend/v1/mp/admin/overview', (e) => {
     const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
     const isConfigured = Boolean(token)
 
-    const totalUsers = $app.countRecords('users')
-    const activeMonthlySubs = $app.countRecords(
-      'subscriptions',
-      'status = "active" && plan = "monthly"',
-    )
-    const activeAnnualSubs = $app.countRecords(
-      'subscriptions',
-      'status = "active" && plan = "annual"',
-    )
-    const cancelledSubs = $app.countRecords('subscriptions', 'status = "cancelled"')
+    let totalUsers = 0
+    try {
+      totalUsers = $app.countRecords('users')
+    } catch (_) {
+      try {
+        const uList = $app.findRecordsByFilter('users', '', '', 10000, 0)
+        totalUsers = uList ? uList.length : 0
+      } catch (_) {}
+    }
+
+    let activeMonthlySubs = 0
+    try {
+      const mList = $app.findRecordsByFilter(
+        'subscriptions',
+        'status = "active" && plan = "monthly"',
+        '',
+        10000,
+        0,
+      )
+      activeMonthlySubs = mList ? mList.length : 0
+    } catch (_) {}
+
+    let activeAnnualSubs = 0
+    try {
+      const aList = $app.findRecordsByFilter(
+        'subscriptions',
+        'status = "active" && plan = "annual"',
+        '',
+        10000,
+        0,
+      )
+      activeAnnualSubs = aList ? aList.length : 0
+    } catch (_) {}
+
+    let cancelledSubs = 0
+    try {
+      const cList = $app.findRecordsByFilter('subscriptions', 'status = "cancelled"', '', 10000, 0)
+      cancelledSubs = cList ? cList.length : 0
+    } catch (_) {}
 
     const recentUsers = $app.findRecordsByFilter('users', '', '-created', 30, 0)
     const usersList = recentUsers.map((u) => ({

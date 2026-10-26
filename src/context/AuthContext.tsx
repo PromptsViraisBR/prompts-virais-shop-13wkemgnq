@@ -178,7 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   // Determina se o usuário é administrador (flag is_admin ou e-mail de admin)
-  const isAdmin = Boolean(user?.is_admin || user?.email === 'juniorrodriguesjr123.jr@gmail.com')
+  const userEmail = (user?.email || '').toLowerCase().trim()
+  const isAdmin = Boolean(user?.is_admin || userEmail === 'juniorrodriguesjr123.jr@gmail.com')
 
   // Determina plano: admin tem acesso PRO/anual total automático irrestrito
   const subPlan: PlanType = subscription?.status === 'active' ? subscription.plan : 'free'

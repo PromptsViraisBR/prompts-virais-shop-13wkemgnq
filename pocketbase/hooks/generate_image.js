@@ -64,9 +64,8 @@ routerAdd('POST', '/backend/v1/generate-image', (e) => {
 
     // 2. Validação obrigatória de PLANO PRO no BACKEND
     // Admin tem acesso PRO total automaticamente
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
 
     let isProActive = false
     if (isAdmin) {

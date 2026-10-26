@@ -49,7 +49,7 @@ import {
 import { Eye } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {
-  const { user } = useAuth()
+  const { user, isAdmin, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
 
   const [data, setData] = useState<AdminOverviewResult | null>(null)
@@ -115,14 +115,37 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const [res, fRes, eRes] = await Promise.all([
+      const [res, fRes, eRes] = await Promise.allSettled([
         getAdminOverview(),
         getFunnelMetrics(funnelPeriod),
-        getEmailStatus().catch(() => null),
+        getEmailStatus(),
       ])
-      setData(res)
-      setFunnelData(fRes)
-      if (eRes) setEmailStatus(eRes)
+
+      let criticalError = ''
+      if (res.status === 'fulfilled') {
+        setData(res.value)
+      } else {
+        console.error('getAdminOverview error:', res.reason)
+        criticalError =
+          res.reason?.data?.error || res.reason?.message || 'Erro ao carregar visão geral do admin.'
+      }
+
+      if (fRes.status === 'fulfilled') {
+        setFunnelData(fRes.value)
+      } else {
+        console.warn('getFunnelMetrics warning:', fRes.reason)
+      }
+
+      if (eRes.status === 'fulfilled') {
+        setEmailStatus(eRes.value)
+      } else {
+        console.warn('getEmailStatus warning:', eRes.reason)
+      }
+
+      // Se falhou por autenticação/permissão em ambos ou se não obteve os dados principais
+      if (!data && res.status === 'rejected') {
+        setErrorMsg(criticalError || 'Falha ao carregar painel administrativo.')
+      }
     } catch (err: any) {
       console.error(err)
       setErrorMsg(err?.data?.error || err?.message || 'Falha ao carregar painel administrativo.')
@@ -132,12 +155,26 @@ export const AdminDashboard: React.FC = () => {
   }
 
   useEffect(() => {
+    if (authLoading) return
+
     if (!user) {
       navigate('/login')
       return
     }
+
+    const email = (user.email || '').toLowerCase().trim()
+    const isUserAdmin = Boolean(
+      isAdmin || user.is_admin || email === 'juniorrodriguesjr123.jr@gmail.com',
+    )
+
+    if (!isUserAdmin) {
+      setErrorMsg('Acesso restrito. Sua conta não possui privilégios de administrador.')
+      setLoading(false)
+      return
+    }
+
     loadOverview()
-  }, [user, navigate])
+  }, [user, isAdmin, authLoading, navigate])
 
   const handlePeriodChange = async (period: 'today' | '7d' | '30d' | 'all') => {
     setFunnelPeriod(period)

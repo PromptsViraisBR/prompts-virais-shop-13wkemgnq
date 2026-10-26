@@ -572,9 +572,8 @@ routerAdd('POST', '/backend/v1/admin/run-expiration-check', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
     }
@@ -845,9 +844,8 @@ routerAdd('GET', '/backend/v1/admin/email-status', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
     }
@@ -935,11 +933,63 @@ routerAdd('GET', '/backend/v1/admin/email-status', (e) => {
       }
     } catch (_) {}
 
-    const totalUsers = $app.countRecords('_pb_users_auth_')
-    const welcomeEmailsSent = $app.countRecords('_pb_users_auth_', 'welcome_email_sent = true')
-    const expiredSubsNotified = $app.countRecords('subscriptions', 'expiration_notified = true')
-    const welcomeSubsNotified = $app.countRecords('subscriptions', 'welcome_sub_notified = true')
-    const pixRemindersNotified = $app.countRecords('subscriptions', 'pix_reminder_notified = true')
+    let totalUsers = 0
+    try {
+      totalUsers = $app.countRecords('_pb_users_auth_')
+    } catch (_) {
+      try {
+        const uList = $app.findRecordsByFilter('_pb_users_auth_', '', '', 10000, 0)
+        totalUsers = uList ? uList.length : 0
+      } catch (_) {}
+    }
+
+    let welcomeEmailsSent = 0
+    try {
+      const wList = $app.findRecordsByFilter(
+        '_pb_users_auth_',
+        'welcome_email_sent = true',
+        '',
+        10000,
+        0,
+      )
+      welcomeEmailsSent = wList ? wList.length : 0
+    } catch (_) {}
+
+    let expiredSubsNotified = 0
+    try {
+      const eList = $app.findRecordsByFilter(
+        'subscriptions',
+        'expiration_notified = true',
+        '',
+        10000,
+        0,
+      )
+      expiredSubsNotified = eList ? eList.length : 0
+    } catch (_) {}
+
+    let welcomeSubsNotified = 0
+    try {
+      const wsList = $app.findRecordsByFilter(
+        'subscriptions',
+        'welcome_sub_notified = true',
+        '',
+        10000,
+        0,
+      )
+      welcomeSubsNotified = wsList ? wsList.length : 0
+    } catch (_) {}
+
+    let pixRemindersNotified = 0
+    try {
+      const pList = $app.findRecordsByFilter(
+        'subscriptions',
+        'pix_reminder_notified = true',
+        '',
+        10000,
+        0,
+      )
+      pixRemindersNotified = pList ? pList.length : 0
+    } catch (_) {}
 
     return e.json(200, {
       success: true,
@@ -1012,9 +1062,8 @@ routerAdd('POST', '/backend/v1/admin/test-transactional-email', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
     }
@@ -1239,9 +1288,8 @@ routerAdd('GET', '/backend/v1/admin/email-preview', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
     }

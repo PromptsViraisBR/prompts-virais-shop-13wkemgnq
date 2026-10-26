@@ -233,9 +233,8 @@ routerAdd('GET', '/backend/v1/admin/smtp-status', (e) => {
       return e.json(401, { success: false, error: 'Requer autenticação.' })
     }
 
-    const isAdmin =
-      authUser.getBool('is_admin') ||
-      authUser.getString('email') === 'juniorrodriguesjr123.jr@gmail.com'
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
     if (!isAdmin) {
       return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
     }

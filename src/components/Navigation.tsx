@@ -170,7 +170,9 @@ export const Navbar: React.FC = () => {
                     </div>
                     <div className="px-2 py-1">{planBadge()}</div>
                     <DropdownMenuSeparator />
-                    {(user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
+                    {(user.is_admin ||
+                      (user.email || '').toLowerCase().trim() ===
+                        'juniorrodriguesjr123.jr@gmail.com') && (
                       <DropdownMenuItem
                         onClick={() => navigate('/admin')}
                         className="cursor-pointer gap-2 text-pink-600 dark:text-pink-400 font-semibold"
@@ -310,20 +312,22 @@ export const Navbar: React.FC = () => {
             </Link>
           )}
 
-          {user && (user.is_admin || user.email === 'juniorrodriguesjr123.jr@gmail.com') && (
-            <Link to="/admin" className="shrink-0">
-              <button
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
-                  isActive('/admin')
-                    ? 'bg-pink-500/20 text-pink-600 border border-pink-500/40 shadow-xs'
-                    : 'bg-muted/50 text-pink-600/80 hover:text-pink-600 hover:bg-muted border border-transparent'
-                }`}
-              >
-                <Crown className="w-3.5 h-3.5 text-pink-500 shrink-0" />
-                <span>Admin</span>
-              </button>
-            </Link>
-          )}
+          {user &&
+            (user.is_admin ||
+              (user.email || '').toLowerCase().trim() === 'juniorrodriguesjr123.jr@gmail.com') && (
+              <Link to="/admin" className="shrink-0">
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                    isActive('/admin')
+                      ? 'bg-pink-500/20 text-pink-600 border border-pink-500/40 shadow-xs'
+                      : 'bg-muted/50 text-pink-600/80 hover:text-pink-600 hover:bg-muted border border-transparent'
+                  }`}
+                >
+                  <Crown className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                  <span>Admin</span>
+                </button>
+              </Link>
+            )}
         </div>
       </div>
     </header>

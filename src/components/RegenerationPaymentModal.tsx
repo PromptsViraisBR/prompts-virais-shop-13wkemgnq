@@ -92,20 +92,74 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
     try {
       // FLUXO 1: Pix Direto Oficial do Mercado Pago
       if (paymentTab === 'pix') {
-        trackFunnelEvent('checkout_start_pix', {
-          type: 'credits',
-          quantity,
-        })
+        try {
+          trackFunnelEvent('checkout_start_pix', {
+            type: 'credits',
+            quantity,
+          })
+        } catch {
+          /* intentionally ignored */
+        }
 
-        const res = await createMercadoPagoPix({
-          type: 'credits',
-          quantity,
-        })
+        let res: CreatePixResult
+        try {
+          res = await createMercadoPagoPix({
+            type: 'credits',
+            quantity,
+          })
+        } catch (callErr: any) {
+          const isAuthErr =
+            callErr?.status === 401 ||
+            String(callErr?.message || '')
+              .toLowerCase()
+              .includes('logado') ||
+            String(callErr?.message || '')
+              .toLowerCase()
+              .includes('autentica')
+
+          if (isAuthErr) {
+            toast({
+              title: 'Sessão expirada',
+              description: 'Faça login para continuar.',
+              variant: 'destructive',
+            })
+            return
+          }
+
+          toast({
+            title: 'Não foi possível gerar o Pix',
+            description:
+              callErr?.message ||
+              'Instabilidade na comunicação com o Mercado Pago. Tente novamente ou pague com Cartão.',
+            variant: 'destructive',
+          })
+          return
+        }
 
         if (!res.success || !res.payment_id) {
+          const isAuthErr =
+            res.code === 'UNAUTHORIZED' ||
+            String(res.error || '')
+              .toLowerCase()
+              .includes('logado') ||
+            String(res.error || '')
+              .toLowerCase()
+              .includes('autentica')
+
+          if (isAuthErr) {
+            toast({
+              title: 'Sessão expirada',
+              description: 'Faça login para continuar.',
+              variant: 'destructive',
+            })
+            return
+          }
+
           toast({
             title: 'Erro ao gerar Pix',
-            description: res.error || 'Não foi possível gerar a cobrança Pix oficial.',
+            description:
+              res.error ||
+              'O Mercado Pago não pôde gerar o QR Code no momento. Tente novamente ou use Cartão.',
             variant: 'destructive',
           })
           return
@@ -118,10 +172,14 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
       }
 
       // FLUXO 2: Cartão de Crédito / Checkout Pro do Mercado Pago
-      trackFunnelEvent('checkout_start', {
-        type: 'credits',
-        quantity,
-      })
+      try {
+        trackFunnelEvent('checkout_start', {
+          type: 'credits',
+          quantity,
+        })
+      } catch {
+        /* intentionally ignored */
+      }
 
       const res = await createMercadoPagoCheckout({
         type: 'credits',
@@ -153,6 +211,24 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
         })
       }
     } catch (err: any) {
+      const isAuthErr =
+        err?.status === 401 ||
+        String(err?.message || '')
+          .toLowerCase()
+          .includes('logado') ||
+        String(err?.message || '')
+          .toLowerCase()
+          .includes('autentica')
+
+      if (isAuthErr) {
+        toast({
+          title: 'Sessão expirada',
+          description: 'Faça login para continuar.',
+          variant: 'destructive',
+        })
+        return
+      }
+
       toast({
         title: 'Erro na conexão',
         description: err.message || 'Falha ao conectar com o serviço do Mercado Pago.',
@@ -460,6 +536,10 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
         pixData={pixData}
         title="Pix — Créditos de Regeneração"
         description={`Pague ${totalPrice} para liberar ${quantity} prompt(s) de regeneração imediatamente.`}
+        onPayWithCard={() => {
+          setPaymentTab('saved_card')
+          onOpenChange(true)
+        }}
         onPaymentApproved={async () => {
           // Atualiza o saldo chamando o callback do componente pai
           const updated = await getUserRegenerationCredits(userId)

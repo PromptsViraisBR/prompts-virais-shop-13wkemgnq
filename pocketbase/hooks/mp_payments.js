@@ -835,13 +835,25 @@ routerAdd('POST', '/backend/v1/mp/create-pix', (e) => {
     const creditsQuantity = parseInt(body.quantity || '1', 10)
 
     const userId = authUser.id
-    const userEmail = authUser.getString('email') || ''
-    const userName = authUser.getString('name') || 'Cliente'
+    const userEmail = (authUser.getString('email') || '').trim()
+    const rawUserName = (authUser.getString('name') || '').trim()
 
-    // Separar primeiro e último nome para o payload do MP
-    const nameParts = userName.trim().split(/\s+/)
-    const firstName = nameParts[0] || 'Cliente'
-    const lastName = nameParts.slice(1).join(' ') || 'Prompts'
+    // Sanitizar payer: se name estiver vazio, usar prefixo do email antes do @; nunca enviar first_name vazio/nulo
+    let emailPrefix = 'Cliente'
+    if (userEmail && userEmail.includes('@')) {
+      const p = userEmail
+        .split('@')[0]
+        .replace(/[^a-zA-Z0-9]/g, ' ')
+        .trim()
+      if (p.length > 0) {
+        emailPrefix = p.charAt(0).toUpperCase() + p.slice(1)
+      }
+    }
+
+    const effectiveName = rawUserName || emailPrefix
+    const nameParts = effectiveName.split(/\s+/).filter(Boolean)
+    const firstName = (nameParts[0] || emailPrefix || 'Cliente').substring(0, 30)
+    const lastName = (nameParts.slice(1).join(' ') || 'Cliente').substring(0, 30)
 
     let amount = 1.99
     let description = ''
@@ -864,9 +876,12 @@ routerAdd('POST', '/backend/v1/mp/create-pix', (e) => {
       externalRef = `credits_${userId}_${qty}_${Date.now()}`
     }
 
-    // Configuração de expiração: 30 minutos a partir de agora no formato ISO 8601 do MP
-    const expireDate = new Date(Date.now() + 30 * 60 * 1000)
-    const dateOfExpiration = expireDate.toISOString().replace(/\.\d{3}Z$/, '.000-00:00')
+    // Configuração de expiração: 30 minutos a partir de agora no formato ISO 8601 estrito aceito pelo MP (ex: YYYY-MM-DDTHH:mm:ss.000-00:00 ou .000Z)
+    const expireTimestamp = Date.now() + 30 * 60 * 1000
+    const expireDate = new Date(expireTimestamp)
+    const isoString = expireDate.toISOString()
+    // Garante milissegundos e timezone explícita compatível com a API de Pagamentos v1 do Mercado Pago
+    const dateOfExpiration = isoString.includes('.') ? isoString.split('.')[0] + '.000Z' : isoString
 
     const idempotencyKey = `pix_${externalRef}`
 

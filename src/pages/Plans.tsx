@@ -125,20 +125,77 @@ export const Plans: React.FC = () => {
     try {
       // 1. FLUXO PIX DIRETO COM QR CODE OFICIAL
       if (paymentMethodChoice === 'pix') {
-        trackFunnelEvent('checkout_start_pix', {
-          type: 'subscription',
-          plan: selectedPlanForModal,
-        })
+        try {
+          trackFunnelEvent('checkout_start_pix', {
+            type: 'subscription',
+            plan: selectedPlanForModal,
+          })
+        } catch {
+          /* intentionally ignored */
+        }
 
-        const res = await createMercadoPagoPix({
-          type: 'subscription',
-          plan: selectedPlanForModal,
-        })
+        let res: CreatePixResult
+        try {
+          res = await createMercadoPagoPix({
+            type: 'subscription',
+            plan: selectedPlanForModal,
+          })
+        } catch (callErr: any) {
+          const isAuthErr =
+            callErr?.status === 401 ||
+            callErr?.data?.status === 401 ||
+            String(callErr?.message || '')
+              .toLowerCase()
+              .includes('logado') ||
+            String(callErr?.message || '')
+              .toLowerCase()
+              .includes('autentica')
+
+          if (isAuthErr) {
+            toast({
+              title: 'Sessão expirada',
+              description: 'Sua sessão expirou. Faça login novamente para continuar.',
+              variant: 'destructive',
+            })
+            navigate('/login')
+            return
+          }
+
+          toast({
+            title: 'Não foi possível gerar o Pix',
+            description:
+              callErr?.message ||
+              'Instabilidade temporária na comunicação com o Mercado Pago. Tente novamente ou use a opção de Cartão.',
+            variant: 'destructive',
+          })
+          return
+        }
 
         if (!res.success || !res.payment_id) {
+          const isAuthErr =
+            res.code === 'UNAUTHORIZED' ||
+            String(res.error || '')
+              .toLowerCase()
+              .includes('logado') ||
+            String(res.error || '')
+              .toLowerCase()
+              .includes('autentica')
+
+          if (isAuthErr) {
+            toast({
+              title: 'Sessão expirada',
+              description: 'Faça login para continuar.',
+              variant: 'destructive',
+            })
+            navigate('/login')
+            return
+          }
+
           toast({
-            title: 'Erro ao gerar Pix',
-            description: res.error || 'Não foi possível gerar a cobrança Pix no Mercado Pago.',
+            title: 'Erro ao gerar Pix no Mercado Pago',
+            description:
+              res.error ||
+              'O Mercado Pago não pôde gerar o QR Code no momento. Você pode tentar novamente ou pagar com Cartão de Crédito.',
             variant: 'destructive',
           })
           return
@@ -151,10 +208,14 @@ export const Plans: React.FC = () => {
       }
 
       // 2. FLUXO CHECKOUT PRO / CARTÃO DE CRÉDITO OU ASSINATURA RECORRENTE
-      trackFunnelEvent('checkout_start', {
-        type: 'subscription',
-        plan: selectedPlanForModal,
-      })
+      try {
+        trackFunnelEvent('checkout_start', {
+          type: 'subscription',
+          plan: selectedPlanForModal,
+        })
+      } catch {
+        /* intentionally ignored */
+      }
 
       const res = await createMercadoPagoCheckout({
         type: 'subscription',
@@ -187,6 +248,25 @@ export const Plans: React.FC = () => {
         })
       }
     } catch (err: any) {
+      const isAuthErr =
+        err?.status === 401 ||
+        String(err?.message || '')
+          .toLowerCase()
+          .includes('logado') ||
+        String(err?.message || '')
+          .toLowerCase()
+          .includes('autentica')
+
+      if (isAuthErr) {
+        toast({
+          title: 'Sessão expirada',
+          description: 'Sua sessão expirou. Faça login para continuar.',
+          variant: 'destructive',
+        })
+        navigate('/login')
+        return
+      }
+
       toast({
         title: 'Erro na conexão',
         description: err?.message || 'Falha ao conectar com o servidor.',
@@ -644,6 +724,10 @@ export const Plans: React.FC = () => {
         description={`Conclua a ativação do seu plano pagando ${
           selectedPlanForModal === 'annual' ? 'R$ 238,80' : 'R$ 19,90'
         } via Pix Oficial.`}
+        onPayWithCard={() => {
+          setPaymentMethodChoice('checkout_pro')
+          setModalOpen(true)
+        }}
         onPaymentApproved={async () => {
           await refreshSubscription()
           navigate(

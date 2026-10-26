@@ -45,14 +45,20 @@ export const PromptInfoCard: React.FC<PromptInfoCardProps> = ({
   const displayPlatform = (platform || prompt?.platform || 'ambos') as PlatformType
   const displayCategory = category || prompt?.category || 'ecommerce'
 
-  const nicheLabel = NICHE_LABELS[displayNiche] || displayNiche
-  const nicheEmoji = NICHE_EMOJIS[displayNiche] || '👗'
+  const nicheLabel =
+    (displayNiche && NICHE_LABELS[displayNiche as NicheType]) || displayNiche || 'Geral'
+  const nicheEmoji = (displayNiche && NICHE_EMOJIS[displayNiche as NicheType]) || '👗'
 
-  const styleLabel = STYLE_LABELS[displayStyle] || displayStyle
-  const styleEmoji = STYLE_EMOJIS[displayStyle] || '🎬'
+  const styleLabel =
+    (displayStyle && STYLE_LABELS[displayStyle as StyleType]) || displayStyle || 'Vídeo Liso'
+  const styleEmoji = (displayStyle && STYLE_EMOJIS[displayStyle as StyleType]) || '🎬'
 
   const platformInfo = getPlatformInfo(displayPlatform)
-  const platformLabel = PLATFORM_LABELS[displayPlatform] || platformInfo.label
+  const platformLabel =
+    (displayPlatform && PLATFORM_LABELS[displayPlatform as PlatformType]) ||
+    platformInfo?.label ||
+    displayPlatform ||
+    'TikTok Shop & Shopee'
 
   const isViral = displayCategory === 'virais'
   const durationText = isViral ? '~60s (6 cenas de 10s)' : 'Até 10s (Vídeo Rápido)'

@@ -115,13 +115,22 @@ export function getPlatformInfo(platform?: string): {
   badgeVariant: 'default' | 'secondary' | 'outline'
   emoji: string
 } {
-  if (platform === 'tiktok_shop') {
+  if (!platform) {
+    return { label: 'TikTok & Shopee', badgeVariant: 'outline', emoji: '🚀' }
+  }
+  const clean = String(platform).toLowerCase().trim()
+  if (clean === 'tiktok_shop' || clean === 'tiktok') {
     return { label: 'TikTok Shop', badgeVariant: 'outline', emoji: '🎵' }
   }
-  if (platform === 'shopee') {
+  if (clean === 'shopee') {
     return { label: 'Shopee Vídeo', badgeVariant: 'outline', emoji: '🛍️' }
   }
-  return { label: 'TikTok & Shopee', badgeVariant: 'outline', emoji: '🚀' }
+  if (clean === 'ambos') {
+    return { label: 'TikTok Shop & Shopee', badgeVariant: 'outline', emoji: '🚀' }
+  }
+  // Fallback amigável caso venha qualquer outra string do banco ou campo
+  const capitalized = clean.charAt(0).toUpperCase() + clean.slice(1).replace(/_/g, ' ')
+  return { label: capitalized, badgeVariant: 'outline', emoji: '✨' }
 }
 
 export interface ParsedScene {

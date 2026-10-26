@@ -135,48 +135,86 @@ export const Generator: React.FC = () => {
   }, [referencePreviews])
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    try {
+      const files = e.target.files
+      if (!files || files.length === 0) return
 
-    if (!user) {
-      setAuthGateAction('Fazer upload de fotos da sua peça')
-      setAuthGateOpen(true)
-      e.target.value = ''
-      return
-    }
+      if (!user) {
+        setAuthGateAction('Fazer upload de fotos da sua peça')
+        setAuthGateOpen(true)
+        e.target.value = ''
+        return
+      }
 
-    const incoming = Array.from(files)
-    const availableSlots = 3 - referenceFiles.length
+      const incoming = Array.from(files)
+      const availableSlots = 3 - referenceFiles.length
 
-    if (availableSlots <= 0) {
+      if (availableSlots <= 0) {
+        toast({
+          title: 'Limite de imagens atingido',
+          description: 'Você pode adicionar no máximo 3 imagens da peça/vitrine.',
+          variant: 'destructive',
+        })
+        e.target.value = ''
+        return
+      }
+
+      const validFiles: File[] = []
+      const newPreviews: string[] = []
+
+      for (const file of incoming.slice(0, availableSlots)) {
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: 'Formato inválido',
+            description: `O arquivo "${file.name}" não é uma imagem válida.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+        if (file.size > 15 * 1024 * 1024) {
+          toast({
+            title: 'Imagem muito pesada',
+            description: `A foto "${file.name}" excede 15MB.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+
+        try {
+          const preview = URL.createObjectURL(file)
+          validFiles.push(file)
+          newPreviews.push(preview)
+        } catch (objErr) {
+          console.warn('[Generator] Falha ao criar preview:', objErr)
+        }
+      }
+
+      if (validFiles.length > 0) {
+        setReferenceFiles((prev) => [...prev, ...validFiles])
+        setReferencePreviews((prev) => [...prev, ...newPreviews])
+
+        if (incoming.length > availableSlots) {
+          toast({
+            title: 'Algumas imagens não foram adicionadas',
+            description: `Limite máximo de 3 imagens. Apenas ${validFiles.length} foram adicionada(s).`,
+          })
+        } else {
+          toast({
+            title: 'Foto(s) adicionada(s) com sucesso! 📸',
+            description: 'O roteiro será gerado fielmente de acordo com a sua peça física.',
+          })
+        }
+      }
+    } catch (err: any) {
+      console.error('[Generator] Erro no upload de imagem:', err)
       toast({
-        title: 'Limite de imagens atingido',
-        description: 'Você pode adicionar no máximo 3 imagens da peça/vitrine.',
+        title: 'Não foi possível carregar a imagem',
+        description: 'Tente selecionar outro arquivo de imagem.',
         variant: 'destructive',
       })
-      e.target.value = ''
-      return
+    } finally {
+      if (e.target) e.target.value = ''
     }
-
-    const acceptedFiles = incoming.slice(0, availableSlots)
-    const newPreviews = acceptedFiles.map((file) => URL.createObjectURL(file))
-
-    setReferenceFiles((prev) => [...prev, ...acceptedFiles])
-    setReferencePreviews((prev) => [...prev, ...newPreviews])
-
-    if (incoming.length > availableSlots) {
-      toast({
-        title: 'Algumas imagens não foram adicionadas',
-        description: `Limite máximo de 3 imagens. Apenas ${availableSlots} foram adicionada(s).`,
-      })
-    } else {
-      toast({
-        title: 'Foto(s) adicionada(s) com sucesso! 📸',
-        description: 'O roteiro será gerado fielmente de acordo com a sua peça física.',
-      })
-    }
-
-    e.target.value = ''
   }
 
   const handleRemoveImage = (indexToRemove: number) => {
@@ -258,17 +296,24 @@ export const Generator: React.FC = () => {
       let scriptToSave = ''
 
       if (referenceFiles.length > 0 || visualDetails.trim()) {
-        const adaptRes = await adaptPromptWithImages({
-          productName: productName.trim(),
-          visualDetails: visualDetails.trim() || details.trim() || undefined,
-          style,
-          platform,
-          referenceImages: referenceFiles,
-          imagesCount: referenceFiles.length,
-        })
+        try {
+          const adaptRes = await adaptPromptWithImages({
+            productName: productName.trim(),
+            visualDetails: visualDetails.trim() || details.trim() || undefined,
+            style,
+            platform,
+            referenceImages: referenceFiles,
+            imagesCount: referenceFiles.length,
+          })
 
-        if (adaptRes.success && adaptRes.adapted_prompt) {
-          scriptToSave = adaptRes.adapted_prompt
+          if (adaptRes && adaptRes.success && adaptRes.adapted_prompt) {
+            scriptToSave = adaptRes.adapted_prompt
+          }
+        } catch (adaptErr) {
+          console.warn(
+            '[Generator] Falha na adaptação de imagem, recorrendo ao roteiro base estruturado:',
+            adaptErr,
+          )
         }
       }
 
@@ -276,9 +321,9 @@ export const Generator: React.FC = () => {
       const record = await saveGeneratedPrompt({
         userId: user.id,
         productName: productName.trim(),
-        niche,
-        style,
-        platform,
+        niche: niche || 'moda_feminina',
+        style: style || 'pov',
+        platform: platform || 'ambos',
         targetAudience: targetAudience.trim() || undefined,
         details: details.trim() || undefined,
         visualDetails: visualDetails.trim() || undefined,
@@ -298,11 +343,11 @@ export const Generator: React.FC = () => {
             ? `Roteiro 100% calibrado nas ${referenceFiles.length} foto(s) da sua vitrine!`
             : 'Pronto para você gravar e vender no TikTok Shop ou Shopee.',
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro na geração do prompt:', err)
       toast({
-        title: 'Erro ao gerar roteiro',
-        description: 'Tente novamente em instantes.',
+        title: 'Não foi possível gerar agora',
+        description: err?.message || 'Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {
@@ -371,13 +416,13 @@ export const Generator: React.FC = () => {
         promptTitle: productName.trim(),
         productName: productName.trim(),
         visualDetails: visualDetails.trim() || details.trim() || undefined,
-        niche,
+        niche: niche || 'moda_feminina',
         imagesCount: referenceFiles.length,
         category: 'ecommerce',
         seed: Math.floor(Math.random() * 1000000),
       })
 
-      if (res.success && res.variations?.length) {
+      if (res && res.success && res.variations?.length) {
         setVariations(res.variations)
         setSelectedVariationId(res.variations[0].id)
 
@@ -419,9 +464,10 @@ export const Generator: React.FC = () => {
         }
       }
     } catch (err: any) {
+      console.error('[Generator] Erro ao regenerar variações:', err)
       toast({
-        title: 'Erro ao regenerar variações',
-        description: err.message || 'Tente novamente.',
+        title: 'Não foi possível gerar variações agora',
+        description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {

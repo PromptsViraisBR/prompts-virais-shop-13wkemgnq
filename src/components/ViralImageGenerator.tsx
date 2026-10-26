@@ -102,49 +102,89 @@ export const ViralImageGenerator: React.FC = () => {
   }, [referencePreviews])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    try {
+      const files = e.target.files
+      if (!files || files.length === 0) return
 
-    if (!user) {
-      setAuthGateAction('Subir foto de referência para o Gerador de Imagens PRO')
-      setAuthGateOpen(true)
-      e.target.value = ''
-      return
-    }
+      if (!user) {
+        setAuthGateAction('Subir foto de referência para o Gerador de Imagens PRO')
+        setAuthGateOpen(true)
+        e.target.value = ''
+        return
+      }
 
-    if (!isPaidPlan) {
+      if (!isPaidPlan) {
+        toast({
+          title: '👑 Recurso Exclusivo do Plano PRO',
+          description: 'Faça upgrade para o plano Mensal ou Anual para gerar imagens com IA.',
+          variant: 'destructive',
+        })
+        navigate('/planos')
+        e.target.value = ''
+        return
+      }
+
+      const incoming = Array.from(files)
+      const availableSlots = 3 - referenceFiles.length
+
+      if (availableSlots <= 0) {
+        toast({
+          title: 'Limite de fotos atingido',
+          description: 'Você pode subir até 3 imagens de referência para fidelidade total.',
+          variant: 'destructive',
+        })
+        e.target.value = ''
+        return
+      }
+
+      const validFiles: File[] = []
+      const newUrls: string[] = []
+
+      for (const file of incoming.slice(0, availableSlots)) {
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: 'Formato inválido',
+            description: `O arquivo "${file.name}" não é uma imagem válida.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+        if (file.size > 15 * 1024 * 1024) {
+          toast({
+            title: 'Imagem muito pesada',
+            description: `A foto "${file.name}" excede 15MB.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+
+        try {
+          const url = URL.createObjectURL(file)
+          validFiles.push(file)
+          newUrls.push(url)
+        } catch (objErr) {
+          console.warn('[ViralImageGenerator] Falha ao criar URL de preview:', objErr)
+        }
+      }
+
+      if (validFiles.length > 0) {
+        setReferenceFiles((prev) => [...prev, ...validFiles])
+        setReferencePreviews((prev) => [...prev, ...newUrls])
+        toast({
+          title: `${validFiles.length} foto(s) de referência carregada(s)! 📸✨`,
+          description: 'A IA vai preservar rosto, tons de pele, cores e traços originais.',
+        })
+      }
+    } catch (err: any) {
+      console.error('[ViralImageGenerator] Erro no upload:', err)
       toast({
-        title: '👑 Recurso Exclusivo do Plano PRO',
-        description: 'Faça upgrade para o plano Mensal ou Anual para gerar imagens com IA.',
+        title: 'Não foi possível carregar a imagem',
+        description: 'Tente selecionar outro arquivo de imagem.',
         variant: 'destructive',
       })
-      navigate('/planos')
-      e.target.value = ''
-      return
+    } finally {
+      if (e.target) e.target.value = ''
     }
-
-    const incoming = Array.from(files)
-    const availableSlots = 3 - referenceFiles.length
-
-    if (availableSlots <= 0) {
-      toast({
-        title: 'Limite de fotos atingido',
-        description: 'Você pode subir até 3 imagens de referência para fidelidade total.',
-        variant: 'destructive',
-      })
-      e.target.value = ''
-      return
-    }
-
-    const accepted = incoming.slice(0, availableSlots)
-    const newUrls = accepted.map((file) => URL.createObjectURL(file))
-    setReferenceFiles((prev) => [...prev, ...accepted])
-    setReferencePreviews((prev) => [...prev, ...newUrls])
-    toast({
-      title: `${accepted.length} foto(s) de referência carregada(s)! 📸✨`,
-      description: 'A IA vai preservar rosto, tons de pele, cores e traços originais.',
-    })
-    e.target.value = ''
   }
 
   const handleRemoveFile = (index: number) => {
@@ -197,11 +237,11 @@ export const ViralImageGenerator: React.FC = () => {
         prompt: fullPrompt,
         engine: selectedEngine,
         referenceFiles,
-        niche,
+        niche: niche || 'comedia_engracado',
         saveToHistory: true,
       })
 
-      if (res.success && res.image_url) {
+      if (res && res.success && res.image_url) {
         setGeneratedImage(res)
         toast({
           title: '🎨 Imagem Gerada com Sucesso!',
@@ -210,7 +250,7 @@ export const ViralImageGenerator: React.FC = () => {
             'Imagem criada com fidelidade à sua ideia. Agora crie o roteiro com 1 clique!',
         })
       } else {
-        if (res.code === 'PRO_REQUIRED') {
+        if (res?.code === 'PRO_REQUIRED') {
           toast({
             title: '👑 Plano PRO Necessário',
             description: res.error,
@@ -218,13 +258,14 @@ export const ViralImageGenerator: React.FC = () => {
           })
           navigate('/planos')
         } else {
-          throw new Error(res.error || 'Erro ao gerar imagem.')
+          throw new Error(res?.error || 'Não foi possível gerar a imagem agora.')
         }
       }
     } catch (err: any) {
+      console.error('[ViralImageGenerator] Erro ao gerar imagem:', err)
       toast({
-        title: 'Erro ao gerar imagem',
-        description: err.message || 'Tente novamente em instantes.',
+        title: 'Não foi possível gerar agora',
+        description: err?.message || 'Tente novamente em instantes ou utilize outra foto.',
         variant: 'destructive',
       })
     } finally {
@@ -283,14 +324,14 @@ export const ViralImageGenerator: React.FC = () => {
         userId: user.id,
         themeName: theme,
         characterName: char,
-        niche,
+        niche: niche || 'comedia_engracado',
         visualDetails: visualNotes,
         referenceImages: filesToSend,
         imagesCount: filesToSend.length,
         seed: Math.floor(Math.random() * 1000000),
       })
 
-      if (res.success) {
+      if (res && res.success) {
         setScriptResult(res)
         toast({
           title: '🎬 Roteiro Viral Criado com 1 Clique!',
@@ -301,9 +342,10 @@ export const ViralImageGenerator: React.FC = () => {
         throw new Error(res.error || 'Erro ao gerar roteiro da cena.')
       }
     } catch (err: any) {
+      console.error('[ViralImageGenerator] Erro ao criar roteiro:', err)
       toast({
-        title: 'Erro ao criar roteiro viral',
-        description: err.message || 'Tente novamente em instantes.',
+        title: 'Não foi possível gerar o roteiro agora',
+        description: err?.message || 'Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {

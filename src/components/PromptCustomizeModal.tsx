@@ -122,26 +122,67 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
   if (!prompt) return null
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    try {
+      const files = e.target.files
+      if (!files || files.length === 0) return
 
-    const incoming = Array.from(files)
-    const availableSlots = 3 - customFiles.length
-    if (availableSlots <= 0) {
+      const incoming = Array.from(files)
+      const availableSlots = 3 - customFiles.length
+      if (availableSlots <= 0) {
+        toast({
+          title: 'Limite atingido',
+          description: 'Você pode subir no máximo 3 fotos de referência.',
+          variant: 'destructive',
+        })
+        e.target.value = ''
+        return
+      }
+
+      // Validação defensiva de formato e tamanho por arquivo
+      const validFiles: File[] = []
+      const newUrls: string[] = []
+
+      for (const file of incoming.slice(0, availableSlots)) {
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: 'Formato inválido',
+            description: `O arquivo "${file.name}" não é uma imagem válida.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+        if (file.size > 15 * 1024 * 1024) {
+          toast({
+            title: 'Imagem muito pesada',
+            description: `A foto "${file.name}" excede 15MB. Escolha uma foto menor.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+
+        try {
+          const url = URL.createObjectURL(file)
+          validFiles.push(file)
+          newUrls.push(url)
+        } catch (objErr) {
+          console.warn('[PromptCustomizeModal] Erro ao criar preview da foto:', objErr)
+        }
+      }
+
+      if (validFiles.length > 0) {
+        setCustomFiles((prev) => [...prev, ...validFiles])
+        setCustomPreviews((prev) => [...prev, ...newUrls])
+      }
+    } catch (err: any) {
+      console.error('[PromptCustomizeModal] Erro no upload de fotos:', err)
       toast({
-        title: 'Limite atingido',
-        description: 'Você pode subir no máximo 3 fotos de referência.',
+        title: 'Não foi possível carregar a imagem',
+        description: 'Tente selecionar outro arquivo de imagem.',
         variant: 'destructive',
       })
-      e.target.value = ''
-      return
+    } finally {
+      if (e.target) e.target.value = ''
     }
-
-    const accepted = incoming.slice(0, availableSlots)
-    const newUrls = accepted.map((file) => URL.createObjectURL(file))
-    setCustomFiles((prev) => [...prev, ...accepted])
-    setCustomPreviews((prev) => [...prev, ...newUrls])
-    e.target.value = ''
   }
 
   const handleRemoveFile = (index: number) => {
@@ -155,15 +196,15 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
     setAdapting(true)
     try {
       const targetProd = isViral
-        ? characterName.trim() || productName.trim() || prompt.title
-        : productName.trim() || prompt.title
+        ? characterName?.trim() || productName?.trim() || prompt.title || 'Produto Viral'
+        : productName?.trim() || prompt.title || 'Produto Loja'
 
       const res = await adaptPromptWithImages({
-        originalPrompt: prompt.prompt_text,
-        promptTitle: prompt.title,
+        originalPrompt: prompt.prompt_text || '',
+        promptTitle: prompt.title || '',
         productName: targetProd,
-        characterName: isViral ? characterName.trim() || undefined : undefined,
-        visualDetails: visualDetails.trim() || undefined,
+        characterName: isViral ? characterName?.trim() || undefined : undefined,
+        visualDetails: visualDetails?.trim() || undefined,
         niche: prompt.niche,
         style: prompt.style,
         platform: prompt.platform,
@@ -173,7 +214,7 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
         iterationSeed: Math.floor(Math.random() * 1000000),
       })
 
-      if (res.success && res.adapted_prompt) {
+      if (res && res.success && res.adapted_prompt) {
         setAdaptedResult(res.adapted_prompt)
         setSavedToHistory(false)
 
@@ -187,11 +228,18 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
           description:
             'Roteiro adaptado com sucesso. As cenas separadas estão prontas abaixo para você copiar uma a uma.',
         })
+      } else {
+        toast({
+          title: 'Não foi possível gerar agora',
+          description: 'A resposta do gerador não veio no formato esperado. Tente novamente.',
+          variant: 'destructive',
+        })
       }
     } catch (err: any) {
+      console.error('[PromptCustomizeModal] Erro ao adaptar com fotos:', err)
       toast({
-        title: 'Erro ao adaptar roteiro',
-        description: err.message || 'Tente novamente.',
+        title: 'Não foi possível gerar agora',
+        description: err?.message || 'Tente novamente ou envie outra foto de referência.',
         variant: 'destructive',
       })
     } finally {
@@ -209,24 +257,24 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
       return
     }
 
-    const textToSave = adaptedResult || prompt.prompt_text
+    const textToSave = adaptedResult || prompt.prompt_text || ''
     const prodName = isViral
-      ? characterName.trim() || productName.trim() || prompt.title
-      : productName.trim() || prompt.title
+      ? characterName?.trim() || productName?.trim() || prompt.title || 'Produto Viral'
+      : productName?.trim() || prompt.title || 'Produto Loja'
 
     setSavingToHistory(true)
     try {
       await saveGeneratedPrompt({
         userId,
         productName: prodName,
-        niche: prompt.niche,
-        style: prompt.style,
-        platform: prompt.platform,
+        niche: prompt.niche || 'moda_feminina',
+        style: prompt.style || 'pov',
+        platform: prompt.platform || 'ambos',
         targetAudience: isViral
           ? 'Criadores de Conteúdo para TikTok, Shorts e Reels'
           : 'Compradores de e-commerce e vitrines físicas',
         details: textToSave,
-        visualDetails: visualDetails.trim() || undefined,
+        visualDetails: visualDetails?.trim() || undefined,
         referenceImages: customFiles.length > 0 ? customFiles : undefined,
       })
 
@@ -236,9 +284,10 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
         description: 'Seu roteiro adaptado foi gravado na sua conta e não será perdido.',
       })
     } catch (err: any) {
+      console.error('[PromptCustomizeModal] Erro ao salvar histórico:', err)
       toast({
         title: 'Erro ao salvar no histórico',
-        description: err.message || 'Tente novamente.',
+        description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {
@@ -255,22 +304,22 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
     setRegenerating(true)
     try {
       const targetProd = isViral
-        ? characterName.trim() || productName.trim() || prompt.title
-        : productName.trim() || prompt.title
+        ? characterName?.trim() || productName?.trim() || prompt.title || 'Produto Viral'
+        : productName?.trim() || prompt.title || 'Produto Loja'
 
       const res = await regeneratePromptVariations({
-        basePrompt: adaptedResult || prompt.prompt_text,
+        basePrompt: adaptedResult || prompt.prompt_text || '',
         promptTitle: targetProd,
         productName: targetProd,
-        characterName: isViral ? characterName.trim() || undefined : undefined,
-        visualDetails: visualDetails.trim() || undefined,
-        niche: prompt.niche,
+        characterName: isViral ? characterName?.trim() || undefined : undefined,
+        visualDetails: visualDetails?.trim() || undefined,
+        niche: prompt.niche || 'moda_feminina',
         imagesCount: customFiles.length,
         category: isViral ? 'virais' : 'ecommerce',
         seed: Math.floor(Math.random() * 1000000),
       })
 
-      if (res.success && res.variations?.length) {
+      if (res && res.success && res.variations?.length) {
         setVariations(res.variations)
         setSelectedVarId(res.variations[0].id)
 
@@ -299,9 +348,10 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
         }
       }
     } catch (err: any) {
+      console.error('[PromptCustomizeModal] Erro ao regenerar variações:', err)
       toast({
-        title: 'Erro ao regenerar variações',
-        description: err.message || 'Tente novamente.',
+        title: 'Não foi possível gerar variações agora',
+        description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {

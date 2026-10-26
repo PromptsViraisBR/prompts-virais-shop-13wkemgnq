@@ -95,9 +95,10 @@ export interface AdaptPromptResult {
 }
 
 export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): string {
-  const nicheLabel = NICHE_LABELS[input.niche]
-  const styleLabel = STYLE_LABELS[input.style]
-  const platformLabel = PLATFORM_LABELS[input.platform || 'ambos']
+  const nicheLabel = NICHE_LABELS[input.niche] || input.niche || 'Geral'
+  const styleLabel = STYLE_LABELS[input.style] || input.style || 'Vídeo Liso'
+  const platformLabel =
+    (input.platform && PLATFORM_LABELS[input.platform]) || input.platform || 'TikTok Shop & Shopee'
   const audience =
     input.targetAudience?.trim() ||
     'Compradores que buscam estilo, custo-benefício e caimento perfeito no TikTok Shop/Shopee'

@@ -47,7 +47,14 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/hooks/use-toast'
 import type { PromptRecord } from '@/types'
-import { NICHE_LABELS, NICHE_EMOJIS, STYLE_LABELS, STYLE_EMOJIS, PLATFORM_LABELS } from '@/types'
+import {
+  NICHE_LABELS,
+  NICHE_EMOJIS,
+  STYLE_LABELS,
+  STYLE_EMOJIS,
+  PLATFORM_LABELS,
+  type PlatformType,
+} from '@/types'
 import {
   formatHookTitle,
   getEstimatedDuration,
@@ -454,8 +461,12 @@ export const PromptDetail: React.FC = () => {
               </Badge>
               {prompt.platform && (
                 <Badge variant="outline" className="text-xs gap-1">
-                  <span>{getPlatformInfo(prompt.platform).emoji}</span>
-                  <span>{PLATFORM_LABELS[prompt.platform]}</span>
+                  <span>{getPlatformInfo(prompt.platform)?.emoji || '🚀'}</span>
+                  <span>
+                    {PLATFORM_LABELS[prompt.platform as PlatformType] ||
+                      getPlatformInfo(prompt.platform)?.label ||
+                      prompt.platform}
+                  </span>
                 </Badge>
               )}
               <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">

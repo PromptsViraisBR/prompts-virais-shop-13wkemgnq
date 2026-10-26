@@ -76,24 +76,25 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
     setLoading(true)
     try {
       const res = await generateImagePrompt({
-        userId: user.id,
+        userId: user?.id,
         idea: trimmed,
         seed: Math.floor(Math.random() * 1000000),
       })
 
-      if (res.success && res.prompt) {
+      if (res && res.success && res.prompt) {
         setResult(res)
         toast({
           title: 'Prompt de Imagem Gerado com Sucesso! ✍️✨',
           description: 'Pronto para copiar e colar no ChatGPT ou no Google Flow / Nano Banana.',
         })
       } else {
-        throw new Error(res.error || 'Não foi possível gerar o prompt.')
+        throw new Error(res?.error || 'Não foi possível gerar o prompt.')
       }
     } catch (err: any) {
+      console.error('[ImagePromptGeneratorCard] Erro ao gerar prompt:', err)
       toast({
-        title: 'Erro ao gerar prompt',
-        description: err.message || 'Tente novamente em instantes.',
+        title: 'Não foi possível gerar agora',
+        description: err?.message || 'Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {
@@ -136,7 +137,7 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
         seed: Math.floor(Math.random() * 1000000),
       })
 
-      if (res.success && res.prompt) {
+      if (res && res.success && res.prompt) {
         setResult(res)
 
         if (isAdmin) {
@@ -160,9 +161,10 @@ export const ImagePromptGeneratorCard: React.FC<ImagePromptGeneratorCardProps> =
         }
       }
     } catch (err: any) {
+      console.error('[ImagePromptGeneratorCard] Erro ao regenerar prompt:', err)
       toast({
-        title: 'Erro ao regenerar prompt',
-        description: err.message || 'Tente novamente.',
+        title: 'Não foi possível regenerar agora',
+        description: err?.message || 'Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {

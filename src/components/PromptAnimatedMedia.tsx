@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Heart, Video, Sparkles, Play, Image as ImageIcon } from 'lucide-react'
 import type { PromptRecord } from '@/types'
-import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
+import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS, type PlatformType } from '@/types'
 
 interface PromptAnimatedMediaProps {
   prompt: PromptRecord
@@ -195,10 +195,10 @@ export const PromptAnimatedMedia: React.FC<PromptAnimatedMediaProps> = ({
               {STYLE_LABELS[prompt.style] || prompt.style}
             </span>
             {prompt.platform && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs">
-                {PLATFORM_LABELS[prompt.platform]}
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-background/80 text-foreground border border-border/60">
+                {PLATFORM_LABELS[prompt.platform as PlatformType] || prompt.platform}
               </span>
-            )}
+            )}{' '}
           </div>
         </>
       )}

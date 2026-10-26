@@ -129,39 +129,79 @@ export const ViralGenerator: React.FC = () => {
   }, [referencePreviews])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    try {
+      const files = e.target.files
+      if (!files || files.length === 0) return
 
-    if (!user) {
-      setAuthGateAction('Subir suas imagens criadas para o gerador de vídeos virais')
-      setAuthGateOpen(true)
-      e.target.value = ''
-      return
-    }
+      if (!user) {
+        setAuthGateAction('Subir suas imagens criadas para o gerador de vídeos virais')
+        setAuthGateOpen(true)
+        e.target.value = ''
+        return
+      }
 
-    const incoming = Array.from(files)
-    const availableSlots = 3 - referenceFiles.length
+      const incoming = Array.from(files)
+      const availableSlots = 3 - referenceFiles.length
 
-    if (availableSlots <= 0) {
+      if (availableSlots <= 0) {
+        toast({
+          title: 'Limite atingido',
+          description: 'Você pode subir no máximo 3 imagens criadas de referência.',
+          variant: 'destructive',
+        })
+        e.target.value = ''
+        return
+      }
+
+      const validFiles: File[] = []
+      const newUrls: string[] = []
+
+      for (const file of incoming.slice(0, availableSlots)) {
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: 'Formato inválido',
+            description: `O arquivo "${file.name}" não é uma imagem válida.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+        if (file.size > 15 * 1024 * 1024) {
+          toast({
+            title: 'Imagem muito pesada',
+            description: `A foto "${file.name}" excede 15MB.`,
+            variant: 'destructive',
+          })
+          continue
+        }
+
+        try {
+          const url = URL.createObjectURL(file)
+          validFiles.push(file)
+          newUrls.push(url)
+        } catch (objErr) {
+          console.warn('[ViralGenerator] Falha ao criar URL de preview:', objErr)
+        }
+      }
+
+      if (validFiles.length > 0) {
+        setReferenceFiles((prev) => [...prev, ...validFiles])
+        setReferencePreviews((prev) => [...prev, ...newUrls])
+        toast({
+          title: `${validFiles.length} imagem(ns) carregada(s)! 📸✨`,
+          description:
+            'A IA vai analisar a imagem para criar a ideia de cena e o roteiro opcional de 60s.',
+        })
+      }
+    } catch (err: any) {
+      console.error('[ViralGenerator] Erro no upload de imagem:', err)
       toast({
-        title: 'Limite atingido',
-        description: 'Você pode subir no máximo 3 imagens criadas de referência.',
+        title: 'Não foi possível carregar a imagem',
+        description: 'Tente selecionar outro arquivo de imagem.',
         variant: 'destructive',
       })
-      e.target.value = ''
-      return
+    } finally {
+      if (e.target) e.target.value = ''
     }
-
-    const accepted = incoming.slice(0, availableSlots)
-    const newUrls = accepted.map((file) => URL.createObjectURL(file))
-    setReferenceFiles((prev) => [...prev, ...accepted])
-    setReferencePreviews((prev) => [...prev, ...newUrls])
-    toast({
-      title: `${accepted.length} imagem(ns) carregada(s)! 📸✨`,
-      description:
-        'A IA vai analisar a imagem para criar a ideia de cena e o roteiro opcional de 60s.',
-    })
-    e.target.value = ''
   }
 
   const handleRemoveFile = (index: number) => {
@@ -230,14 +270,14 @@ export const ViralGenerator: React.FC = () => {
         userIdea: trimmedIdea || undefined,
         themeName: effectiveTheme,
         characterName: trimmedChar || undefined,
-        niche,
+        niche: niche || 'comedia_engracado',
         visualDetails: visualDetails.trim() || undefined,
         referenceImages: referenceFiles,
         imagesCount: referenceFiles.length,
         seed: Math.floor(Math.random() * 1000000),
       })
 
-      if (genRes.success) {
+      if (genRes && genRes.success) {
         setResult(genRes)
         setVariations([])
         setSelectedVarId(null)
@@ -249,12 +289,13 @@ export const ViralGenerator: React.FC = () => {
               : 'Roteiro de ~60s dividido em 6 cenas de 10s pronto para gravação.',
         })
       } else {
-        throw new Error(genRes.error || 'Erro ao gerar roteiro viral.')
+        throw new Error(genRes?.error || 'Erro ao gerar roteiro viral.')
       }
     } catch (err: any) {
+      console.error('[ViralGenerator] Erro ao gerar roteiro:', err)
       toast({
-        title: 'Erro ao gerar cena viral',
-        description: err.message || 'Tente novamente em instantes.',
+        title: 'Não foi possível gerar agora',
+        description: err?.message || 'Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {
@@ -298,20 +339,20 @@ export const ViralGenerator: React.FC = () => {
 
     setRegenerating(true)
     try {
-      const promptTitle = result.user_idea || result.theme_name
+      const promptTitle = result.user_idea || result.theme_name || 'Cena Viral'
       const res = await regeneratePromptVariations({
-        basePrompt: result.optional_script,
+        basePrompt: result.optional_script || '',
         promptTitle,
         productName: characterName.trim() || promptTitle,
         characterName: characterName.trim() || undefined,
         visualDetails: visualDetails.trim() || undefined,
-        niche: result.niche,
+        niche: result.niche || 'comedia_engracado',
         imagesCount: referenceFiles.length,
         category: 'virais',
         seed: Math.floor(Math.random() * 1000000),
       })
 
-      if (res.success && res.variations?.length) {
+      if (res && res.success && res.variations?.length) {
         setVariations(res.variations)
         setSelectedVarId(res.variations[0].id)
 
@@ -336,9 +377,10 @@ export const ViralGenerator: React.FC = () => {
         }
       }
     } catch (err: any) {
+      console.error('[ViralGenerator] Erro ao regenerar variações:', err)
       toast({
-        title: 'Erro ao regenerar variações',
-        description: err.message || 'Tente novamente.',
+        title: 'Não foi possível gerar variações agora',
+        description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {

@@ -28,6 +28,14 @@ export const AuthGateModal: React.FC<AuthGateModalProps> = ({
   const navigate = useNavigate()
 
   const handleNavigate = (path: string) => {
+    // Blindagem: se houver retorno de OAuth em andamento na URL (?code= e ?state=),
+    // não redirecionar para não roubar os parâmetros antes da troca do AuthProvider
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get('code') && urlParams.get('state')) {
+        return
+      }
+    }
     onOpenChange(false)
     navigate(path)
   }

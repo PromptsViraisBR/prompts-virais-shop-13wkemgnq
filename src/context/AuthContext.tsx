@@ -123,32 +123,133 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!code || !state) return
 
+    // Função utilitária para limpar parâmetros OAuth da URL e restaurar rota de destino se informada
+    const cleanOAuthUrl = (targetPath?: string) => {
+      try {
+        const currentUrl = new URL(window.location.href)
+        currentUrl.searchParams.delete('code')
+        currentUrl.searchParams.delete('state')
+        currentUrl.searchParams.delete('scope')
+        currentUrl.searchParams.delete('authuser')
+        currentUrl.searchParams.delete('prompt')
+        currentUrl.searchParams.delete('hd')
+
+        if (targetPath) {
+          try {
+            const parsedTarget = new URL(targetPath, window.location.origin)
+            // Mantém apenas o target path e queries que não sejam os de auth
+            window.history.replaceState(
+              {},
+              document.title,
+              parsedTarget.pathname + parsedTarget.search + parsedTarget.hash,
+            )
+            return
+          } catch {
+            /* se targetPath for inválido, cai no fallback */
+          }
+        }
+
+        const cleanSearch = currentUrl.searchParams.toString()
+        const newRelativePath =
+          currentUrl.pathname + (cleanSearch ? `?${cleanSearch}` : '') + currentUrl.hash
+        window.history.replaceState({}, document.title, newRelativePath)
+      } catch {
+        /* ignore */
+      }
+    }
+
     const rawHandshake = localStorage.getItem('oauth_provider_handshake')
-    if (!rawHandshake) return
+    if (!rawHandshake) {
+      // a) code && state na URL mas sem handshake no localStorage: limpa e avisa amigavelmente
+      console.warn(
+        '[OAuth Mobile] code e state presentes na URL, mas handshake local não encontrado.',
+      )
+      cleanOAuthUrl()
+      toast({
+        title: 'Não foi possível concluir o login',
+        description: 'Não foi possível concluir o login. Tente novamente.',
+        variant: 'destructive',
+      })
+      setIsLoading(false)
+      return
+    }
+
+    let stored: any = null
+    try {
+      stored = JSON.parse(rawHandshake)
+    } catch (parseErr) {
+      // c) Falha no JSON.parse: limpa localStorage corrompido, limpa URL e avisa
+      console.warn('[OAuth Mobile] Handshake no localStorage corrompido:', parseErr)
+      localStorage.removeItem('oauth_provider_handshake')
+      cleanOAuthUrl()
+      toast({
+        title: 'Não foi possível concluir o login',
+        description: 'Não foi possível concluir o login. Tente novamente.',
+        variant: 'destructive',
+      })
+      setIsLoading(false)
+      return
+    }
+
+    // b) Expiração do handshake (mais de 10 minutos)
+    const startedAt = stored?.startedAt ? Number(stored.startedAt) : 0
+    const TEN_MINUTES_MS = 10 * 60 * 1000
+    if (startedAt > 0 && Date.now() - startedAt > TEN_MINUTES_MS) {
+      console.warn('[OAuth Mobile] Handshake expirado (> 10 minutos).')
+      localStorage.removeItem('oauth_provider_handshake')
+      cleanOAuthUrl()
+      toast({
+        title: 'Sessão de login expirada',
+        description: 'O tempo limite do login com Google foi excedido. Tente novamente.',
+        variant: 'destructive',
+      })
+      setIsLoading(false)
+      return
+    }
+
+    // d) state mismatch: limpeza completa (localStorage + URL) e toast amigável sem throw
+    if (stored.state !== state) {
+      console.warn('[OAuth Mobile] state mismatch detectado: recebido vs armazenado divergentes.')
+      localStorage.removeItem('oauth_provider_handshake')
+      cleanOAuthUrl()
+      toast({
+        title: 'Não foi possível concluir o login',
+        description: 'Validação de segurança do login não confere. Tente novamente.',
+        variant: 'destructive',
+      })
+      setIsLoading(false)
+      return
+    }
 
     let cancelled = false
     setIsLoading(true)
 
     const completeMobileOAuth = async () => {
+      let targetReturnTo: string | undefined = stored.returnTo
       try {
-        const stored = JSON.parse(rawHandshake)
         localStorage.removeItem('oauth_provider_handshake')
-
-        if (stored.state !== state) {
-          throw new Error('Parâmetro state divergente na validação do OAuth.')
-        }
 
         const providerName = stored.name || 'google'
         const codeVerifier = stored.codeVerifier
         const backendUrl = import.meta.env.VITE_POCKETBASE_URL || pb.baseUrl
         const redirectUrl = stored.redirectUrl || `${backendUrl}/api/oauth2-redirect`
 
+        // f) Processa a troca de código mesmo que pb.authStore já tenha registro
         const authData = await pb
           .collection('users')
           .authWithOAuth2Code(providerName, code, codeVerifier, redirectUrl)
 
         if (!cancelled && authData?.record?.id) {
-          await postProcessAuthRecord(authData.record.id, authData.record as unknown as UserRecord)
+          // i) Pós-processamento e refresh protegidos contra erro
+          try {
+            await postProcessAuthRecord(
+              authData.record.id,
+              authData.record as unknown as UserRecord,
+            )
+          } catch (postErr) {
+            console.warn('[OAuth Mobile] pós-processamento falhou:', postErr)
+          }
+
           toast({
             title: 'Login com Google realizado! 🎉',
             description: 'Bem-vindo ao Prompts Virais Shop!',
@@ -162,24 +263,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           variant: 'destructive',
         })
       } finally {
-        // Limpa code e state da barra de endereços sem recarregar a tela
-        try {
-          const currentUrl = new URL(window.location.href)
-          currentUrl.searchParams.delete('code')
-          currentUrl.searchParams.delete('state')
-          currentUrl.searchParams.delete('scope')
-          currentUrl.searchParams.delete('authuser')
-          currentUrl.searchParams.delete('prompt')
-          const cleanSearch = currentUrl.searchParams.toString()
-          const newRelativePath =
-            currentUrl.pathname + (cleanSearch ? `?${cleanSearch}` : '') + currentUrl.hash
-          window.history.replaceState({}, document.title, newRelativePath)
-        } catch {
-          /* ignore */
-        }
-        if (!cancelled) {
-          setIsLoading(false)
-        }
+        // g) Restaura rota original se houver ou limpa parâmetros na rota atual
+        cleanOAuthUrl(targetReturnTo)
+        // e) Incondicional: garante isLoading false em qualquer cenário
+        setIsLoading(false)
       }
     }
 
@@ -269,7 +356,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const backendUrl = import.meta.env.VITE_POCKETBASE_URL || pb.baseUrl
         const redirectUrl = `${backendUrl}/api/oauth2-redirect`
 
-        // Salva dados do handshake para conferência e troca no retorno
+        // g) Salva dados do handshake incluindo startedAt e returnTo
+        const returnTo = window.location.pathname + window.location.search
         localStorage.setItem(
           'oauth_provider_handshake',
           JSON.stringify({
@@ -277,6 +365,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             state: providerEntry.state,
             codeVerifier: providerEntry.codeVerifier,
             redirectUrl: redirectUrl,
+            startedAt: Date.now(),
+            returnTo: returnTo || '/',
           }),
         )
 

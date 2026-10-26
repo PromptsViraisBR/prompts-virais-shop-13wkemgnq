@@ -27,6 +27,42 @@ export interface CreateCheckoutResult {
   code?: string
 }
 
+export interface CreatePixParams {
+  type: 'subscription' | 'credits'
+  plan?: 'monthly' | 'annual'
+  quantity?: number
+}
+
+export interface CreatePixResult {
+  success: boolean
+  payment_id?: string
+  status?: string
+  status_detail?: string
+  qr_code?: string // Código EMV Copia e Cola
+  qr_code_base64?: string // Imagem PNG do QR em base64
+  ticket_url?: string
+  external_reference?: string
+  transaction_amount?: number
+  date_of_expiration?: string
+  expires_in_minutes?: number
+  description?: string
+  error?: string
+  code?: string
+  details?: any
+}
+
+export interface CheckPaymentStatusResult {
+  success: boolean
+  payment_id?: string
+  status?: string
+  status_detail?: string
+  is_approved?: boolean
+  payment_method_id?: string
+  transaction_amount?: number
+  external_reference?: string
+  error?: string
+}
+
 export interface AdminOverviewResult {
   success: boolean
   is_configured: boolean
@@ -97,8 +133,51 @@ export async function getMercadoPagoConfigStatus(): Promise<MpConfigStatus> {
 /**
  * Inicia a criação de checkout oficial do Mercado Pago (Checkout Pro ou Assinatura Recorrente)
  */
+/**
+ * Cria cobrança Pix direta oficial via Mercado Pago com QR Code e Copia e Cola
+ */
+export async function createMercadoPagoPix(params: CreatePixParams): Promise<CreatePixResult> {
+  try {
+    const res = await pb.send<CreatePixResult>('/backend/v1/mp/create-pix', {
+      method: 'POST',
+      body: params,
+    })
+    return res
+  } catch (err: any) {
+    const errMsg =
+      err?.data?.error || err?.message || 'Falha ao gerar cobrança Pix com Mercado Pago'
+    const code = err?.data?.code || (err?.status === 503 ? 'PAYMENTS_NOT_CONFIGURED' : 'ERROR')
+    return {
+      success: false,
+      error: errMsg,
+      code,
+      details: err?.data?.details,
+    }
+  }
+}
+
+/**
+ * Consulta o status em tempo real de um pagamento (polling leve para tela de Pix)
+ */
+export async function checkPaymentStatus(paymentId: string): Promise<CheckPaymentStatusResult> {
+  try {
+    const res = await pb.send<CheckPaymentStatusResult>(
+      `/backend/v1/mp/check-payment?payment_id=${encodeURIComponent(paymentId)}`,
+      {
+        method: 'GET',
+      },
+    )
+    return res
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.data?.error || err?.message || 'Falha ao consultar status do pagamento',
+    }
+  }
+}
+
 export async function createMercadoPagoCheckout(
-  params: CreateCheckoutParams,
+  params: CreateCheckoutParams & { method?: 'checkout_pro' },
 ): Promise<CreateCheckoutResult> {
   try {
     const res = await pb.send<CreateCheckoutResult>('/backend/v1/mp/create-checkout', {

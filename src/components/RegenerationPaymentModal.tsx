@@ -20,8 +20,16 @@ import {
   Check,
   Zap,
 } from 'lucide-react'
-import { purchaseExtraRegenerations } from '@/services/regenerationCredits'
-import { createMercadoPagoCheckout } from '@/services/mercadoPago'
+import {
+  purchaseExtraRegenerations,
+  getUserRegenerationCredits,
+} from '@/services/regenerationCredits'
+import {
+  createMercadoPagoCheckout,
+  createMercadoPagoPix,
+  type CreatePixResult,
+} from '@/services/mercadoPago'
+import { PixPaymentModal } from '@/components/PixPaymentModal'
 import { trackFunnelEvent } from '@/services/events'
 import { useToast } from '@/hooks/use-toast'
 import { ExternalLink, Lock, Loader2 } from 'lucide-react'
@@ -57,7 +65,10 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
   const [cardExpiry, setCardExpiry] = useState('12/28')
   const [cardCvc, setCardCvc] = useState('888')
   const [processing, setProcessing] = useState(false)
-  const [pixCopied, setPixCopied] = useState(false)
+
+  // Estado para Modal de Pix Oficial Mercado Pago
+  const [pixModalOpen, setPixModalOpen] = useState(false)
+  const [pixData, setPixData] = useState<CreatePixResult | null>(null)
 
   const unitPrice = 1.99
   const totalPriceNumber = quantity * unitPrice
@@ -65,19 +76,6 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
     style: 'currency',
     currency: 'BRL',
   })
-
-  // Código Pix fictício demonstrativo
-  const simulatedPixCode = `00020126580014br.gov.bcb.pix0136${userId.slice(0, 8)}-prompts-virais-shop520400005303986540${totalPriceNumber.toFixed(2)}5802BR5925PROMPTS VIRAIS SHOP6009SAO PAULO62070503***6304`
-
-  const handleCopyPix = () => {
-    navigator.clipboard.writeText(simulatedPixCode)
-    setPixCopied(true)
-    toast({
-      title: 'Código Pix Copiado! 📋✨',
-      description: 'Cole no aplicativo do seu banco para simular o pagamento.',
-    })
-    setTimeout(() => setPixCopied(false), 3000)
-  }
 
   const handleConfirm = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -92,12 +90,39 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
 
     setProcessing(true)
     try {
+      // FLUXO 1: Pix Direto Oficial do Mercado Pago
+      if (paymentTab === 'pix') {
+        trackFunnelEvent('checkout_start_pix', {
+          type: 'credits',
+          quantity,
+        })
+
+        const res = await createMercadoPagoPix({
+          type: 'credits',
+          quantity,
+        })
+
+        if (!res.success || !res.payment_id) {
+          toast({
+            title: 'Erro ao gerar Pix',
+            description: res.error || 'Não foi possível gerar a cobrança Pix oficial.',
+            variant: 'destructive',
+          })
+          return
+        }
+
+        setPixData(res)
+        onOpenChange(false)
+        setPixModalOpen(true)
+        return
+      }
+
+      // FLUXO 2: Cartão de Crédito / Checkout Pro do Mercado Pago
       trackFunnelEvent('checkout_start', {
         type: 'credits',
         quantity,
       })
 
-      // Inicia checkout oficial no Mercado Pago para compra avulsa de créditos (R$ 1,99 por unidade)
       const res = await createMercadoPagoCheckout({
         type: 'credits',
         quantity,
@@ -117,7 +142,7 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
       if (res.init_point) {
         toast({
           title: 'Redirecionando para o Mercado Pago...',
-          description: 'Conclua a compra com Pix, Cartão ou Boleto oficial.',
+          description: 'Conclua a compra com Cartão ou Saldo oficial.',
         })
         window.location.href = res.init_point
       } else {
@@ -276,61 +301,47 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
             </div>
           )}
 
-          {/* Conteúdo: Pix Instantâneo */}
+          {/* Conteúdo: Pix Instantâneo Oficial */}
           {paymentTab === 'pix' && (
-            <div className="p-4 rounded-2xl border bg-muted/20 space-y-3">
+            <div className="p-4 rounded-2xl border bg-gradient-to-br from-emerald-500/10 via-background to-emerald-500/5 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <QrCode className="w-4 h-4 text-emerald-500" />
-                  QR Code Pix Demonstrativo
+                  Pix Direto Mercado Pago
                 </span>
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                   Liberação Imediata
                 </span>
               </div>
 
-              {/* QR Code Simulado Visual */}
-              <div className="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-xl bg-background border">
-                <div className="w-28 h-28 shrink-0 bg-white p-2 rounded-xl border flex flex-col items-center justify-center relative overflow-hidden shadow-xs">
-                  <div className="w-full h-full border-2 border-dashed border-emerald-500/40 rounded-lg flex flex-col items-center justify-center text-emerald-600">
-                    <QrCode className="w-16 h-16" />
-                  </div>
-                  <span className="absolute bottom-1 text-[9px] font-bold text-slate-700 bg-white/90 px-1 rounded">
-                    PIX SIMULADO
+              <div className="p-3 rounded-xl bg-background border flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-foreground">
+                    {quantity}x Crédito(s) Extra de Regeneração
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    QR Code gerado na hora pelo Mercado Pago
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                    {totalPrice}
                   </span>
                 </div>
-
-                <div className="space-y-2 text-xs flex-1">
-                  <div className="space-y-1">
-                    <p className="font-semibold text-foreground">
-                      Valor a pagar: <strong>{totalPrice}</strong>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Escaneie ou copie a chave Pix demonstrativa abaixo para simular a liberação.
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopyPix}
-                    className="w-full text-xs gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold"
-                  >
-                    {pixCopied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        Código Pix Copiado!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copiar Código Pix
-                      </>
-                    )}
-                  </Button>
-                </div>
               </div>
+
+              <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+                <span>
+                  <strong>Garantia de 7 dias:</strong> Reembolso solicitado retorna diretamente para
+                  a mesma conta bancária do comprador.
+                </span>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Clique no botão abaixo para abrir o QR Code na tela com código Copia e Cola oficial
+                do Mercado Pago.
+              </p>
             </div>
           )}
 
@@ -413,13 +424,22 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
             <Button
               type="button"
               onClick={() => handleConfirm()}
-              className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-1.5 shadow-md"
+              className={
+                paymentTab === 'pix'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-md'
+                  : 'bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-1.5 shadow-md'
+              }
               disabled={processing}
             >
               {processing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Gerando Checkout...
+                  {paymentTab === 'pix' ? 'Gerando QR Code Pix...' : 'Gerando Checkout...'}
+                </>
+              ) : paymentTab === 'pix' ? (
+                <>
+                  <QrCode className="w-4 h-4" />
+                  Gerar QR Code Pix ({totalPrice})
                 </>
               ) : (
                 <>
@@ -432,6 +452,22 @@ export const RegenerationPaymentModal: React.FC<RegenerationPaymentModalProps> =
           </DialogFooter>
         </div>
       </DialogContent>
+
+      {/* Modal Dedicado de Pix Oficial */}
+      <PixPaymentModal
+        open={pixModalOpen}
+        onOpenChange={setPixModalOpen}
+        pixData={pixData}
+        title="Pix — Créditos de Regeneração"
+        description={`Pague ${totalPrice} para liberar ${quantity} prompt(s) de regeneração imediatamente.`}
+        onPaymentApproved={async () => {
+          // Atualiza o saldo chamando o callback do componente pai
+          const updated = await getUserRegenerationCredits(userId)
+          if (updated) {
+            onPaymentSuccess(updated.extra_prompts_balance)
+          }
+        }}
+      />
     </Dialog>
   )
 }

@@ -6,6 +6,7 @@ export type FunnelEventType =
   | 'first_prompt_generated'
   | 'plans_view'
   | 'checkout_start'
+  | 'checkout_start_pix'
   | 'payment_confirmed'
   | 'subscription_cancelled'
 

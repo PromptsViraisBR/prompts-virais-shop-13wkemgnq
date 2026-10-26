@@ -37,10 +37,14 @@ import { toast } from '@/hooks/use-toast'
 import type { PlanType } from '@/types'
 import {
   createMercadoPagoCheckout,
+  createMercadoPagoPix,
   getMercadoPagoConfigStatus,
   cancelMercadoPagoSubscription,
+  type CreatePixResult,
 } from '@/services/mercadoPago'
+import { PixPaymentModal } from '@/components/PixPaymentModal'
 import { trackFunnelEvent } from '@/services/events'
+import { QrCode } from 'lucide-react'
 
 export const Plans: React.FC = () => {
   const { user, plan, subscription, refreshSubscription } = useAuth()
@@ -49,9 +53,14 @@ export const Plans: React.FC = () => {
   const [selectedPlanForModal, setSelectedPlanForModal] = useState<'monthly' | 'annual' | null>(
     null,
   )
+  const [paymentMethodChoice, setPaymentMethodChoice] = useState<'checkout_pro' | 'pix'>('pix')
   const [modalOpen, setModalOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [mpConfigured, setMpConfigured] = useState<boolean | null>(null)
+
+  // Estado para Modal de Pix
+  const [pixModalOpen, setPixModalOpen] = useState(false)
+  const [pixData, setPixData] = useState<CreatePixResult | null>(null)
 
   // Consultar se as credenciais oficiais do Mercado Pago estão no backend e registrar evento plans_view
   React.useEffect(() => {
@@ -85,6 +94,7 @@ export const Plans: React.FC = () => {
     }
 
     setSelectedPlanForModal(targetPlan as 'monthly' | 'annual')
+    setPaymentMethodChoice('pix')
     setModalOpen(true)
   }
 
@@ -108,11 +118,39 @@ export const Plans: React.FC = () => {
     }
   }
 
-  const handleProceedToMercadoPago = async () => {
+  const handleProceedToCheckout = async () => {
     if (!selectedPlanForModal) return
 
     setProcessing(true)
     try {
+      // 1. FLUXO PIX DIRETO COM QR CODE OFICIAL
+      if (paymentMethodChoice === 'pix') {
+        trackFunnelEvent('checkout_start_pix', {
+          type: 'subscription',
+          plan: selectedPlanForModal,
+        })
+
+        const res = await createMercadoPagoPix({
+          type: 'subscription',
+          plan: selectedPlanForModal,
+        })
+
+        if (!res.success || !res.payment_id) {
+          toast({
+            title: 'Erro ao gerar Pix',
+            description: res.error || 'Não foi possível gerar a cobrança Pix no Mercado Pago.',
+            variant: 'destructive',
+          })
+          return
+        }
+
+        setPixData(res)
+        setModalOpen(false)
+        setPixModalOpen(true)
+        return
+      }
+
+      // 2. FLUXO CHECKOUT PRO / CARTÃO DE CRÉDITO OU ASSINATURA RECORRENTE
       trackFunnelEvent('checkout_start', {
         type: 'subscription',
         plan: selectedPlanForModal,
@@ -121,6 +159,7 @@ export const Plans: React.FC = () => {
       const res = await createMercadoPagoCheckout({
         type: 'subscription',
         plan: selectedPlanForModal,
+        method: selectedPlanForModal === 'monthly' ? 'checkout_pro' : undefined,
       })
 
       if (res.code === 'PAYMENTS_NOT_CONFIGURED' || !res.success) {
@@ -162,21 +201,26 @@ export const Plans: React.FC = () => {
     <div className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
-        <Badge
-          variant="outline"
-          className="text-pink-600 dark:text-pink-400 border-pink-500/30 px-3 py-1 font-semibold uppercase tracking-wider text-xs"
-        >
-          Planos Transparentes
-        </Badge>
+        <div className="flex items-center justify-center gap-2">
+          <Badge
+            variant="outline"
+            className="text-pink-600 dark:text-pink-400 border-pink-500/30 px-3 py-1 font-semibold uppercase tracking-wider text-xs"
+          >
+            Planos Transparentes
+          </Badge>
+          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-3 py-1 font-bold uppercase tracking-wider text-xs flex items-center gap-1">
+            <QrCode className="w-3.5 h-3.5" />
+            PIX Disponível em Tudo
+          </Badge>
+        </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
           Multiplique as vendas da sua vitrine com roteiros virais
         </h1>
         <p className="text-muted-foreground text-base sm:text-lg">
           Escolha o plano ideal para a sua loja ou canal de afiliados no TikTok Shop e Shopee.
           Pagamentos 100% seguros processados através da API oficial do{' '}
-          <strong>Mercado Pago</strong> (Pix, Cartão de Crédito e Boleto).
+          <strong>Mercado Pago</strong> (Pix direto com QR Code, Cartão de Crédito ou Saldo).
         </p>
-
         {mpConfigured === false && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300 max-w-xl mx-auto flex items-center justify-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -327,7 +371,7 @@ export const Plans: React.FC = () => {
               <span>Histórico completo de roteiros salvos na nuvem</span>
             </div>
           </CardContent>
-          <CardFooter className="pt-4">
+          <CardFooter className="pt-4 space-y-2 flex-col">
             <Button
               className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-semibold shadow-md"
               disabled={plan === 'monthly'}
@@ -336,6 +380,10 @@ export const Plans: React.FC = () => {
               {plan === 'monthly' ? 'Plano Ativo' : 'Assinar PRO (R$ 19,90/mês)'}
               {plan !== 'monthly' && <ArrowRight className="w-4 h-4 ml-2" />}
             </Button>
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+              <QrCode className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Aceita Pix instantâneo ou Cartão</span>
+            </div>
           </CardFooter>{' '}
         </Card>
 
@@ -398,7 +446,7 @@ export const Plans: React.FC = () => {
             </div>
           </CardContent>
 
-          <CardFooter className="pt-4">
+          <CardFooter className="pt-4 space-y-2 flex-col">
             <Button
               variant={plan === 'annual' ? 'outline' : 'default'}
               className="w-full font-semibold bg-amber-500 hover:bg-amber-600 text-white"
@@ -408,6 +456,10 @@ export const Plans: React.FC = () => {
               {plan === 'annual' ? 'Plano Ativo' : 'Assinar Anual VIP'}
               {plan !== 'annual' && <ArrowRight className="w-4 h-4 ml-2" />}
             </Button>
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+              <QrCode className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Pix em parcela única ou Cartão</span>
+            </div>
           </CardFooter>
         </Card>
       </div>
@@ -431,45 +483,101 @@ export const Plans: React.FC = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <CreditCard className="w-5 h-5 text-pink-500" />
+              <ShieldCheck className="w-5 h-5 text-emerald-500" />
               Contratação Segura —{' '}
               {selectedPlanForModal === 'annual' ? 'Plano Anual VIP' : 'Plano PRO Mensal'}
             </DialogTitle>
             <DialogDescription>
-              Você será direcionado ao checkout oficial do Mercado Pago para efetuar o pagamento com
-              Pix, Cartão ou Saldo em conta.
+              Escolha pagar via Pix instantâneo (com QR Code direto) ou Cartão de Crédito pelo
+              Mercado Pago.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* Detalhes do Plano */}
             <div className="p-4 rounded-xl bg-muted/50 border space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>Plano Escolhido:</span>
                 <span className="font-bold text-foreground">
                   {selectedPlanForModal === 'annual'
                     ? 'Anual VIP (12 Meses)'
-                    : 'PRO Mensal (Recorrente)'}
+                    : paymentMethodChoice === 'pix'
+                      ? 'PRO Mensal (30 Dias via Pix)'
+                      : 'PRO Mensal (Recorrente no Cartão)'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>Valor:</span>
                 <span className="text-lg font-black text-foreground">
-                  {selectedPlanForModal === 'annual' ? 'R$ 238,80 /ano' : 'R$ 19,90 /mês'}
+                  {selectedPlanForModal === 'annual' ? 'R$ 238,80' : 'R$ 19,90'}
                 </span>
               </div>
-              {selectedPlanForModal === 'monthly' && (
-                <p className="text-[11px] text-pink-600 dark:text-pink-400 font-semibold pt-1 border-t">
-                  🔥 Preço promocional de lançamento garantido enquanto sua assinatura estiver
-                  ativa.
+              {selectedPlanForModal === 'monthly' && paymentMethodChoice === 'pix' && (
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium pt-1 border-t">
+                  💡 O Pix dá acesso imediato por 30 dias (sem renovação automática debitada do
+                  banco).
                 </p>
               )}
             </div>
 
+            {/* Seleção do Método de Pagamento */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Como deseja pagar?
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethodChoice('pix')}
+                  className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                    paymentMethodChoice === 'pix'
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                      : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                      <QrCode className="w-4 h-4 text-emerald-500" />
+                      Pix Oficial
+                    </span>
+                    <Badge className="bg-emerald-500 text-white text-[9px] px-1.5 py-0 h-4">
+                      Recomendado
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">
+                    QR Code na tela + Copia e Cola
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethodChoice('checkout_pro')}
+                  className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                    paymentMethodChoice === 'checkout_pro'
+                      ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-400 shadow-xs'
+                      : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                      <CreditCard className="w-4 h-4 text-pink-500" />
+                      Cartão / MP
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">
+                    Checkout Pro ou Recorrente
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Aviso de Política de Reembolso em até 7 dias */}
             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
               <span>
-                <strong>Checkout Seguro Mercado Pago:</strong> Seus dados de pagamento nunca passam
-                por nossos servidores. A liberação ocorre via webhook oficial criptografado.
+                <strong>Garantia de 7 dias com devolução direta na conta:</strong> Caso solicite
+                reembolso em até 7 dias, o estorno retorna certinho para a mesma conta do comprador
+                via Mercado Pago.
               </span>
             </div>
 
@@ -495,14 +603,23 @@ export const Plans: React.FC = () => {
             </Button>
             <Button
               type="button"
-              onClick={handleProceedToMercadoPago}
+              onClick={handleProceedToCheckout}
               disabled={processing}
-              className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-semibold gap-2 shadow-md"
+              className={
+                paymentMethodChoice === 'pix'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 shadow-md'
+                  : 'bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-semibold gap-2 shadow-md'
+              }
             >
               {processing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Gerando Checkout...
+                  {paymentMethodChoice === 'pix' ? 'Gerando QR Code Pix...' : 'Gerando Checkout...'}
+                </>
+              ) : paymentMethodChoice === 'pix' ? (
+                <>
+                  <QrCode className="w-4 h-4" />
+                  Gerar QR Code Pix
                 </>
               ) : (
                 <>
@@ -515,6 +632,25 @@ export const Plans: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DEDICADO DE PAGAMENTO PIX DIRETO */}
+      <PixPaymentModal
+        open={pixModalOpen}
+        onOpenChange={setPixModalOpen}
+        pixData={pixData}
+        title={
+          selectedPlanForModal === 'annual' ? 'Pix — Plano Anual VIP' : 'Pix — Plano PRO Mensal'
+        }
+        description={`Conclua a ativação do seu plano pagando ${
+          selectedPlanForModal === 'annual' ? 'R$ 238,80' : 'R$ 19,90'
+        } via Pix Oficial.`}
+        onPaymentApproved={async () => {
+          await refreshSubscription()
+          navigate(
+            '/checkout/sucesso?tipo=assinatura&plano=' + selectedPlanForModal + '&status=approved',
+          )
+        }}
+      />
     </div>
   )
 }

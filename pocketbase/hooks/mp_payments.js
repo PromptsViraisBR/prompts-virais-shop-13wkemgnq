@@ -596,12 +596,14 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
     const userEmail = authUser.getString('email') || ''
     const userId = authUser.id
 
-    // FLUXO A: Assinatura Mensal PRO Recorrente
+    const checkoutMethod = (body.method || '').toLowerCase().trim() // se for 'checkout_pro', força Checkout Pro para plano mensal
+
+    // FLUXO A: Assinatura Mensal PRO Recorrente (caso método não seja explicitamente checkout_pro)
     // O Mercado Pago oferece duas formas para assinatura:
     // 1) POST /preapproval (quando payer e collector são ambos reais ou ambos de teste)
     // 2) POST /preapproval_plan (plano recorrente hospedado pelo Mercado Pago com link público de assinatura em /subscriptions/checkout?preapproval_plan_id=...)
     // A abordagem com preapproval_plan é mais resiliente pois não exige que o payer seja pré-definido como test user caso a conta seja de teste.
-    if (itemType === 'subscription' && plan === 'monthly') {
+    if (itemType === 'subscription' && plan === 'monthly' && checkoutMethod !== 'checkout_pro') {
       const externalRef = `sub_${userId}_monthly_${Date.now()}`
       const reason = 'Plano PRO Mensal - Prompts Virais Shop'
       const backUrl = `${siteUrl}/checkout/sucesso?tipo=assinatura&plano=monthly`
@@ -697,7 +699,7 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
     }
 
     // FLUXO B: Checkout Pro (API /checkout/preferences)
-    // Para Anual VIP (R$ 238,80) e Créditos Extras (R$ 1,99 unid)
+    // Para Mensal (quando solicitado via Checkout Pro), Anual VIP (R$ 238,80) e Créditos Extras (R$ 1,99 unid)
     let preferenceItems = []
     let externalRef = ''
     let successBackUrl = ''
@@ -713,6 +715,19 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
             'Acesso anual completo à biblioteca de roteiros e geradores de catálogo e virais.',
           quantity: 1,
           unit_price: 238.8,
+          currency_id: 'BRL',
+        },
+      ]
+    } else if (itemType === 'subscription' && plan === 'monthly') {
+      externalRef = `sub_${userId}_monthly_${Date.now()}`
+      successBackUrl = `${siteUrl}/checkout/sucesso?tipo=assinatura&plano=monthly`
+      preferenceItems = [
+        {
+          id: 'plan_monthly_pro',
+          title: 'Plano Mensal PRO - Prompts Virais Shop (30 Dias)',
+          description: 'Acesso por 30 dias à biblioteca completa de roteiros e geradores virais.',
+          quantity: 1,
+          unit_price: 19.9,
           currency_id: 'BRL',
         },
       ]
@@ -785,6 +800,370 @@ routerAdd('POST', '/backend/v1/mp/create-checkout', (e) => {
     }
   } catch (err) {
     console.error('[mp-create-checkout] Erro inesperado:', err)
+    return e.json(500, { success: false, error: err.message || String(err) })
+  }
+})
+
+// -------------------------------------------------------------
+// ROTA 7: POST /backend/v1/mp/create-pix
+// Gera cobrança Pix direta oficial via Mercado Pago API (POST /v1/payments)
+// Retorna QR Code (imagem/base64), chave copia-e-cola (EMV), ticket_url e expiração
+// -------------------------------------------------------------
+routerAdd('POST', '/backend/v1/mp/create-pix', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, {
+        success: false,
+        error: 'Você precisa estar logado para gerar uma cobrança Pix.',
+      })
+    }
+
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
+    if (!token) {
+      return e.json(503, {
+        success: false,
+        code: 'PAYMENTS_NOT_CONFIGURED',
+        error:
+          'O sistema de pagamentos Pix está aguardando configuração de credenciais no servidor.',
+      })
+    }
+
+    const reqInfo = e.requestInfo()
+    const body = reqInfo.body || {}
+    const itemType = (body.type || 'credits').toLowerCase().trim() // 'credits' | 'subscription'
+    const plan = (body.plan || 'monthly').toLowerCase().trim() // 'monthly' | 'annual'
+    const creditsQuantity = parseInt(body.quantity || '1', 10)
+
+    const userId = authUser.id
+    const userEmail = authUser.getString('email') || ''
+    const userName = authUser.getString('name') || 'Cliente'
+
+    // Separar primeiro e último nome para o payload do MP
+    const nameParts = userName.trim().split(/\s+/)
+    const firstName = nameParts[0] || 'Cliente'
+    const lastName = nameParts.slice(1).join(' ') || 'Prompts'
+
+    let amount = 1.99
+    let description = ''
+    let externalRef = ''
+
+    if (itemType === 'subscription') {
+      if (plan === 'annual') {
+        amount = 238.8
+        description = 'Plano Anual VIP - Prompts Virais Shop (12 Meses)'
+        externalRef = `sub_${userId}_annual_${Date.now()}`
+      } else {
+        amount = 19.9
+        description = 'Plano PRO Mensal (30 Dias) - Prompts Virais Shop'
+        externalRef = `sub_${userId}_monthly_${Date.now()}`
+      }
+    } else {
+      const qty = Math.max(1, creditsQuantity || 1)
+      amount = parseFloat((qty * 1.99).toFixed(2))
+      description = `${qty}x Prompt(s) Extra de Regeneração - Prompts Virais`
+      externalRef = `credits_${userId}_${qty}_${Date.now()}`
+    }
+
+    // Configuração de expiração: 30 minutos a partir de agora no formato ISO 8601 do MP
+    const expireDate = new Date(Date.now() + 30 * 60 * 1000)
+    const dateOfExpiration = expireDate.toISOString().replace(/\.\d{3}Z$/, '.000-00:00')
+
+    const idempotencyKey = `pix_${externalRef}`
+
+    const pixPayload = {
+      transaction_amount: amount,
+      description: description,
+      payment_method_id: 'pix',
+      external_reference: externalRef,
+      notification_url: 'https://prompts-virais-shop-16b33.goskip.app/backend/v1/mp/webhook',
+      date_of_expiration: dateOfExpiration,
+      payer: {
+        email: userEmail || 'cliente@prompts-virais.com',
+        first_name: firstName,
+        last_name: lastName,
+      },
+    }
+
+    console.log(
+      `[mp-create-pix] Criando cobrança Pix de R$ ${amount} para user ${userId} (${externalRef})...`,
+    )
+
+    const mpRes = $http.send({
+      method: 'POST',
+      url: 'https://api.mercadopago.com/v1/payments',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(pixPayload),
+      timeout: 30,
+    })
+
+    const mpData = mpRes.json || {}
+    const isSuccess = mpRes.statusCode >= 200 && mpRes.statusCode < 300
+
+    if (!isSuccess) {
+      console.warn(`[mp-create-pix] Erro na API do MP (status ${mpRes.statusCode}):`, mpData)
+      const errorMsg =
+        mpData.message ||
+        (Array.isArray(mpData.cause) && mpData.cause[0] && mpData.cause[0].description) ||
+        'Não foi possível gerar a cobrança Pix no Mercado Pago.'
+
+      return e.json(mpRes.statusCode || 400, {
+        success: false,
+        error: errorMsg,
+        details: mpData,
+      })
+    }
+
+    const pointOfInteraction = mpData.point_of_interaction || {}
+    const transactionData = pointOfInteraction.transaction_data || {}
+
+    const qrCode = transactionData.qr_code || '' // Código EMV Copia e Cola
+    const qrCodeBase64 = transactionData.qr_code_base64 || '' // Imagem PNG em base64
+    const ticketUrl = transactionData.ticket_url || '' // URL do recibo/página do MP com QR Code
+    const paymentId = String(mpData.id || '')
+    const status = mpData.status || 'pending'
+    const statusDetail = mpData.status_detail || 'waiting_transfer'
+
+    // Registrar pré-lançamento em payments_history para rastreabilidade imediata e idempotência
+    try {
+      const histCol = $app.findCollectionByNameOrId('payments_history')
+      const newHist = new Record(histCol)
+      newHist.set('user', userId)
+      newHist.set('mp_payment_id', paymentId)
+      newHist.set('external_reference', externalRef)
+      newHist.set('payment_type', itemType === 'credits' ? 'credits' : 'subscription')
+      newHist.set('status', status)
+      newHist.set('status_detail', statusDetail)
+      newHist.set('transaction_amount', amount)
+      newHist.set('payer_email', userEmail)
+      newHist.set('payment_method_id', 'pix')
+      newHist.set(
+        'raw_payload',
+        JSON.stringify({
+          id: paymentId,
+          status: status,
+          point_of_interaction: {
+            transaction_data: {
+              ticket_url: ticketUrl,
+            },
+          },
+        }),
+      )
+      $app.save(newHist)
+    } catch (saveHistErr) {
+      console.warn('[mp-create-pix] Aviso ao registrar payments_history:', saveHistErr)
+    }
+
+    // Registrar evento de funil: checkout_start_pix
+    try {
+      const evCol = $app.findCollectionByNameOrId('events')
+      const evRec = new Record(evCol)
+      evRec.set('user', userId)
+      evRec.set('event_type', 'checkout_start_pix')
+      evRec.set(
+        'metadata',
+        JSON.stringify({
+          payment_id: paymentId,
+          amount: amount,
+          type: itemType,
+          plan: itemType === 'subscription' ? plan : undefined,
+          quantity: itemType === 'credits' ? creditsQuantity : undefined,
+        }),
+      )
+      $app.save(evRec)
+    } catch (_) {}
+
+    return e.json(200, {
+      success: true,
+      payment_id: paymentId,
+      status: status,
+      status_detail: statusDetail,
+      qr_code: qrCode,
+      qr_code_base64: qrCodeBase64,
+      ticket_url: ticketUrl,
+      external_reference: externalRef,
+      transaction_amount: amount,
+      date_of_expiration: dateOfExpiration,
+      expires_in_minutes: 30,
+      description: description,
+    })
+  } catch (err) {
+    console.error('[mp-create-pix] Erro fatal:', err)
+    return e.json(500, { success: false, error: err.message || String(err) })
+  }
+})
+
+// -------------------------------------------------------------
+// ROTA 8: GET /backend/v1/mp/check-payment
+// Consulta o status atual de uma cobrança específica na API do MP
+// Permite ao frontend fazer polling leve e instantâneo sem recarregar a tela
+// -------------------------------------------------------------
+routerAdd('GET', '/backend/v1/mp/check-payment', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, { success: false, error: 'Requer autenticação.' })
+    }
+
+    const token = ($os.getenv('MERCADO_PAGO_ACCESS_TOKEN') || '').trim()
+    if (!token) {
+      return e.json(503, { success: false, error: 'Mercado Pago não configurado.' })
+    }
+
+    const reqInfo = e.requestInfo()
+    const query = reqInfo.query || {}
+    const paymentId = (query.payment_id || query.id || '').trim()
+
+    if (!paymentId) {
+      return e.json(400, { success: false, error: 'payment_id é obrigatório.' })
+    }
+
+    // Consultar o pagamento oficial na API do Mercado Pago
+    const pmtRes = $http.send({
+      method: 'GET',
+      url: `https://api.mercadopago.com/v1/payments/${paymentId}`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      timeout: 15,
+    })
+
+    if (pmtRes.statusCode !== 200) {
+      return e.json(pmtRes.statusCode || 404, {
+        success: false,
+        error: 'Pagamento não localizado na API do Mercado Pago.',
+      })
+    }
+
+    const pmtData = pmtRes.json || {}
+    const status = (pmtData.status || '').toLowerCase()
+    const statusDetail = pmtData.status_detail || ''
+    const externalRef = pmtData.external_reference || ''
+    const transactionAmount = pmtData.transaction_amount || 0
+    const paymentMethodId = pmtData.payment_method_id || ''
+
+    const isApproved = status === 'approved'
+
+    // Se aprovado, sincronizar com o banco de dados (idempotência com o webhook)
+    if (isApproved) {
+      let histRec = null
+      try {
+        histRec = $app.findFirstRecordByData('payments_history', 'mp_payment_id', paymentId)
+      } catch (_) {}
+
+      const previousStatus = histRec ? histRec.getString('status') : ''
+
+      if (histRec) {
+        histRec.set('status', status)
+        histRec.set('status_detail', statusDetail)
+        $app.save(histRec)
+      }
+
+      // Se ainda não estava aprovado no banco, conceder benefício imediatamente
+      if (previousStatus !== 'approved') {
+        let targetUserId = authUser.id
+        let isCreditsPayment = externalRef.includes('credits_')
+        let planTarget = externalRef.includes('annual') ? 'annual' : 'monthly'
+        let creditsQty = 1
+
+        if (isCreditsPayment) {
+          const parts = externalRef.split('_')
+          if (parts.length >= 3) {
+            creditsQty = parseInt(parts[2] || '1', 10)
+          }
+        }
+
+        // Conceder créditos
+        if (isCreditsPayment) {
+          try {
+            let credRecord = null
+            try {
+              credRecord = $app.findFirstRecordByData('regeneration_credits', 'user', targetUserId)
+            } catch (_) {}
+
+            if (credRecord) {
+              const currentBal = credRecord.getInt('extra_prompts_balance') || 0
+              const currentTot = credRecord.getInt('total_purchased') || 0
+              credRecord.set('extra_prompts_balance', currentBal + creditsQty)
+              credRecord.set('total_purchased', currentTot + creditsQty)
+              $app.save(credRecord)
+            } else {
+              const credCol = $app.findCollectionByNameOrId('regeneration_credits')
+              const newCred = new Record(credCol)
+              newCred.set('user', targetUserId)
+              newCred.set('extra_prompts_balance', creditsQty)
+              newCred.set('total_purchased', creditsQty)
+              newCred.set('total_used', 0)
+              $app.save(newCred)
+            }
+          } catch (cErr) {
+            console.warn('[mp-check-payment] Erro ao creditar:', cErr)
+          }
+        } else {
+          // Conceder assinatura
+          try {
+            const now = new Date()
+            const endDate = new Date()
+            if (planTarget === 'annual') {
+              endDate.setFullYear(now.getFullYear() + 1)
+            } else {
+              endDate.setMonth(now.getMonth() + 1)
+            }
+
+            let subRecord = null
+            try {
+              const subs = $app.findRecordsByFilter(
+                'subscriptions',
+                `user = "${targetUserId}"`,
+                '-created',
+                1,
+                0,
+              )
+              if (subs && subs.length > 0) subRecord = subs[0]
+            } catch (_) {}
+
+            if (subRecord) {
+              subRecord.set('plan', planTarget)
+              subRecord.set('status', 'active')
+              subRecord.set('start_date', now.toISOString())
+              subRecord.set('end_date', endDate.toISOString())
+              subRecord.set('mp_payment_id', paymentId)
+              subRecord.set('external_reference', externalRef)
+              $app.save(subRecord)
+            } else {
+              const subsCol = $app.findCollectionByNameOrId('subscriptions')
+              const newSub = new Record(subsCol)
+              newSub.set('user', targetUserId)
+              newSub.set('plan', planTarget)
+              newSub.set('status', 'active')
+              newSub.set('start_date', now.toISOString())
+              newSub.set('end_date', endDate.toISOString())
+              newSub.set('mp_payment_id', paymentId)
+              newSub.set('external_reference', externalRef)
+              $app.save(newSub)
+            }
+          } catch (sErr) {
+            console.warn('[mp-check-payment] Erro ao ativar sub:', sErr)
+          }
+        }
+      }
+    }
+
+    return e.json(200, {
+      success: true,
+      payment_id: paymentId,
+      status: status,
+      status_detail: statusDetail,
+      is_approved: isApproved,
+      payment_method_id: paymentMethodId,
+      transaction_amount: transactionAmount,
+      external_reference: externalRef,
+    })
+  } catch (err) {
     return e.json(500, { success: false, error: err.message || String(err) })
   }
 })

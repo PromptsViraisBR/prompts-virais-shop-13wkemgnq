@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getPrompts } from '@/services/prompts'
 import { getUserFavorites, toggleFavorite } from '@/services/favorites'
@@ -57,15 +57,29 @@ const FREE_SAMPLES_COUNT = 3
 export const ViralVideos: React.FC = () => {
   const { user, isPaidPlan } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [prompts, setPrompts] = useState<PromptRecord[]>([])
   const [favoritePromptIds, setFavoritePromptIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [hoveredPromptId, setHoveredPromptId] = useState<string | null>(null)
 
-  // Filtros
+  // Filtros inicializados via query param ?nicho=... ou ?niche=... se presentes
+  const initialNiche = searchParams.get('nicho') || searchParams.get('niche') || 'all'
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedNiche, setSelectedNiche] = useState<string>('all')
+  const [selectedNiche, setSelectedNiche] = useState<string>(
+    VIRAL_NICHE_KEYS.includes(initialNiche as NicheType) ? initialNiche : 'all',
+  )
+
+  // Sincroniza query params quando o usuário acessa ou altera o filtro por nicho
+  useEffect(() => {
+    const paramNiche = searchParams.get('nicho') || searchParams.get('niche')
+    if (paramNiche && VIRAL_NICHE_KEYS.includes(paramNiche as NicheType)) {
+      if (selectedNiche !== paramNiche) {
+        setSelectedNiche(paramNiche)
+      }
+    }
+  }, [searchParams])
   const [selectedStyle, setSelectedStyle] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'all' | 'free' | 'favorites'>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -287,11 +301,30 @@ export const ViralVideos: React.FC = () => {
     selectedStyle !== 'all' ||
     activeTab !== 'all'
 
+  const handleSelectNiche = (nicheKey: string) => {
+    setSelectedNiche(nicheKey)
+    if (nicheKey === 'all') {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('nicho')
+      nextParams.delete('niche')
+      setSearchParams(nextParams, { replace: true })
+    } else {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.set('nicho', nicheKey)
+      nextParams.delete('niche')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }
+
   const handleResetFilters = () => {
     setSearchTerm('')
     setSelectedNiche('all')
     setSelectedStyle('all')
     setActiveTab('all')
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('nicho')
+    nextParams.delete('niche')
+    setSearchParams(nextParams, { replace: true })
   }
 
   return (
@@ -480,7 +513,7 @@ export const ViralVideos: React.FC = () => {
           <div className="flex items-center gap-2 overflow-x-auto pb-1.5 no-scrollbar sm:flex-wrap">
             {/* Chip Todos */}
             <button
-              onClick={() => setSelectedNiche('all')}
+              onClick={() => handleSelectNiche('all')}
               className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
                 selectedNiche === 'all'
                   ? 'bg-gradient-to-r from-pink-600 to-amber-500 text-white border-transparent shadow-sm scale-105'
@@ -499,7 +532,7 @@ export const ViralVideos: React.FC = () => {
               return (
                 <button
                   key={key}
-                  onClick={() => setSelectedNiche(isSelected ? 'all' : key)}
+                  onClick={() => handleSelectNiche(isSelected ? 'all' : key)}
                   className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
                     isSelected
                       ? 'bg-pink-600 text-white border-pink-600 shadow-sm scale-105'

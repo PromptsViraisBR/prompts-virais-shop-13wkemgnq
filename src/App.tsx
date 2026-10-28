@@ -19,6 +19,9 @@ const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.L
 const ViralVideos = lazy(() =>
   import('./pages/ViralVideos').then((m) => ({ default: m.ViralVideos })),
 )
+const AcervoNiches = lazy(() =>
+  import('./pages/AcervoNiches').then((m) => ({ default: m.AcervoNiches })),
+)
 const PromptDetail = lazy(() =>
   import('./pages/PromptDetail').then((m) => ({ default: m.PromptDetail })),
 )
@@ -88,6 +91,7 @@ const App = () => {
                   <Route path="/planos" element={<Plans />} />
                   <Route path="/biblioteca" element={<Library />} />
                   <Route path="/virais" element={<ViralVideos />} />
+                  <Route path="/nichos" element={<AcervoNiches />} />
                   <Route path="/prompt/:id" element={<PromptDetail />} />
                   <Route path="/gerador" element={<Generator />} />
                   <Route path="/perfil" element={<Profile />} />

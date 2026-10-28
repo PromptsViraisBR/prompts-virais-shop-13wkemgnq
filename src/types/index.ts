@@ -28,6 +28,7 @@ export type NicheType =
   | 'face_swap'
   | 'asmr_sensorial'
   | 'animais_falantes'
+  | 'curiosidades_fatos'
 
 export type StyleType = 'pov' | 'modelo' | 'unboxing_vitrine'
 export type PlatformType = 'tiktok_shop' | 'shopee' | 'ambos'
@@ -256,6 +257,7 @@ export const NICHE_LABELS: Record<NicheType, string> = {
   face_swap: 'Troca de Rosto (Face Swap)',
   asmr_sensorial: 'ASMR Sons & Visual Sensorial',
   animais_falantes: 'Animais Falantes & Pets Cômicos',
+  curiosidades_fatos: 'Curiosidades & Fatos Misteriosos',
 }
 
 export const NICHE_EMOJIS: Record<NicheType, string> = {
@@ -283,6 +285,7 @@ export const NICHE_EMOJIS: Record<NicheType, string> = {
   face_swap: '🎭',
   asmr_sensorial: '🫧',
   animais_falantes: '🐶',
+  curiosidades_fatos: '🧠',
 }
 
 export const VIRAL_NICHE_KEYS: NicheType[] = [
@@ -293,6 +296,7 @@ export const VIRAL_NICHE_KEYS: NicheType[] = [
   'face_swap',
   'asmr_sensorial',
   'animais_falantes',
+  'curiosidades_fatos',
 ]
 
 export interface RegenerationCreditRecord {

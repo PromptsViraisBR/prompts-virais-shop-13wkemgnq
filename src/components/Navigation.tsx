@@ -23,6 +23,7 @@ import {
   CheckCircle,
   Video,
   Flame,
+  Layers,
 } from 'lucide-react'
 
 export const Navbar: React.FC = () => {
@@ -109,7 +110,21 @@ export const Navbar: React.FC = () => {
                 <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
                 Vídeos Virais
                 <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-extrabold rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                  NOVO
+                  HOT
+                </span>
+              </Button>
+            </Link>
+
+            <Link to="/nichos">
+              <Button
+                variant={isActive('/nichos') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-1.5 font-medium h-9 text-xs sm:text-sm relative"
+              >
+                <Layers className="w-4 h-4 text-purple-500" />
+                Nichos
+                <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-extrabold rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  8
                 </span>
               </Button>
             </Link>
@@ -266,6 +281,22 @@ export const Navbar: React.FC = () => {
             </button>
           </Link>
 
+          <Link to="/nichos" className="shrink-0">
+            <button
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
+                isActive('/nichos')
+                  ? 'bg-gradient-to-r from-purple-500/25 to-pink-500/25 text-foreground border border-purple-500/50 shadow-xs'
+                  : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+              <span>Nichos</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-extrabold">
+                8
+              </span>
+            </button>
+          </Link>
+
           <Link to="/gerador" className="shrink-0">
             <button
               className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
@@ -379,6 +410,11 @@ export const Footer: React.FC = () => {
                   className="hover:text-foreground transition-colors text-pink-600 dark:text-pink-400 font-semibold"
                 >
                   Vídeos Virais (Criadores)
+                </Link>
+              </li>
+              <li>
+                <Link to="/nichos" className="hover:text-foreground transition-colors">
+                  Nichos do Acervo (8 Categorias)
                 </Link>
               </li>
               <li>

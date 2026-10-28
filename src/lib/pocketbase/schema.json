@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T22:42:10.692Z",
+  "generatedAt": "2026-10-28T23:37:13.913Z",
   "collections": [
     {
       "name": "users",
@@ -268,7 +268,8 @@
             "comedia_engracado",
             "face_swap",
             "asmr_sensorial",
-            "animais_falantes"
+            "animais_falantes",
+            "curiosidades_fatos"
           ]
         },
         {
@@ -452,7 +453,8 @@
             "comedia_engracado",
             "face_swap",
             "asmr_sensorial",
-            "animais_falantes"
+            "animais_falantes",
+            "curiosidades_fatos"
           ]
         },
         {

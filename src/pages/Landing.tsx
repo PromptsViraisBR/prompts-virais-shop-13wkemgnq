@@ -50,23 +50,52 @@ export const Landing: React.FC = () => {
     // Registrar evento de visita de página (Landing)
     trackFunnelEvent('page_view', { page: 'landing' })
 
-    // Carrega prompts gratuitos e alguns premium para a "espiada" borrada
+    // Carrega prompts gratuitos com rodízio inteligente a cada 3 carregamentos de página (localStorage)
     getPrompts({ isFreeOnly: true })
       .then((records) => {
-        const strongHookIds = ['3pp1iid3x7gx6bv', 'gudc14e8frah6e1', 'ssbe8ohn75zzp6t']
-        const selected: PromptRecord[] = []
-        strongHookIds.forEach((id) => {
-          const found = records.find((r) => r.id === id)
-          if (found) selected.push(found)
-        })
+        // Blindagem rigorosa: garante que APENAS registros explicitamente gratuitos possam ser selecionados
+        const strictlyFreeRecords = (records || []).filter((r) => r.is_free === true)
+        if (strictlyFreeRecords.length === 0) return
 
-        if (selected.length < 3) {
-          records.forEach((r) => {
-            if (selected.length < 3 && !selected.some((s) => s.id === r.id)) {
-              selected.push(r)
-            }
-          })
+        // 1. Contador de carregamentos persistido em localStorage
+        const STORAGE_PAGE_LOADS_KEY = 'pv_home_page_loads_count'
+        const STORAGE_TRIO_INDEX_KEY = 'pv_home_free_trio_index'
+
+        let currentLoads = 0
+        let currentTrioIdx = 0
+        try {
+          currentLoads = parseInt(localStorage.getItem(STORAGE_PAGE_LOADS_KEY) || '0', 10)
+          if (isNaN(currentLoads)) currentLoads = 0
+          currentTrioIdx = parseInt(localStorage.getItem(STORAGE_TRIO_INDEX_KEY) || '0', 10)
+          if (isNaN(currentTrioIdx)) currentTrioIdx = 0
+        } catch {
+          // Ignora caso restrito por privacidade
         }
+
+        const newLoads = currentLoads + 1
+        const totalTrios = Math.max(1, Math.floor(strictlyFreeRecords.length / 3))
+
+        // A cada múltiplo de 3 carregamentos, avança para o próximo trio sem repetir o trio anterior
+        if (newLoads % 3 === 0) {
+          currentTrioIdx = (currentTrioIdx + 1) % totalTrios
+        }
+
+        try {
+          localStorage.setItem(STORAGE_PAGE_LOADS_KEY, String(newLoads))
+          localStorage.setItem(STORAGE_TRIO_INDEX_KEY, String(currentTrioIdx))
+        } catch {
+          // Ignora
+        }
+
+        const startIndex = (currentTrioIdx * 3) % strictlyFreeRecords.length
+        let selected = strictlyFreeRecords.slice(startIndex, startIndex + 3)
+
+        // Se o slice final tiver menos de 3, complementa com o início da lista gratuita
+        if (selected.length < 3) {
+          const complement = strictlyFreeRecords.slice(0, 3 - selected.length)
+          selected = [...selected, ...complement]
+        }
+
         setSamplePrompts(selected.slice(0, 3))
       })
       .catch((err) => console.warn('Erro ao carregar exemplos:', err))
@@ -196,144 +225,127 @@ export const Landing: React.FC = () => {
   }
 
   return (
-    <div className="space-y-16 sm:space-y-24 pb-16">
-      {/* BANNER INFORMATIVO DISCRETO & ELEGANTE: VERSÃO + APP NOVO + SUPORTE + FEEDBACK */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-amber-500/10 border border-pink-500/20 backdrop-blur-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-start sm:items-center gap-2.5 flex-1">
-            <div className="w-8 h-8 rounded-xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0 mt-0.5 sm:mt-0">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge
-                  variant="outline"
-                  className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0"
-                >
-                  v0.0.65
-                </Badge>
-                <span className="font-bold text-foreground text-xs sm:text-sm">
-                  O Prompts Virais é novo e estamos aperfeiçoando cada detalhe!
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Por ser uma plataforma recente, pequenos bugs podem acontecer. Caso encontre algo ou
-                precise de suporte, conte com nosso time direto pelo e-mail{' '}
-                <a
-                  href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.65"
-                  className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
-                >
-                  juniorrodriguesjr123.jr@gmail.com
-                </a>
-                . Vamos resolver rapidinho!
-              </p>{' '}
-            </div>
+    <div className="space-y-12 sm:space-y-16 pb-16">
+      {/* BANNER INFORMATIVO DISCRETO & ELEGANTE: VERSÃO 0.0.69 + SUPORTE + FEEDBACK */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-amber-500/10 border border-pink-500/20 backdrop-blur-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5 flex-1 flex-wrap">
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0.5"
+            >
+              v0.0.69
+            </Badge>
+            <span className="font-semibold text-foreground text-xs sm:text-sm">
+              Plataforma em evolução contínua!
+            </span>
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              Suporte direto:{' '}
+              <a
+                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.69"
+                className="font-semibold text-pink-600 dark:text-pink-400 hover:underline"
+              >
+                juniorrodriguesjr123.jr@gmail.com
+              </a>
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 self-end md:self-center shrink-0 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2 self-end md:self-center shrink-0">
             <Button
               type="button"
               size="sm"
               onClick={() => setFeedbackOpen(true)}
-              className="text-xs h-8 gap-1.5 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold shadow-xs rounded-xl"
+              className="text-xs h-7 px-2.5 gap-1.5 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold shadow-xs rounded-xl"
             >
               <MessageSquarePlus className="w-3.5 h-3.5" />
-              <span>Dar Feedback / Ideias</span>
+              <span>Feedback</span>
             </Button>
           </div>
         </div>
       </section>
 
-      {/* HERO SECTION — MOBILE-FIRST & ALTA CONVERSÃO */}
-      <section className="relative overflow-hidden pt-6 sm:pt-14 pb-14 sm:pb-20 px-3 xs:px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
-        <div className="max-w-5xl mx-auto text-center space-y-5 sm:space-y-6">
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[11px] sm:text-xs font-bold uppercase tracking-wider animate-in fade-in max-w-full">
+      {/* HERO SECTION — ENXUTO, SEM POLUIÇÃO, CTA PRINCIPAL GIGANTE & BOTÕES CLAROS */}
+      <section className="relative overflow-hidden pt-4 sm:pt-10 pb-10 sm:pb-16 px-3 xs:px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
+        <div className="max-w-4xl mx-auto text-center space-y-4 sm:space-y-6">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Prompts Prontos para Vídeos Virais que Vendem</span>
+            <span>Roteiros Prontos para Vender no TikTok Shop & Shopee</span>
           </div>
 
           <h1 className="text-2xl xs:text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-foreground leading-[1.15] break-words">
-            Venda até 10x mais no TikTok Shop e Shopee com{' '}
+            Venda até 10x mais com{' '}
             <span className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
-              Roteiros que Retêm e Convertem
+              Roteiros Virais de Alta Retenção
             </span>
           </h1>
 
-          <p className="text-sm xs:text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed px-1">
-            Pare de postar vídeos sem retenção. Acesse roteiros de 10s e 60s em <strong>POV</strong>{' '}
-            e com <strong>Modelo</strong> calibrados para os primeiros 3 segundos — com chamada
-            irresistível para o carrinho.
+          <p className="text-sm xs:text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-1">
+            Ganchos hipnóticos nos primeiros 3 segundos em estilo <strong>POV</strong> e <strong>Modelo</strong> — com chamada direta para o carrinho.
           </p>
 
-          {/* CTA EM DESTAQUE ACIMA DA DOBRA (EXPERIMENTAR GRÁTIS + PLANOS) */}
-          <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-xl mx-auto px-1">
+          {/* CTA PRINCIPAL GIGANTE EM DESTAQUE COM BOTÕES CLICÁVEIS */}
+          <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 max-w-lg mx-auto px-1">
             <Link
               to={user ? '/gerador' : '/login'}
               className="w-full sm:w-auto flex-1"
-              aria-label="Experimentar grátis o gerador de prompts"
+              aria-label="Experimentar grátis o gerador com 5 prompts"
             >
               <Button
                 size="lg"
-                className="w-full min-h-[50px] h-12 xs:h-14 sm:h-16 px-4 xs:px-6 sm:px-8 text-sm xs:text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-xl shadow-pink-500/30 rounded-2xl group transition-all"
+                className="w-full min-h-[56px] h-14 sm:h-16 px-6 text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-xl shadow-pink-500/30 rounded-2xl group transition-all"
               >
-                <Wand2 className="w-4 h-4 xs:w-5 xs:h-5 mr-1.5 xs:mr-2 shrink-0 group-hover:rotate-12 transition-transform" />
-                <span className="truncate">Experimentar Grátis Agora</span>
-                <ArrowRight className="w-4 h-4 xs:w-5 xs:h-5 ml-1.5 xs:ml-2 shrink-0 group-hover:translate-x-1 transition-transform" />
+                <Wand2 className="w-5 h-5 mr-2 shrink-0 group-hover:rotate-12 transition-transform" />
+                <span>Experimentar Grátis (5 Prompts)</span>
+                <ArrowRight className="w-5 h-5 ml-2 shrink-0 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
 
             <Link
               to="/planos"
               className="w-full sm:w-auto"
-              aria-label="Ver comparativo de planos de assinatura"
+              aria-label="Ver planos de assinatura PRO"
             >
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full min-h-[50px] h-12 xs:h-14 sm:h-16 px-4 xs:px-6 font-bold border-2 border-pink-500/40 hover:border-pink-500 hover:bg-pink-500/10 rounded-2xl text-foreground text-xs xs:text-sm sm:text-base"
+                className="w-full min-h-[56px] h-14 sm:h-16 px-6 font-bold border-2 border-pink-500/40 hover:border-pink-500 hover:bg-pink-500/10 rounded-2xl text-foreground text-sm sm:text-base"
               >
-                <Crown className="w-4 h-4 mr-1.5 xs:mr-2 text-amber-500 shrink-0" />
-                <span>Ver Planos PRO</span>
+                <Crown className="w-4 h-4 mr-2 text-amber-500 shrink-0" />
+                <span>Planos PRO</span>
               </Button>
             </Link>
           </div>
 
-          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 pt-1">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span>Sem fidelidade • Sem cartão para testar • Cancele quando quiser</span>
-          </p>
-
-          {/* Selos de Prova de Valor */}
-          <div className="pt-6 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-xs text-muted-foreground">
+          {/* Selos Simplificados */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5 font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>Ganchos de 0 a 3s validados</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Moda, Beleza, Eletrônicos & Virais</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Gerador com Upload de Fotos</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Gerador com Upload de Fotos</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Sem cartão para testar</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* EXEMPLOS AO VIVO — 3 AMOSTRAS GRÁTIS DESBLOQUEADAS */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
+      {/* EXEMPLOS AO VIVO — 3 AMOSTRAS GRÁTIS DESBLOQUEADAS COM RODÍZIO INTELIGENTE */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="text-center max-w-2xl mx-auto space-y-1.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Amostra Gratuita Imediata</span>
+            <span>3 Prompts Gratuitos da Coleção</span>
           </div>
-          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
-            Copie e Use: 3 Roteiros Reais da Nossa Coleção
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Copie e Use Agora no Seu Vídeo
           </h2>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Sem cadastro ou barreira: teste agora um desses roteiros no seu próximo vídeo de
-            vitrine.
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Sem cadastro: copie um dos roteiros e teste a retenção hoje mesmo.
           </p>
         </div>
 
@@ -421,15 +433,15 @@ export const Landing: React.FC = () => {
           <Badge className="bg-amber-500 text-white font-bold text-xs uppercase tracking-wider">
             Exclusivo Membros PRO
           </Badge>
-          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
-            Espiada da Biblioteca Premium (40+ Roteiros)
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Espiada da Biblioteca Premium
           </h2>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Veja uma prévia dos roteiros avançados mais usados pelos criadores com alta conversão.
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Roteiros avançados com retenção validada desbloqueados no plano PRO.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {(premiumTeasers.length > 0
             ? premiumTeasers
             : [
@@ -508,62 +520,61 @@ export const Landing: React.FC = () => {
       </section>
 
       {/* SEÇÃO DE COMPARATIVO TRANSPARENTE: GRATUITO × PRO × ANUAL */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="text-center max-w-2xl mx-auto space-y-1.5">
           <Badge
             variant="outline"
             className="text-pink-600 border-pink-500/30 text-xs font-semibold uppercase tracking-wider"
           >
-            Transparência Total
+            Planos & Acesso
           </Badge>
-          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
-            Compare o que cada plano destrava para sua loja
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Escolha o Plano Ideal
           </h2>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Comece grátis e faça upgrade quando quiser acelerar a produção de vídeos.
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Comece no teste grátis ou acelere com o plano PRO ilimitado.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch pt-2">
           {/* GRATUITO */}
           <Card className="flex flex-col justify-between border-2 rounded-2xl bg-card">
             <CardHeader className="space-y-1">
-              <CardTitle className="text-xl font-bold flex items-center justify-between">
-                <span>Gratuito</span>
+              <CardTitle className="text-lg font-bold flex items-center justify-between">
+                <span>Modo Grátis</span>
                 <Sparkles className="w-4 h-4 text-muted-foreground" />
               </CardTitle>
-              <CardDescription>Para testar seus primeiros vídeos.</CardDescription>
-              <div className="pt-3">
-                <span className="text-3xl font-extrabold">R$ 0</span>
-                <span className="text-muted-foreground text-xs"> /sempre</span>
+              <CardDescription className="text-xs">Para testar e comprovar os resultados.</CardDescription>
+              <div className="pt-2">
+                <span className="text-2xl font-black">R$ 0</span>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3 text-xs flex-1">
+            <CardContent className="space-y-2.5 text-xs flex-1">
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span>3 Prompts de exemplo liberados</span>
+                <span><strong>5 prompts gerados</strong> para testar a vitrine</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>3 Prompts de exemplo na Home com rodízio</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>Copiar roteiros para TikTok Shop/Shopee</span>
               </div>
-              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-70">
+              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-60">
                 <Check className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span>Biblioteca completa de 40+ roteiros</span>
+                <span>Gerações ilimitadas com IA</span>
               </div>
-              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-70">
+              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-60">
                 <Check className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span>Gerador com Upload de Fotos da Vitrine</span>
-              </div>
-              <div className="flex items-start gap-2 text-muted-foreground line-through opacity-70">
-                <Check className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span>Adaptação inteligente de ângulos</span>
+                <span>Biblioteca completa com 40+ roteiros</span>
               </div>
             </CardContent>
-            <CardFooter className="pt-4 border-t">
+            <CardFooter className="pt-3 border-t">
               <Link to="/login" className="w-full">
-                <Button variant="outline" className="w-full font-semibold text-xs h-10">
-                  Criar Conta Grátis
+                <Button variant="outline" className="w-full font-bold text-xs h-10 rounded-xl">
+                  Testar Grátis (5 Prompts)
                 </Button>
               </Link>
             </CardFooter>

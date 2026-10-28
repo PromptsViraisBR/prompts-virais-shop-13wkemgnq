@@ -533,13 +533,16 @@ export const Generator: React.FC = () => {
           </CardHeader>
           <CardFooter className="pt-2 flex flex-col sm:flex-row gap-2">
             <Link to="/login" className="w-full sm:w-auto">
-              <Button className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 shadow-md">
+              <Button className="w-full min-h-[48px] h-12 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold gap-2 shadow-md rounded-xl text-sm">
                 Criar Conta Grátis (12 prompts/dia)
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
             <Link to="/login" className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full font-semibold">
+              <Button
+                variant="outline"
+                className="w-full min-h-[48px] h-12 font-semibold rounded-xl text-sm"
+              >
                 Já tenho conta — Entrar
               </Button>
             </Link>
@@ -901,7 +904,7 @@ export const Generator: React.FC = () => {
                       )
                     }
                     size="lg"
-                    className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold shadow-md gap-2"
+                    className="min-h-[50px] h-12 px-6 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold shadow-md gap-2 rounded-xl text-sm sm:text-base"
                   >
                     {generating ? (
                       <>

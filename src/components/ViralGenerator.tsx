@@ -681,7 +681,7 @@ export const ViralGenerator: React.FC = () => {
               <Button
                 type="submit"
                 disabled={generating}
-                className="w-full py-6 rounded-2xl bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-extrabold text-sm shadow-md hover:opacity-95 gap-2"
+                className="w-full min-h-[52px] h-14 py-4 rounded-2xl bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-pink-500/20 hover:opacity-95 gap-2"
               >
                 {generating ? (
                   <>

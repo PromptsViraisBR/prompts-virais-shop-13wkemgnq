@@ -212,7 +212,7 @@ export const Navbar: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-9 px-2.5 font-bold text-xs sm:text-sm"
+                    className="min-h-[40px] h-10 px-2.5 sm:px-3 font-bold text-xs sm:text-sm rounded-xl"
                   >
                     <LogIn className="w-3.5 h-3.5 sm:mr-1.5" />
                     <span>Entrar</span>
@@ -221,9 +221,9 @@ export const Navbar: React.FC = () => {
                 <Link to="/planos">
                   <Button
                     size="sm"
-                    className="h-9 px-3 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-xs"
+                    className="min-h-[40px] h-10 px-3 sm:px-3.5 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-xs rounded-xl"
                   >
-                    <Sparkles className="w-3.5 h-3.5 mr-1" />
+                    <Sparkles className="w-3.5 h-3.5 mr-1 text-amber-200" />
                     <span>PRO</span>
                   </Button>
                 </Link>
@@ -236,10 +236,10 @@ export const Navbar: React.FC = () => {
             NUNCA ESCONDIDA EM HAMBÚRGUER OU GAVETA!
             Nomes das abas visíveis, botões generosos para toque no polegar,
             com scroll horizontal suave em telas estreitas */}
-        <div className="flex lg:hidden items-center gap-1 pb-2 pt-0.5 overflow-x-auto no-scrollbar scroll-smooth -mx-2.5 px-2.5">
+        <div className="flex lg:hidden items-center gap-1.5 pb-2.5 pt-1 overflow-x-auto no-scrollbar scroll-smooth -mx-2.5 px-2.5">
           <Link to="/biblioteca" className="shrink-0">
             <button
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
                 isActive('/biblioteca')
                   ? 'bg-gradient-to-r from-pink-500/20 to-rose-500/20 text-foreground border border-pink-500/40 shadow-xs'
                   : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
@@ -252,7 +252,7 @@ export const Navbar: React.FC = () => {
 
           <Link to="/virais" className="shrink-0">
             <button
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
                 isActive('/virais')
                   ? 'bg-gradient-to-r from-rose-500/25 to-pink-500/25 text-foreground border border-rose-500/50 shadow-xs'
                   : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
@@ -268,7 +268,7 @@ export const Navbar: React.FC = () => {
 
           <Link to="/gerador" className="shrink-0">
             <button
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
                 isActive('/gerador')
                   ? 'bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-foreground border border-amber-500/40 shadow-xs'
                   : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
@@ -286,7 +286,7 @@ export const Navbar: React.FC = () => {
 
           <Link to="/planos" className="shrink-0">
             <button
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
                 isActive('/planos')
                   ? 'bg-gradient-to-r from-indigo-500/20 to-pink-500/20 text-foreground border border-indigo-500/40 shadow-xs'
                   : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
@@ -300,7 +300,7 @@ export const Navbar: React.FC = () => {
           {user && (
             <Link to="/perfil" className="shrink-0">
               <button
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
                   isActive('/perfil')
                     ? 'bg-secondary text-foreground border border-border shadow-xs'
                     : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
@@ -317,7 +317,7 @@ export const Navbar: React.FC = () => {
               (user.email || '').toLowerCase().trim() === 'juniorrodriguesjr123.jr@gmail.com') && (
               <Link to="/admin" className="shrink-0">
                 <button
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
                     isActive('/admin')
                       ? 'bg-pink-500/20 text-pink-600 border border-pink-500/40 shadow-xs'
                       : 'bg-muted/50 text-pink-600/80 hover:text-pink-600 hover:bg-muted border border-transparent'

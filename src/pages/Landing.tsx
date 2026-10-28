@@ -226,36 +226,36 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="space-y-12 sm:space-y-16 pb-16">
-      {/* BANNER INFORMATIVO DISCRETO & ELEGANTE: VERSÃO 0.0.69 + SUPORTE + FEEDBACK */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
-        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-amber-500/10 border border-pink-500/20 backdrop-blur-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 text-xs shadow-xs">
-          <div className="flex items-center gap-2.5 flex-1 flex-wrap">
+      {/* BANNER INFORMATIVO DISCRETO: VERSÃO 0.0.70 + AVISO DE BUGS + SUPORTE + FEEDBACK */}
+      <section className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pt-3">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-amber-500/10 border border-pink-500/20 backdrop-blur-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs shadow-xs">
+          <div className="flex items-center gap-2 flex-1 flex-wrap">
             <Badge
               variant="outline"
               className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0.5"
             >
-              v0.0.69
+              v0.0.70
             </Badge>
             <span className="font-semibold text-foreground text-xs sm:text-sm">
-              Plataforma em evolução contínua!
+              App novo em constante melhoria!
             </span>
-            <span className="text-[11px] text-muted-foreground hidden sm:inline">
-              Suporte direto:{' '}
+            <span className="text-[11px] text-muted-foreground">
+              Viu algum bug? Avise em{' '}
               <a
-                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.69"
-                className="font-semibold text-pink-600 dark:text-pink-400 hover:underline"
+                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.70"
+                className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
               >
                 juniorrodriguesjr123.jr@gmail.com
               </a>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
             <Button
               type="button"
               size="sm"
               onClick={() => setFeedbackOpen(true)}
-              className="text-xs h-7 px-2.5 gap-1.5 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold shadow-xs rounded-xl"
+              className="text-xs min-h-[36px] h-9 px-3 gap-1.5 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold shadow-xs rounded-xl"
             >
               <MessageSquarePlus className="w-3.5 h-3.5" />
               <span>Feedback</span>
@@ -264,71 +264,72 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* HERO SECTION — ENXUTO, SEM POLUIÇÃO, CTA PRINCIPAL GIGANTE & BOTÕES CLAROS */}
-      <section className="relative overflow-hidden pt-4 sm:pt-10 pb-10 sm:pb-16 px-3 xs:px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
+      {/* HERO SECTION — VISUAL LIMPO, MENOS FRASES, CTA DE ASSINATURA GRANDE & DESTAQUE */}
+      <section className="relative overflow-hidden pt-4 sm:pt-10 pb-10 sm:pb-14 px-3 xs:px-4 sm:px-6 lg:px-8 border-b bg-gradient-to-b from-pink-500/10 via-amber-500/5 to-background">
         <div className="max-w-4xl mx-auto text-center space-y-4 sm:space-y-6">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            <span>Roteiros Prontos para Vender no TikTok Shop & Shopee</span>
+            <span>Roteiros Prontos • TikTok Shop & Shopee</span>
           </div>
 
           <h1 className="text-2xl xs:text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-foreground leading-[1.15] break-words">
-            Venda até 10x mais com{' '}
+            Venda mais no TikTok Shop com{' '}
             <span className="bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
-              Roteiros Virais de Alta Retenção
+              Roteiros Prontos de Alta Retenção
             </span>
           </h1>
 
           <p className="text-sm xs:text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-1">
-            Ganchos hipnóticos nos primeiros 3 segundos em estilo <strong>POV</strong> e <strong>Modelo</strong> — com chamada direta para o carrinho.
+            Ganchos validados de 3 segundos para prender a atenção e levar direto para o carrinho
+            amarelo.
           </p>
 
-          {/* CTA PRINCIPAL GIGANTE EM DESTAQUE COM BOTÕES CLICÁVEIS */}
-          <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 max-w-lg mx-auto px-1">
+          {/* CTA PRINCIPAL DE ALTO IMPACTO (CLICÁVEL E DESTACADO) */}
+          <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 max-w-xl mx-auto px-1">
             <Link
-              to={user ? '/gerador' : '/login'}
+              to="/planos"
               className="w-full sm:w-auto flex-1"
-              aria-label="Experimentar grátis o gerador com 5 prompts"
+              aria-label="Quero Meus Prompts - Assinar plano PRO"
             >
               <Button
                 size="lg"
-                className="w-full min-h-[56px] h-14 sm:h-16 px-6 text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-xl shadow-pink-500/30 rounded-2xl group transition-all"
+                className="w-full min-h-[58px] h-14 sm:h-16 px-6 text-base sm:text-lg font-black bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:via-rose-400 hover:to-amber-400 text-white shadow-xl shadow-pink-500/30 rounded-2xl group transition-all"
               >
-                <Wand2 className="w-5 h-5 mr-2 shrink-0 group-hover:rotate-12 transition-transform" />
-                <span>Experimentar Grátis (5 Prompts)</span>
+                <Crown className="w-5 h-5 mr-2 shrink-0 text-amber-300" />
+                <span>Quero Meus Prompts (PRO)</span>
                 <ArrowRight className="w-5 h-5 ml-2 shrink-0 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
 
             <Link
-              to="/planos"
+              to={user ? '/gerador' : '/login'}
               className="w-full sm:w-auto"
-              aria-label="Ver planos de assinatura PRO"
+              aria-label="Testar grátis o gerador com 5 prompts"
             >
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full min-h-[56px] h-14 sm:h-16 px-6 font-bold border-2 border-pink-500/40 hover:border-pink-500 hover:bg-pink-500/10 rounded-2xl text-foreground text-sm sm:text-base"
+                className="w-full min-h-[58px] h-14 sm:h-16 px-5 font-bold border-2 border-pink-500/40 hover:border-pink-500 hover:bg-pink-500/10 rounded-2xl text-foreground text-sm sm:text-base"
               >
-                <Crown className="w-4 h-4 mr-2 text-amber-500 shrink-0" />
-                <span>Planos PRO</span>
+                <Wand2 className="w-4 h-4 mr-2 text-pink-500 shrink-0" />
+                <span>Testar Grátis (5 Prompts)</span>
               </Button>
             </Link>
           </div>
 
-          {/* Selos Simplificados */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-muted-foreground">
+          {/* Selos Claros e Enxutos */}
+          <div className="pt-1 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Ganchos de 0 a 3s validados</span>
+              <span>Ganchos validados</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Gerador com Upload de Fotos</span>
+              <span>Gerador com fotos</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Sem cartão para testar</span>
+              <span>Cancele quando quiser</span>
             </div>
           </div>
         </div>
@@ -397,7 +398,7 @@ export const Landing: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto font-medium"
+                  className="text-xs min-h-[44px] text-muted-foreground hover:text-foreground px-2 font-medium"
                   onClick={() => navigate(`/prompt/${prompt.id}`)}
                 >
                   Ver Detalhes →
@@ -405,7 +406,7 @@ export const Landing: React.FC = () => {
                 <Button
                   type="button"
                   size="sm"
-                  className="text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold shadow-xs hover:opacity-95"
+                  className="text-xs min-h-[44px] px-3.5 gap-1.5 bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold shadow-xs hover:opacity-95 rounded-xl"
                   onClick={(e) => handleCopy(e, prompt)}
                   aria-label="Copiar texto do prompt"
                 >
@@ -506,7 +507,7 @@ export const Landing: React.FC = () => {
                   <Link to="/planos">
                     <Button
                       size="sm"
-                      className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs shadow-md"
+                      className="bg-gradient-to-r from-pink-600 to-amber-500 text-white font-bold text-xs min-h-[44px] px-4 shadow-md rounded-xl"
                     >
                       Desbloquear com PRO
                       <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -544,7 +545,9 @@ export const Landing: React.FC = () => {
                 <span>Modo Grátis</span>
                 <Sparkles className="w-4 h-4 text-muted-foreground" />
               </CardTitle>
-              <CardDescription className="text-xs">Para testar e comprovar os resultados.</CardDescription>
+              <CardDescription className="text-xs">
+                Para testar e comprovar os resultados.
+              </CardDescription>
               <div className="pt-2">
                 <span className="text-2xl font-black">R$ 0</span>
               </div>
@@ -552,7 +555,9 @@ export const Landing: React.FC = () => {
             <CardContent className="space-y-2.5 text-xs flex-1">
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span><strong>5 prompts gerados</strong> para testar a vitrine</span>
+                <span>
+                  <strong>5 prompts gerados</strong> para testar a vitrine
+                </span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
@@ -573,7 +578,10 @@ export const Landing: React.FC = () => {
             </CardContent>
             <CardFooter className="pt-3 border-t">
               <Link to="/login" className="w-full">
-                <Button variant="outline" className="w-full font-bold text-xs h-10 rounded-xl">
+                <Button
+                  variant="outline"
+                  className="w-full font-bold text-xs min-h-[44px] h-11 rounded-xl"
+                >
                   Testar Grátis (5 Prompts)
                 </Button>
               </Link>
@@ -632,7 +640,7 @@ export const Landing: React.FC = () => {
             </CardContent>
             <CardFooter className="pt-4 border-t">
               <Link to="/planos" className="w-full">
-                <Button className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs h-10 shadow-md">
+                <Button className="w-full bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 text-white font-bold text-xs min-h-[48px] h-12 shadow-md rounded-xl">
                   Assinar PRO (R$ 19,90/mês)
                   <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                 </Button>
@@ -687,7 +695,7 @@ export const Landing: React.FC = () => {
               <Link to="/planos" className="w-full">
                 <Button
                   variant="outline"
-                  className="w-full border-amber-500 text-foreground hover:bg-amber-500 hover:text-white font-bold text-xs h-10"
+                  className="w-full border-amber-500 text-foreground hover:bg-amber-500 hover:text-white font-bold text-xs min-h-[44px] h-11 rounded-xl"
                 >
                   Assinar Anual VIP
                   <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
@@ -783,33 +791,33 @@ export const Landing: React.FC = () => {
             cliques e pedidos todos os dias.
           </p>
           <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md mx-auto">
+            <Link to="/planos" className="w-full sm:w-auto flex-1">
+              <Button
+                size="lg"
+                className="w-full min-h-[54px] bg-white text-pink-600 hover:bg-white/90 font-extrabold px-6 sm:px-8 py-3 sm:py-5 text-sm sm:text-base shadow-lg rounded-2xl"
+              >
+                <Crown className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-amber-500 shrink-0" />
+                <span>Quero Meus Prompts (PRO)</span>
+              </Button>
+            </Link>
             <Link to={user ? '/gerador' : '/login'} className="w-full sm:w-auto">
               <Button
                 size="lg"
-                className="w-full sm:w-auto min-h-[50px] bg-white text-pink-600 hover:bg-white/90 font-extrabold px-6 sm:px-8 py-4 sm:py-6 text-sm sm:text-base shadow-lg rounded-2xl"
-              >
-                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-amber-500 shrink-0" />
-                <span>Experimentar Grátis Agora</span>
-              </Button>
-            </Link>
-            <Link to="/planos" className="w-full sm:w-auto">
-              <Button
-                size="lg"
                 variant="outline"
-                className="w-full sm:w-auto min-h-[50px] border-2 border-white/60 bg-transparent text-white hover:bg-white/10 font-bold px-6 sm:px-8 py-4 sm:py-6 text-sm sm:text-base rounded-2xl"
+                className="w-full sm:w-auto min-h-[54px] border-2 border-white/70 bg-transparent text-white hover:bg-white/15 font-bold px-6 sm:px-7 py-3 sm:py-5 text-sm sm:text-base rounded-2xl"
               >
-                Ver Planos Disponíveis
+                Testar Grátis (5 Prompts)
               </Button>
             </Link>
           </div>
         </div>
       </section>
-      {/* BOTÃO FLUTUANTE DE FEEDBACK */}
-      <div className="fixed bottom-5 right-5 z-40">
+      {/* BOTÃO FLUTUANTE DE FEEDBACK (ÁREA DE TOQUE CONFORTÁVEL) */}
+      <div className="fixed bottom-5 right-4 sm:right-5 z-40">
         <Button
           type="button"
           onClick={() => setFeedbackOpen(true)}
-          className="shadow-xl bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold text-xs h-10 px-3.5 rounded-full border-2 border-white/20 flex items-center gap-2 animate-bounce-subtle"
+          className="shadow-xl bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:opacity-95 text-white font-bold text-xs min-h-[44px] h-11 px-4 rounded-full border-2 border-white/20 flex items-center gap-2 animate-bounce-subtle"
           title="Deixe seu feedback ou dê ideias para melhorar o site"
         >
           <Lightbulb className="w-4 h-4 text-amber-300" />

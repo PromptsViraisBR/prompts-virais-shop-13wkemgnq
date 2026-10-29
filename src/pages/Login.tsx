@@ -52,6 +52,22 @@ export const Login: React.FC = () => {
     }
   }, [searchParams])
 
+  // Determina a aba ativa inicial ('login' ou 'signup') baseando-se na rota ou query param ?tab=signup
+  const initialTab =
+    searchParams.get('tab') === 'signup' || window.location.pathname === '/cadastro'
+      ? 'signup'
+      : 'login'
+  const [activeAuthTab, setActiveAuthTab] = useState<'login' | 'signup'>(initialTab)
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'signup' || window.location.pathname === '/cadastro') {
+      setActiveAuthTab('signup')
+    } else if (tabParam === 'login') {
+      setActiveAuthTab('login')
+    }
+  }, [searchParams])
+
   // Social Login loading
   const [socialLoading, setSocialLoading] = useState<'google' | null>(null)
 
@@ -276,7 +292,11 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs
+            value={activeAuthTab}
+            onValueChange={(val) => setActiveAuthTab(val as 'login' | 'signup')}
+            className="w-full"
+          >
             <CardHeader className="pt-2 pb-2">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Entrar</TabsTrigger>

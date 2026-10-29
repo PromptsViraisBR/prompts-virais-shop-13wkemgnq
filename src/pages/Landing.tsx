@@ -33,6 +33,7 @@ import {
   Lightbulb,
 } from 'lucide-react'
 import { FeedbackModal } from '@/components/FeedbackModal'
+import { ReferralHighlight } from '@/components/ReferralHighlight'
 import { toast as sonnerToast } from 'sonner'
 import type { PromptRecord } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS } from '@/types'
@@ -226,7 +227,7 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="space-y-12 sm:space-y-16 pb-16">
-      {/* BANNER INFORMATIVO DISCRETO: VERSÃO 0.0.75 + AVISO DE BUGS + SUPORTE + FEEDBACK */}
+      {/* BANNER INFORMATIVO DISCRETO: VERSÃO 0.0.77 + AVISO DE BUGS + SUPORTE + FEEDBACK */}
       <section className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pt-3">
         <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-amber-500/10 border border-pink-500/20 backdrop-blur-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs shadow-xs">
           <div className="flex items-center gap-2 flex-1 flex-wrap">
@@ -234,7 +235,7 @@ export const Landing: React.FC = () => {
               variant="outline"
               className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0.5"
             >
-              v0.0.76
+              v0.0.77
             </Badge>
             <span className="font-semibold text-foreground text-xs sm:text-sm">
               App novo em constante melhoria!
@@ -242,7 +243,7 @@ export const Landing: React.FC = () => {
             <span className="text-[11px] text-muted-foreground">
               Viu algum bug? Avise em{' '}
               <a
-                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.76"
+                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.77"
                 className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
               >
                 juniorrodriguesjr123.jr@gmail.com
@@ -812,6 +813,10 @@ export const Landing: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* DESTAQUE PRINCIPAL DO PROGRAMA DE INDICAÇÕES (ONIPRESENTE NA HOME) */}
+      <ReferralHighlight />
+
       {/* BOTÃO FLUTUANTE DE FEEDBACK (ÁREA DE TOQUE CONFORTÁVEL) */}
       <div className="fixed bottom-5 right-4 sm:right-5 z-40">
         <Button

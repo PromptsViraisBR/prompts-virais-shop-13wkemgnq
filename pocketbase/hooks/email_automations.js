@@ -1722,3 +1722,290 @@ routerAdd('POST', '/backend/v1/admin/resend-welcome', (e) => {
     return e.json(500, { success: false, error: err?.message || String(err) })
   }
 })
+
+// -----------------------------------------------------------------
+// ROTA F: GET /backend/v1/admin/users
+// Lista todos os usuários cadastrados com dados básicos e de assinaturas para o painel admin
+// Somente admin autenticado.
+// -----------------------------------------------------------------
+routerAdd('GET', '/backend/v1/admin/users', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, { success: false, error: 'Requer autenticação.' })
+    }
+
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
+    if (!isAdmin) {
+      return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
+    }
+
+    let users = []
+    try {
+      users = $app.findRecordsByFilter('_pb_users_auth_', '', '-created', 1000, 0)
+    } catch (err) {
+      return e.json(500, {
+        success: false,
+        error: 'Falha ao buscar usuários: ' + (err.message || String(err)),
+      })
+    }
+
+    const result = []
+    for (let i = 0; i < users.length; i++) {
+      const u = users[i]
+      const uId = u.id
+
+      let activePlan = 'free'
+      let subStatus = 'none'
+      try {
+        const subs = $app.findRecordsByFilter('subscriptions', `user = '${uId}'`, '-created', 1, 0)
+        if (subs && subs.length > 0) {
+          activePlan = subs[0].getString('plan') || 'free'
+          subStatus = subs[0].getString('status') || 'active'
+        }
+      } catch (_) {}
+
+      result.push({
+        id: uId,
+        email: u.email() || u.getString('email') || '',
+        name: u.getString('name') || '',
+        avatar: u.getString('avatar') || '',
+        is_admin: u.getBool('is_admin'),
+        verified: u.getBool('verified'),
+        welcome_email_sent: u.getBool('welcome_email_sent'),
+        referral_code: u.getString('referral_code') || '',
+        created: u.getString('created') || '',
+        updated: u.getString('updated') || '',
+        active_plan: activePlan,
+        subscription_status: subStatus,
+      })
+    }
+
+    return e.json(200, {
+      success: true,
+      users: result,
+      total: result.length,
+    })
+  } catch (err) {
+    return e.json(500, { success: false, error: err?.message || String(err) })
+  }
+})
+
+// -----------------------------------------------------------------
+// ROTA G: POST /backend/v1/admin/users/welcome-toggle
+// Alterna ou define welcome_email_sent para um usuário específico
+// -----------------------------------------------------------------
+routerAdd('POST', '/backend/v1/admin/users/welcome-toggle', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, { success: false, error: 'Requer autenticação.' })
+    }
+
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
+    if (!isAdmin) {
+      return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
+    }
+
+    const reqInfo = e.requestInfo()
+    const body = reqInfo.body || {}
+    const targetUserId = (body.user_id || '').trim()
+    const targetVal =
+      body.welcome_email_sent !== undefined ? Boolean(body.welcome_email_sent) : null
+
+    if (!targetUserId) {
+      return e.json(400, { success: false, error: 'user_id é obrigatório.' })
+    }
+
+    let targetUser = null
+    try {
+      targetUser = $app.findRecordById('_pb_users_auth_', targetUserId)
+    } catch (_) {
+      return e.json(404, { success: false, error: 'Usuário não encontrado.' })
+    }
+
+    const currentVal = targetUser.getBool('welcome_email_sent')
+    const newVal = targetVal !== null ? targetVal : !currentVal
+    targetUser.set('welcome_email_sent', newVal)
+    $app.save(targetUser)
+
+    return e.json(200, {
+      success: true,
+      user_id: targetUserId,
+      welcome_email_sent: newVal,
+      message: `Status de boas-vindas atualizado para ${newVal ? 'enviado' : 'pendente'}.`,
+    })
+  } catch (err) {
+    return e.json(500, { success: false, error: err?.message || String(err) })
+  }
+})
+
+// -----------------------------------------------------------------
+// ROTA H: POST /backend/v1/admin/users/delete
+// Exclui completamente um usuário e limpa registros órfãos relacionados (hard delete)
+// Proteção estrita: não permite que o admin delete a própria conta logada.
+// Idempotente: se o usuário já não existir, retorna sucesso.
+// -----------------------------------------------------------------
+routerAdd('POST', '/backend/v1/admin/users/delete', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, { success: false, error: 'Requer autenticação.' })
+    }
+
+    const adminEmail = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin =
+      authUser.getBool('is_admin') || adminEmail === 'juniorrodriguesjr123.jr@gmail.com'
+    if (!isAdmin) {
+      return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
+    }
+
+    const reqInfo = e.requestInfo()
+    const body = reqInfo.body || {}
+    const targetUserId = (body.user_id || '').trim()
+
+    if (!targetUserId) {
+      return e.json(400, { success: false, error: 'user_id é obrigatório.' })
+    }
+
+    // PROTEÇÃO CONTRA AUTOEXCLUSÃO
+    if (targetUserId === authUser.id) {
+      return e.json(400, {
+        success: false,
+        error: 'Você não pode excluir a sua própria conta logada de administrador.',
+      })
+    }
+
+    // Busca o usuário alvo (se não existir, é idempotente -> sucesso)
+    let targetUser = null
+    try {
+      targetUser = $app.findRecordById('_pb_users_auth_', targetUserId)
+    } catch (_) {
+      // Usuário já inexistente
+      return e.json(200, {
+        success: true,
+        already_deleted: true,
+        user_id: targetUserId,
+        message: 'A conta já não existe no sistema (idempotente).',
+      })
+    }
+
+    const targetUserEmail = (targetUser.email() || targetUser.getString('email') || '')
+      .toLowerCase()
+      .trim()
+    const targetUserName = targetUser.getString('name') || ''
+
+    // Proteção extra se o usuário a ser excluído for o admin mestre por email
+    if (targetUserEmail === 'juniorrodriguesjr123.jr@gmail.com') {
+      return e.json(403, {
+        success: false,
+        error: 'A conta principal do administrador não pode ser excluída.',
+      })
+    }
+
+    // Limpar coleções órfãs antes de deletar o usuário
+    const collectionsToClean = [
+      'subscriptions',
+      'favorites',
+      'generations',
+      'video_credits_usage',
+      'regeneration_credits',
+      'payments_history',
+      'daily_generation_usage',
+      'feedback',
+      'events',
+    ]
+
+    const orphanSummary = {}
+    for (let c = 0; c < collectionsToClean.length; c++) {
+      const colName = collectionsToClean[c]
+      orphanSummary[colName] = 0
+      try {
+        const records = $app.findRecordsByFilter(colName, `user = '${targetUserId}'`, '', 1000, 0)
+        for (let r = 0; r < records.length; r++) {
+          try {
+            $app.delete(records[r])
+            orphanSummary[colName]++
+          } catch (delRecErr) {
+            console.warn(`[admin-delete-user] Falha ao deletar registro em ${colName}:`, delRecErr)
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Limpar referral_credits (referrer ou referred_user)
+    try {
+      orphanSummary['referral_credits'] = 0
+      const refRecs = $app.findRecordsByFilter(
+        'referral_credits',
+        `referrer = '${targetUserId}' || referred_user = '${targetUserId}'`,
+        '',
+        1000,
+        0,
+      )
+      for (let r = 0; r < refRecs.length; r++) {
+        try {
+          $app.delete(refRecs[r])
+          orphanSummary['referral_credits']++
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // Desvincular outros usuários que tenham referred_by apontando para este usuário
+    try {
+      const referredOthers = $app.findRecordsByFilter(
+        '_pb_users_auth_',
+        `referred_by = '${targetUserId}'`,
+        '',
+        1000,
+        0,
+      )
+      for (let r = 0; r < referredOthers.length; r++) {
+        try {
+          referredOthers[r].set('referred_by', '')
+          $app.save(referredOthers[r])
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // Excluir o usuário alvo
+    $app.delete(targetUser)
+
+    console.log(
+      `[admin-delete-user] Usuário ${targetUserId} (${targetUserEmail}) excluído com sucesso pelo admin ${authUser.id}.`,
+    )
+
+    // Registrar evento de auditoria
+    try {
+      const evCol = $app.findCollectionByNameOrId('events')
+      const auditRec = new Record(evCol)
+      auditRec.set('user', authUser.id)
+      auditRec.set('event_type', 'admin_user_deleted')
+      auditRec.set(
+        'metadata',
+        JSON.stringify({
+          deleted_user_id: targetUserId,
+          deleted_user_email: targetUserEmail,
+          deleted_user_name: targetUserName,
+          orphans_cleaned: orphanSummary,
+          timestamp: new Date().toISOString(),
+        }),
+      )
+      $app.save(auditRec)
+    } catch (_) {}
+
+    return e.json(200, {
+      success: true,
+      user_id: targetUserId,
+      email: targetUserEmail,
+      name: targetUserName,
+      orphans_cleaned: orphanSummary,
+      message: `Conta ${targetUserName} (${targetUserEmail}) excluída com sucesso do sistema.`,
+    })
+  } catch (err) {
+    console.error('[admin-delete-user] Erro ao excluir usuário:', err)
+    return e.json(500, { success: false, error: err?.message || String(err) })
+  }
+})

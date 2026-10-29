@@ -55,7 +55,13 @@ import {
   TransactionalEmailType,
   ResendWelcomeEmailsResponse,
 } from '@/services/emailAutomations'
-import { Eye } from 'lucide-react'
+import {
+  listAdminUsers,
+  deleteUserAccount,
+  toggleUserWelcomeSent,
+  AdminUserItem,
+} from '@/services/adminUsers'
+import { Eye, Search, UserX, UserCheck } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {
   const { user, isAdmin, isLoading: authLoading } = useAuth()
@@ -64,6 +70,11 @@ export const AdminDashboard: React.FC = () => {
   const [data, setData] = useState<AdminOverviewResult | null>(null)
   const [cancellations, setCancellations] = useState<any[]>([])
   const [feedbacks, setFeedbacks] = useState<any[]>([])
+  const [adminUsers, setAdminUsers] = useState<AdminUserItem[]>([])
+  const [usersSearch, setUsersSearch] = useState('')
+  const [userToDelete, setUserToDelete] = useState<AdminUserItem | null>(null)
+  const [deletingUser, setDeletingUser] = useState(false)
+  const [togglingWelcomeId, setTogglingWelcomeId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -134,7 +145,7 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const [res, fRes, eRes, cRes, fbRes] = await Promise.allSettled([
+      const [res, fRes, eRes, cRes, fbRes, uRes] = await Promise.allSettled([
         getAdminOverview(),
         getFunnelMetrics(funnelPeriod),
         getEmailStatus(),
@@ -145,6 +156,7 @@ export const AdminDashboard: React.FC = () => {
         pb.collection('feedback').getList(1, 30, {
           sort: '-created',
         }),
+        listAdminUsers(),
       ])
 
       let criticalError = ''
@@ -178,6 +190,12 @@ export const AdminDashboard: React.FC = () => {
         setFeedbacks(fbRes.value.items || [])
       } else {
         console.warn('getFeedback warning:', fbRes.reason)
+      }
+
+      if (uRes.status === 'fulfilled') {
+        setAdminUsers(uRes.value.users || [])
+      } else {
+        console.warn('listAdminUsers warning:', uRes.reason)
       }
 
       // Se falhou por autenticação/permissão em ambos ou se não obteve os dados principais
@@ -328,6 +346,93 @@ export const AdminDashboard: React.FC = () => {
       setLoadingPreview(false)
     }
   }
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
+
+    // Proteção contra autoexclusão no front
+    if (userToDelete.id === user?.id) {
+      toast({
+        title: 'Ação não permitida',
+        description: 'Você não pode excluir a sua própria conta logada de administrador.',
+        variant: 'destructive',
+      })
+      setUserToDelete(null)
+      return
+    }
+
+    setDeletingUser(true)
+    try {
+      const res = await deleteUserAccount(userToDelete.id)
+      if (res.success) {
+        toast({
+          title: 'Conta excluída com sucesso!',
+          description: `A conta de ${userToDelete.name || userToDelete.email} (${userToDelete.email}) foi removida permanentemente.`,
+        })
+        // Atualiza a lista na hora sem quebrar nada
+        setAdminUsers((prev) => prev.filter((u) => u.id !== userToDelete.id))
+        setUserToDelete(null)
+        // Recarregar métricas em background
+        loadOverview()
+      } else {
+        toast({
+          title: 'Erro ao excluir conta',
+          description: res.error || 'Não foi possível excluir o usuário.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao excluir conta',
+        description: err?.message || 'Falha na comunicação com o backend.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingUser(false)
+    }
+  }
+
+  const handleToggleWelcomeSent = async (u: AdminUserItem) => {
+    setTogglingWelcomeId(u.id)
+    try {
+      const targetVal = !u.welcome_email_sent
+      const res = await toggleUserWelcomeSent(u.id, targetVal)
+      if (res.success) {
+        toast({
+          title: 'Status atualizado',
+          description: `Boas-vindas marcada como ${res.welcome_email_sent ? 'enviada' : 'pendente'} para ${u.email}.`,
+        })
+        setAdminUsers((prev) =>
+          prev.map((item) =>
+            item.id === u.id ? { ...item, welcome_email_sent: res.welcome_email_sent } : item,
+          ),
+        )
+      } else {
+        toast({
+          title: 'Erro ao atualizar',
+          description: res.error || 'Não foi possível alterar o status de boas-vindas.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao atualizar',
+        description: err?.message || 'Falha na comunicação com o servidor.',
+        variant: 'destructive',
+      })
+    } finally {
+      setTogglingWelcomeId(null)
+    }
+  }
+
+  const filteredUsers = adminUsers.filter((u) => {
+    if (!usersSearch.trim()) return true
+    const term = usersSearch.toLowerCase().trim()
+    const nameMatch = (u.name || '').toLowerCase().includes(term)
+    const emailMatch = (u.email || '').toLowerCase().includes(term)
+    const idMatch = (u.id || '').toLowerCase().includes(term)
+    return nameMatch || emailMatch || idMatch
+  })
 
   const handleResetAnalytics = async () => {
     setResettingData(true)
@@ -838,6 +943,205 @@ export const AdminDashboard: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* SEÇÃO: GESTÃO DE USUÁRIOS E CONTAS */}
+      <Card className="border-2 border-pink-500/20 shadow-xs">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3">
+          <div>
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+              <Users className="w-5 h-5 text-pink-500" />
+              Gestão de Contas de Usuários ({adminUsers.length})
+            </CardTitle>
+            <CardDescription>
+              Consulte usuários cadastrados, gerencie o status de boas-vindas e exclua contas de
+              teste com segurança sem quebrar o funil.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={usersSearch}
+                onChange={(e) => setUsersSearch(e.target.value)}
+                placeholder="Buscar por nome ou e-mail..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border rounded-lg focus:outline-hidden focus:ring-1 focus:ring-pink-500"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[720px]">
+              <thead>
+                <tr className="border-b text-muted-foreground font-semibold">
+                  <th className="pb-2">Usuário / Nome</th>
+                  <th className="pb-2">E-mail</th>
+                  <th className="pb-2">Plano / Status</th>
+                  <th className="pb-2">Boas-Vindas</th>
+                  <th className="pb-2">Cadastro</th>
+                  <th className="pb-2 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-muted-foreground">
+                      {usersSearch
+                        ? 'Nenhum usuário corresponde à busca.'
+                        : 'Nenhum usuário encontrado.'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((u) => {
+                    const isSelf = u.id === user?.id
+                    const isSuperAdminEmail =
+                      (u.email || '').toLowerCase() === 'juniorrodriguesjr123.jr@gmail.com'
+
+                    return (
+                      <tr
+                        key={u.id}
+                        className={`hover:bg-muted/30 ${isSelf ? 'bg-pink-500/5' : ''}`}
+                      >
+                        <td className="py-2.5 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">
+                              {u.name || 'Sem nome'}
+                            </span>
+                            {u.is_admin && (
+                              <Badge className="bg-pink-600 text-white text-[9px] px-1.5 py-0 uppercase">
+                                Admin
+                              </Badge>
+                            )}
+                            {isSelf && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] text-pink-600 border-pink-500/30 px-1.5 py-0"
+                              >
+                                Você (Logado)
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            ID: {u.id}
+                          </span>
+                        </td>
+                        <td className="py-2.5">
+                          <span
+                            className="font-mono text-foreground text-[11px] block truncate max-w-[200px]"
+                            title={u.email}
+                          >
+                            {u.email}
+                          </span>
+                          {u.verified ? (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 inline" /> Verificado
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">
+                              Não verificado
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] uppercase font-bold ${
+                                u.active_plan === 'monthly' || u.active_plan === 'annual'
+                                  ? 'border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {u.active_plan || 'free'}
+                            </Badge>
+                            {u.subscription_status && u.subscription_status !== 'none' && (
+                              <span className="text-[10px] text-muted-foreground">
+                                ({u.subscription_status})
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2.5">
+                          <div className="flex items-center gap-2">
+                            {u.welcome_email_sent ? (
+                              <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px] font-bold">
+                                Enviado
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-amber-600 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold"
+                              >
+                                Pendente
+                              </Badge>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={togglingWelcomeId === u.id}
+                              onClick={() => handleToggleWelcomeSent(u)}
+                              title={
+                                u.welcome_email_sent
+                                  ? 'Marcar como pendente de e-mail'
+                                  : 'Marcar boas-vindas como enviada'
+                              }
+                              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                            >
+                              {togglingWelcomeId === u.id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : u.welcome_email_sent ? (
+                                'Desmarcar'
+                              ) : (
+                                'Marcar enviada'
+                              )}
+                            </Button>
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-muted-foreground text-[11px] whitespace-nowrap">
+                          {u.created
+                            ? new Date(u.created).toLocaleString('pt-BR', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              })
+                            : '—'}
+                        </td>
+                        <td className="py-2.5 text-right whitespace-nowrap">
+                          {isSelf ? (
+                            <span
+                              className="text-[10px] text-muted-foreground italic px-2 py-1 bg-muted/40 rounded"
+                              title="Você não pode excluir sua própria conta de administrador logada"
+                            >
+                              Conta própria (protegida)
+                            </span>
+                          ) : isSuperAdminEmail ? (
+                            <span
+                              className="text-[10px] text-muted-foreground italic px-2 py-1 bg-muted/40 rounded"
+                              title="Conta mestre do administrador"
+                            >
+                              Admin Mestre
+                            </span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setUserToDelete(u)}
+                              className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive hover:text-destructive-foreground gap-1 border-destructive/30"
+                            >
+                              <UserX className="w-3 h-3" />
+                              Excluir conta
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Grid: Tabela de Assinaturas & Histórico de Pagamentos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* NOVA SEÇÃO: CANCELAMENTOS RECENTES & STATUS DO ESTORNO */}
@@ -1234,6 +1538,75 @@ export const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Confirmação para Exclusão de Conta de Usuário */}
+      <Dialog open={Boolean(userToDelete)} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 text-rose-600 flex items-center justify-center mb-2">
+              <UserX className="w-5 h-5" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-rose-600 dark:text-rose-400">
+              Excluir Conta de Usuário?
+            </DialogTitle>
+            <DialogDescription className="text-sm space-y-2 pt-1 text-muted-foreground">
+              <p>Tem certeza que deseja excluir esta conta de usuário permanentemente?</p>
+              <div className="bg-muted/50 p-3 rounded-lg text-xs space-y-1.5 border">
+                <div>
+                  <span className="font-semibold text-foreground">Nome: </span>
+                  <span>{userToDelete?.name || '(sem nome)'}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground">E-mail: </span>
+                  <span className="font-mono text-foreground font-bold">{userToDelete?.email}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground">ID do Usuário: </span>
+                  <span className="font-mono">{userToDelete?.id}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground">Plano Atual: </span>
+                  <span className="uppercase font-bold">{userToDelete?.active_plan || 'free'}</span>
+                </div>
+              </div>
+              <p className="text-xs text-rose-600 dark:text-rose-400 font-medium pt-1">
+                ⚠️ AVISO: Todos os registros vinculados a este usuário (assinaturas, favoritos,
+                histórico de gerações e eventos) serão limpos com segurança para não deixar
+                registros órfãos nem quebrar o funil. Esta ação é irreversível.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingUser}
+              onClick={() => setUserToDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingUser}
+              onClick={handleDeleteUser}
+              className="gap-1.5"
+            >
+              {deletingUser ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Excluindo conta...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Sim, excluir conta permanentemente
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Preview de E-mail Transacional */}
       <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>

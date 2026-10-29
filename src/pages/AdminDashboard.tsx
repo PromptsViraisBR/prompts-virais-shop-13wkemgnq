@@ -50,8 +50,10 @@ import {
   runExpirationCheck,
   testTransactionalEmail,
   getEmailPreview,
+  resendWelcomeEmails,
   EmailStatusResponse,
   TransactionalEmailType,
+  ResendWelcomeEmailsResponse,
 } from '@/services/emailAutomations'
 import { Eye } from 'lucide-react'
 
@@ -73,6 +75,9 @@ export const AdminDashboard: React.FC = () => {
   // Automações de e-mail (Fase D)
   const [emailStatus, setEmailStatus] = useState<EmailStatusResponse | null>(null)
   const [runningExpiration, setRunningExpiration] = useState(false)
+  const [resendingWelcome, setResendingWelcome] = useState(false)
+  const [welcomeResultModalOpen, setWelcomeResultModalOpen] = useState(false)
+  const [welcomeResult, setWelcomeResult] = useState<ResendWelcomeEmailsResponse | null>(null)
   const [sendingTestEmail, setSendingTestEmail] = useState(false)
   const [testEmailType, setTestEmailType] = useState<TransactionalEmailType>('pix_reminder')
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
@@ -238,6 +243,51 @@ export const AdminDashboard: React.FC = () => {
       })
     } finally {
       setRunningExpiration(false)
+    }
+  }
+
+  const handleResendWelcomeEmails = async () => {
+    setResendingWelcome(true)
+    try {
+      const res = await resendWelcomeEmails()
+      setWelcomeResult(res)
+      setWelcomeResultModalOpen(true)
+      const countEnviados = res.enviados?.length || 0
+      const countFalhas = res.falhas?.length || 0
+
+      if (countEnviados > 0 && countFalhas === 0) {
+        toast({
+          title: 'E-mails de boas-vindas reenviados com sucesso!',
+          description: `${countEnviados} usuário(s) receberam o guia de boas-vindas.`,
+        })
+      } else if (countEnviados > 0 && countFalhas > 0) {
+        toast({
+          title: 'Envio parcial de boas-vindas',
+          description: `${countEnviados} enviado(s), ${countFalhas} falha(s). Verifique os detalhes na tela.`,
+          variant: 'destructive',
+        })
+      } else if (countEnviados === 0 && countFalhas === 0) {
+        toast({
+          title: 'Nenhum e-mail pendente',
+          description:
+            'Todos os usuários cadastrados já receberam o e-mail de boas-vindas anteriormente.',
+        })
+      } else {
+        toast({
+          title: 'Falha no envio dos e-mails',
+          description: `${countFalhas} falha(s) registrada(s). Verifique os detalhes e credenciais SMTP.`,
+          variant: 'destructive',
+        })
+      }
+      await loadOverview()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao reenviar boas-vindas',
+        description: err?.message || 'Falha na comunicação com o servidor.',
+        variant: 'destructive',
+      })
+    } finally {
+      setResendingWelcome(false)
     }
   }
 
@@ -628,7 +678,17 @@ export const AdminDashboard: React.FC = () => {
             </CardDescription>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={resendingWelcome}
+              onClick={handleResendWelcomeEmails}
+              className="text-xs gap-1.5 border-pink-500/40 text-pink-600 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-950/20"
+            >
+              <Send className={`w-3.5 h-3.5 ${resendingWelcome ? 'animate-spin' : ''}`} />
+              Reenviar boas-vindas para quem não recebeu
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1218,6 +1278,97 @@ export const AdminDashboard: React.FC = () => {
                 Disparar para meu e-mail
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal com Relatório de Reenvio de Boas-Vindas */}
+      <Dialog open={welcomeResultModalOpen} onOpenChange={setWelcomeResultModalOpen}>
+        <DialogContent className="max-w-md sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground font-bold">
+              <Mail className="w-5 h-5 text-pink-500" />
+              Resultado do Reenvio de Boas-Vindas
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Relatório do processamento de e-mails para usuários que ainda não tinham a flag de
+              boas-vindas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-sm">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-3 rounded-lg border bg-muted/40">
+                <span className="text-[11px] text-muted-foreground block">Pendentes</span>
+                <strong className="text-lg font-bold">{welcomeResult?.total_pendentes ?? 0}</strong>
+              </div>
+              <div className="p-3 rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                <span className="text-[11px] block">Enviados</span>
+                <strong className="text-lg font-bold">
+                  {welcomeResult?.enviados?.length ?? 0}
+                </strong>
+              </div>
+              <div className="p-3 rounded-lg border bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400">
+                <span className="text-[11px] block">Falhas</span>
+                <strong className="text-lg font-bold">{welcomeResult?.falhas?.length ?? 0}</strong>
+              </div>
+            </div>
+
+            {welcomeResult?.enviados && welcomeResult.enviados.length > 0 && (
+              <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span>E-mails entregues com sucesso ({welcomeResult.enviados.length}):</span>
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 text-muted-foreground pl-1 max-h-32 overflow-y-auto">
+                  {welcomeResult.enviados.map((em, idx) => (
+                    <li key={idx} className="font-mono text-[11px] text-foreground">
+                      {em}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Estes usuários tiveram o campo{' '}
+                  <code className="font-mono text-emerald-600">welcome_email_sent = true</code>{' '}
+                  atualizado e não receberão novamente.
+                </p>
+              </div>
+            )}
+
+            {welcomeResult?.falhas && welcomeResult.falhas.length > 0 && (
+              <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
+                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                  <span>Falhas no envio ({welcomeResult.falhas.length}):</span>
+                </div>
+                <ul className="space-y-1 text-muted-foreground max-h-32 overflow-y-auto">
+                  {welcomeResult.falhas.map((f, idx) => (
+                    <li key={idx} className="p-2 rounded bg-background/60 border text-[11px]">
+                      <div className="font-mono font-bold text-foreground">
+                        {f.email || '(sem e-mail)'}
+                      </div>
+                      <div className="text-rose-600 dark:text-rose-400 break-words">{f.erro}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {welcomeResult && welcomeResult.total_pendentes === 0 && (
+              <div className="p-4 rounded-xl border bg-muted/30 text-center space-y-1">
+                <p className="text-sm font-semibold text-foreground">Nenhum usuário pendente</p>
+                <p className="text-xs text-muted-foreground">
+                  Todos os usuários da base de dados já receberam o e-mail de boas-vindas com
+                  sucesso anteriormente.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button size="sm" onClick={() => setWelcomeResultModalOpen(false)}>
+              Fechar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

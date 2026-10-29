@@ -69,6 +69,28 @@ export interface EmailPreviewResponse {
   html: string
 }
 
+export interface ResendWelcomeEmailsResponse {
+  success: boolean
+  total_pendentes: number
+  enviados: string[]
+  falhas: Array<{
+    id?: string
+    email: string
+    name?: string
+    erro: string
+  }>
+}
+
+/**
+ * Reenvia e-mail de boas-vindas com guia de 3 passos para todos os usuários com welcome_email_sent != true (Admin)
+ */
+export async function resendWelcomeEmails(): Promise<ResendWelcomeEmailsResponse> {
+  const res = await pb.send('/backend/v1/admin/resend-welcome', {
+    method: 'POST',
+  })
+  return res as ResendWelcomeEmailsResponse
+}
+
 /**
  * Obtém status do mailer nativo e métricas de automações de e-mail (Admin)
  */

@@ -1462,3 +1462,263 @@ routerAdd('GET', '/backend/v1/admin/email-preview', (e) => {
     return e.json(500, { success: false, error: err.message || String(err) })
   }
 })
+
+// -----------------------------------------------------------------
+// ROTA E: POST /backend/v1/admin/resend-welcome
+// Reenvia e-mail de boas-vindas para todos os usuários com welcome_email_sent != true
+// Somente admin autenticado.
+// Marca welcome_email_sent = true APENAS quando o envio via Mailer for bem-sucedido.
+// -----------------------------------------------------------------
+routerAdd('POST', '/backend/v1/admin/resend-welcome', (e) => {
+  try {
+    const authUser = e.auth
+    if (!authUser) {
+      return e.json(401, { success: false, error: 'Requer autenticação.' })
+    }
+
+    const email = (authUser.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authUser.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
+    if (!isAdmin) {
+      return e.json(403, { success: false, error: 'Acesso restrito ao administrador.' })
+    }
+
+    // Salvaguarda Lazy SMTP: se segredos existirem, garante sync do SMTP
+    try {
+      const sHost = ($os.getenv('SMTP_HOST') || '').trim()
+      const sUser = ($os.getenv('SMTP_USERNAME') || '').trim()
+      const sPass = ($os.getenv('SMTP_PASSWORD') || '').trim()
+      const sPortRaw = ($os.getenv('SMTP_PORT') || '').trim()
+      const sEmail = ($os.getenv('SMTP_SENDER_EMAIL') || '').trim()
+      const sName = ($os.getenv('SMTP_SENDER_NAME') || '').trim()
+
+      if (sHost && sUser && sPass) {
+        let p = 587
+        if (sPortRaw) {
+          const parsed = parseInt(sPortRaw, 10)
+          if (!isNaN(parsed) && parsed > 0) p = parsed
+        }
+
+        const curSettings = $app.settings()
+        if (curSettings) {
+          if (!curSettings.smtp) {
+            curSettings.smtp = {
+              enabled: false,
+              host: '',
+              port: 587,
+              username: '',
+              password: '',
+              authMethod: 'PLAIN',
+              tls: false,
+              localName: '',
+            }
+          }
+          if (!curSettings.meta) {
+            curSettings.meta = {
+              appName: 'Prompts Virais Shop',
+              appURL: 'https://promptsviraisbr.goskip.app',
+              senderAddress: 'noreply@prompts-virais.com',
+              senderName: 'Prompts Virais Shop',
+              hideControls: false,
+              accentColor: '',
+            }
+          }
+
+          const curS = curSettings.smtp || {}
+          const curM = curSettings.meta || {}
+          const needsSync =
+            !curS.enabled ||
+            curS.host !== sHost ||
+            curS.port !== p ||
+            curS.username !== sUser ||
+            curS.password !== sPass ||
+            (sEmail && curM.senderAddress !== sEmail) ||
+            (sName && curM.senderName !== sName)
+
+          if (needsSync) {
+            curSettings.smtp.enabled = true
+            curSettings.smtp.host = sHost
+            curSettings.smtp.port = p
+            curSettings.smtp.username = sUser
+            curSettings.smtp.password = sPass
+            if (p === 465) curSettings.smtp.tls = true
+            if (sEmail) curSettings.meta.senderAddress = sEmail
+            if (sName) curSettings.meta.senderName = sName
+            $app.save(curSettings)
+          }
+        }
+      }
+    } catch (_) {}
+
+    let siteUrl = ($os.getenv('SITE_URL') || '').trim()
+    if (!siteUrl) siteUrl = 'https://promptsviraisbr.goskip.app'
+    siteUrl = siteUrl.replace(/\/+$/, '')
+
+    let senderEmail = 'noreply@prompts-virais.com'
+    let senderName = 'Prompts Virais Shop'
+    try {
+      const appSettings = $app.settings()
+      if (appSettings && appSettings.meta) {
+        if (appSettings.meta.senderAddress) senderEmail = appSettings.meta.senderAddress
+        if (appSettings.meta.senderName) senderName = appSettings.meta.senderName
+      }
+    } catch (_) {}
+
+    // Buscar todos os usuários onde welcome_email_sent != true
+    let pendingUsers = []
+    try {
+      pendingUsers = $app.findRecordsByFilter(
+        '_pb_users_auth_',
+        'welcome_email_sent != true',
+        'created',
+        500,
+        0,
+      )
+    } catch (errUsers) {
+      console.warn('[resend-welcome] Erro ao buscar usuários pendentes:', errUsers)
+      return e.json(500, {
+        success: false,
+        error: 'Erro ao consultar usuários no banco: ' + (errUsers.message || String(errUsers)),
+      })
+    }
+
+    const enviados = []
+    const falhas = []
+
+    for (let i = 0; i < pendingUsers.length; i++) {
+      const u = pendingUsers[i]
+      const userEmail = (u.email() || u.getString('email') || '').trim()
+      const userName = (u.getString('name') || '').trim() || 'Criador(a)'
+      const userId = u.id
+
+      if (!userEmail) {
+        falhas.push({
+          id: userId,
+          email: '',
+          name: userName,
+          erro: 'Usuário sem endereço de e-mail cadastrado.',
+        })
+        continue
+      }
+
+      // Verificação defensiva extra: garantir que não é true
+      if (u.getBool('welcome_email_sent')) {
+        continue
+      }
+
+      const subject = 'Bem-vindo ao Prompts Virais Shop! Seu guia de primeiro uso'
+      const htmlBody = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bem-vindo ao Prompts Virais Shop</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f17; color: #f1f5f9; margin: 0; padding: 24px; line-height: 1.6;">
+  <div style="max-width: 600px; margin: 0 auto; background: #131b2a; border-radius: 12px; border: 1px solid #1e293b; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; padding: 6px 14px; border-radius: 9999px; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+        ✨ Prompts Virais Shop
+      </span>
+      <h1 style="color: #ffffff; font-size: 24px; margin-top: 16px; margin-bottom: 8px;">
+        Parabéns, ${userName}! Sua conta foi criada com sucesso.
+      </h1>
+      <p style="color: #94a3b8; font-size: 15px; margin: 0;">
+        Você acaba de desbloquear acesso à maior biblioteca de prompts e roteiros validados para TikTok Shop e Shopee.
+      </p>
+    </div>
+
+    <div style="background: #1e293b; border-left: 4px solid #ec4899; padding: 16px 20px; border-radius: 6px; margin-bottom: 24px;">
+      <h3 style="color: #f8fafc; font-size: 16px; margin: 0 0 8px 0;">🚀 Como criar seu primeiro vídeo em 3 passos:</h3>
+      <ol style="margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 14px;">
+        <li style="margin-bottom: 8px;"><strong>1. Escolha seu nicho:</strong> Acesse a <a href="${siteUrl}/biblioteca" style="color: #38bdf8; text-decoration: none;">Biblioteca</a> (Moda, Cosméticos, Eletrônicos, Pets, etc.).</li>
+        <li style="margin-bottom: 8px;"><strong>2. Gere ou Adapte:</strong> Clique no prompt desejado e personalize o produto no <a href="${siteUrl}/virais" style="color: #38bdf8; text-decoration: none;">Gerador Viral</a>.</li>
+        <li><strong>3. Copie o Roteiro:</strong> Cole direto no ChatGPT, Midjourney, Luma, Kling ou CapCut e poste!</li>
+      </ol>
+    </div>
+
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${siteUrl}/biblioteca" style="display: inline-block; background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 8px; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);">
+        Acessar Biblioteca de Prompts →
+      </a>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #1e293b; margin: 24px 0;">
+
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0;">
+      Este é um e-mail transacional referente à sua conta no Prompts Virais Shop.<br>
+      Dúvidas ou suporte? Responda a este e-mail ou acesse o nosso site.
+    </p>
+  </div>
+</body>
+</html>
+`
+
+      let mailSent = false
+      let mailError = null
+
+      try {
+        const message = new MailerMessage({
+          from: { address: senderEmail, name: senderName },
+          to: [{ address: userEmail }],
+          subject: subject,
+          html: htmlBody,
+        })
+        $app.newMailClient().send(message)
+        mailSent = true
+      } catch (sendErr) {
+        mailError = sendErr?.message || String(sendErr)
+        console.warn(`[resend-welcome] Falha ao enviar para ${userEmail}: ${mailError}`)
+      }
+
+      if (mailSent) {
+        // Marca welcome_email_sent = true APENAS quando o envio foi bem-sucedido
+        try {
+          u.set('welcome_email_sent', true)
+          $app.save(u)
+        } catch (saveErr) {
+          console.warn(
+            `[resend-welcome] Falha ao atualizar welcome_email_sent para ${userEmail}:`,
+            saveErr,
+          )
+        }
+
+        // Registrar evento de auditoria
+        try {
+          const evCol = $app.findCollectionByNameOrId('events')
+          const evRec = new Record(evCol)
+          evRec.set('user', userId)
+          evRec.set('event_type', 'welcome_email_resent')
+          evRec.set(
+            'metadata',
+            JSON.stringify({
+              admin_triggered_by: authUser.id,
+              recipient: userEmail,
+              success: true,
+              timestamp: new Date().toISOString(),
+            }),
+          )
+          $app.save(evRec)
+        } catch (_) {}
+
+        enviados.push(userEmail)
+      } else {
+        falhas.push({
+          id: userId,
+          email: userEmail,
+          name: userName,
+          erro: mailError || 'Falha desconhecida no Mailer.',
+        })
+      }
+    }
+
+    return e.json(200, {
+      success: true,
+      total_pendentes: pendingUsers.length,
+      enviados: enviados,
+      falhas: falhas,
+    })
+  } catch (err) {
+    return e.json(500, { success: false, error: err?.message || String(err) })
+  }
+})

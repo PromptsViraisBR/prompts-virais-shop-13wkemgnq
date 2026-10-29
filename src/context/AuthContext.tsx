@@ -114,14 +114,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [refreshSubscription])
 
+  // Helpers para tripla persistência do handshake (localStorage, sessionStorage, cookie)
+  const OAUTH_HANDSHAKE_KEY = 'oauth_provider_handshake'
+
+  const readHandshakeCookie = (): string | null => {
+    if (typeof document === 'undefined') return null
+    try {
+      const match = document.cookie.match(new RegExp(`(?:^|; )${OAUTH_HANDSHAKE_KEY}=([^;]*)`))
+      return match ? decodeURIComponent(match[1]) : null
+    } catch {
+      return null
+    }
+  }
+
+  const writeHandshake = (val: string) => {
+    try {
+      localStorage.setItem(OAUTH_HANDSHAKE_KEY, val)
+    } catch {
+      /* ignore */
+    }
+    try {
+      sessionStorage.setItem(OAUTH_HANDSHAKE_KEY, val)
+    } catch {
+      /* ignore */
+    }
+    try {
+      // Cookie curto de 10 min (600s), path=/, sem SameSite restritivo para funcionar em webviews
+      document.cookie = `${OAUTH_HANDSHAKE_KEY}=${encodeURIComponent(val)}; max-age=600; path=/`
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const readHandshake = (): string | null => {
+    try {
+      const fromLocal = localStorage.getItem(OAUTH_HANDSHAKE_KEY)
+      if (fromLocal) return fromLocal
+    } catch {
+      /* ignore */
+    }
+    try {
+      const fromSession = sessionStorage.getItem(OAUTH_HANDSHAKE_KEY)
+      if (fromSession) return fromSession
+    } catch {
+      /* ignore */
+    }
+    return readHandshakeCookie()
+  }
+
+  const clearHandshake = () => {
+    try {
+      localStorage.removeItem(OAUTH_HANDSHAKE_KEY)
+    } catch {
+      /* ignore */
+    }
+    try {
+      sessionStorage.removeItem(OAUTH_HANDSHAKE_KEY)
+    } catch {
+      /* ignore */
+    }
+    try {
+      document.cookie = `${OAUTH_HANDSHAKE_KEY}=; max-age=0; path=/`
+    } catch {
+      /* ignore */
+    }
+  }
+
   // Detecta e processa o retorno de OAuth2 redirect (fluxo mobile PKCE)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const urlParams = new URLSearchParams(window.location.search)
     const code = urlParams.get('code')
     const state = urlParams.get('state')
-
-    if (!code || !state) return
+    const error = urlParams.get('error')
+    const errorDescription = urlParams.get('error_description')
 
     // Função utilitária para limpar parâmetros OAuth da URL e restaurar rota de destino se informada
     const cleanOAuthUrl = (targetPath?: string) => {
@@ -129,6 +195,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const currentUrl = new URL(window.location.href)
         currentUrl.searchParams.delete('code')
         currentUrl.searchParams.delete('state')
+        currentUrl.searchParams.delete('error')
+        currentUrl.searchParams.delete('error_description')
         currentUrl.searchParams.delete('scope')
         currentUrl.searchParams.delete('authuser')
         currentUrl.searchParams.delete('prompt')
@@ -158,12 +226,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    const rawHandshake = localStorage.getItem('oauth_provider_handshake')
-    if (!rawHandshake) {
-      // a) code && state na URL mas sem handshake no localStorage: limpa e avisa amigavelmente
+    const currentBaseUrl =
+      typeof window !== 'undefined' ? window.location.origin + window.location.pathname : ''
+
+    // 3. Tratar error / error_description na URL (ex: usuário cancelou no Google ou redirect_uri_mismatch)
+    if (error || errorDescription) {
       console.warn(
-        '[OAuth Mobile] code e state presentes na URL, mas handshake local não encontrado.',
+        `[OAuth Mobile] Erro retornado pelo provedor OAuth: error=${error}, desc=${errorDescription}. URL: ${currentBaseUrl}`,
       )
+      clearHandshake()
+      cleanOAuthUrl()
+      toast({
+        title: 'Login cancelado ou recusado',
+        description:
+          'Login cancelado ou configuração do Google recusada. Tente novamente ou use e-mail e senha.',
+        variant: 'destructive',
+      })
+      setIsLoading(false)
+      return
+    }
+
+    if (!code || !state) return
+
+    const rawHandshake = readHandshake()
+    if (!rawHandshake) {
+      // a) code && state na URL mas sem handshake no storage/cookie: limpa e avisa amigavelmente
+      console.warn(
+        `[OAuth Mobile] code e state presentes na URL, mas handshake local não encontrado. URL: ${currentBaseUrl}`,
+      )
+      clearHandshake()
       cleanOAuthUrl()
       toast({
         title: 'Não foi possível concluir o login',
@@ -178,9 +269,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       stored = JSON.parse(rawHandshake)
     } catch (parseErr) {
-      // c) Falha no JSON.parse: limpa localStorage corrompido, limpa URL e avisa
-      console.warn('[OAuth Mobile] Handshake no localStorage corrompido:', parseErr)
-      localStorage.removeItem('oauth_provider_handshake')
+      // c) Falha no JSON.parse: limpa handshake corrompido, limpa URL e avisa
+      console.warn(`[OAuth Mobile] Handshake corrompido: ${parseErr}. URL: ${currentBaseUrl}`)
+      clearHandshake()
       cleanOAuthUrl()
       toast({
         title: 'Não foi possível concluir o login',
@@ -195,8 +286,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startedAt = stored?.startedAt ? Number(stored.startedAt) : 0
     const TEN_MINUTES_MS = 10 * 60 * 1000
     if (startedAt > 0 && Date.now() - startedAt > TEN_MINUTES_MS) {
-      console.warn('[OAuth Mobile] Handshake expirado (> 10 minutos).')
-      localStorage.removeItem('oauth_provider_handshake')
+      console.warn(`[OAuth Mobile] Handshake expirado (> 10 minutos). URL: ${currentBaseUrl}`)
+      clearHandshake()
       cleanOAuthUrl()
       toast({
         title: 'Sessão de login expirada',
@@ -207,10 +298,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    // d) state mismatch: limpeza completa (localStorage + URL) e toast amigável sem throw
+    // d) state mismatch: limpeza completa (storages + cookie + URL) e toast amigável sem throw
     if (stored.state !== state) {
-      console.warn('[OAuth Mobile] state mismatch detectado: recebido vs armazenado divergentes.')
-      localStorage.removeItem('oauth_provider_handshake')
+      console.warn(
+        `[OAuth Mobile] state mismatch detectado: recebido vs armazenado divergentes. URL: ${currentBaseUrl}`,
+      )
+      clearHandshake()
       cleanOAuthUrl()
       toast({
         title: 'Não foi possível concluir o login',
@@ -227,12 +320,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const completeMobileOAuth = async () => {
       let targetReturnTo: string | undefined = stored.returnTo
       try {
-        localStorage.removeItem('oauth_provider_handshake')
+        clearHandshake()
 
         const providerName = stored.name || 'google'
         const codeVerifier = stored.codeVerifier
-        const backendUrl = import.meta.env.VITE_POCKETBASE_URL || pb.baseUrl
-        const redirectUrl = stored.redirectUrl || `${backendUrl}/api/oauth2-redirect`
+        // Garantir que redirectUrl usado na troca do código seja EXATAMENTE o mesmo salvo no handshake
+        const appFallbackRedirectUrl = `${window.location.origin}/login`
+        const redirectUrl = stored.redirectUrl || appFallbackRedirectUrl
 
         // f) Processa a troca de código mesmo que pb.authStore já tenha registro
         const authData = await pb
@@ -247,7 +341,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               authData.record as unknown as UserRecord,
             )
           } catch (postErr) {
-            console.warn('[OAuth Mobile] pós-processamento falhou:', postErr)
+            console.warn(
+              `[OAuth Mobile] pós-processamento falhou: ${postErr}. URL: ${currentBaseUrl}`,
+            )
           }
 
           toast({
@@ -256,7 +352,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           })
         }
       } catch (err: any) {
-        console.warn('[OAuth Mobile] Falha ao trocar code por token:', err)
+        console.warn(
+          `[OAuth Mobile] Falha ao trocar code por token: ${err}. URL: ${currentBaseUrl}`,
+        )
         toast({
           title: 'Não foi possível concluir o login',
           description: 'Não foi possível concluir o login. Tente novamente.',
@@ -353,13 +451,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const backendUrl = import.meta.env.VITE_POCKETBASE_URL || pb.baseUrl
-        const redirectUrl = `${backendUrl}/api/oauth2-redirect`
+        // Redireciona de volta para a rota /login do próprio app (em vez de /api/oauth2-redirect do backend)
+        // para que code+state voltem direto para o useEffect que completa via authWithOAuth2Code
+        const redirectUrl =
+          window.location.pathname === '/login'
+            ? `${window.location.origin}/login`
+            : `${window.location.origin}/login`
 
-        // g) Salva dados do handshake incluindo startedAt e returnTo
+        // Salva dados do handshake na tripla persistência (localStorage, sessionStorage, cookie)
         const returnTo = window.location.pathname + window.location.search
-        localStorage.setItem(
-          'oauth_provider_handshake',
+        writeHandshake(
           JSON.stringify({
             name: providerEntry.name,
             state: providerEntry.state,
@@ -383,7 +484,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await refreshSubscription()
       return { success: true }
     } catch (err: any) {
-      console.warn(`[OAuth] Erro ao autenticar com ${provider}:`, err)
+      const currentBaseUrl =
+        typeof window !== 'undefined' ? window.location.origin + window.location.pathname : ''
+      console.warn(`[OAuth] Erro ao autenticar com ${provider}: ${err}. URL: ${currentBaseUrl}`)
       const msg = err?.message || String(err)
       return { success: false, error: msg }
     }

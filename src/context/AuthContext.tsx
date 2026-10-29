@@ -422,6 +422,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (pb.authStore.record?.id) {
       await subscribePlan(pb.authStore.record.id, 'free')
     }
+    // Processa a indicação no servidor (se houver código ou referred_by)
+    if (cleanRef || referredById) {
+      try {
+        const token = pb.authStore.token
+        if (token) {
+          await pb.send('/backend/v1/referrals/process-signup', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: { referral_code: cleanRef },
+          })
+        }
+      } catch (refProcErr) {
+        console.warn('[signup] Falha ao acionar process-signup:', refProcErr)
+      }
+    }
     await refreshSubscription()
   }
 

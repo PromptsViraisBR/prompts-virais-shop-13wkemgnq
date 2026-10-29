@@ -1686,16 +1686,19 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
               `[mp-webhook] Assinatura ${planTarget} ativada para usuário ${targetUserId}`,
             )
 
-            // 🎁 PROGRAMA DE INDICAÇÃO (AFILIADOS):
-            // Se o usuário foi indicado por alguém (referred_by) e fechou plano pago (mensal ou anual),
-            // verificar se o indicador também é assinante pago ativo. Se for, conceder +20 créditos PRO válidos por 30 dias!
+            // 🎁 NOVO PROGRAMA DE INDICAÇÃO PRO (ESTORNO DE 1 MENSALIDADE):
+            // Quando um indicado contrata um plano PRO (mensal ou anual) com pagamento confirmado:
+            // 1. O indicador PRO elegível ganha o estorno de 1 mensalidade (R$ 19,90) da sua própria assinatura.
+            // 2. Benefício limitado a UMA única indicação por usuário PRO.
+            // 3. Processamento via API oficial do MP (POST /v1/payments/{payment_id}/refunds) ou marcação "refund_pending_manual".
+            // 4. Se o indicador não for PRO ou já utilizou a recompensa, nada é liberado.
             try {
               const targetUserRec = $app.findRecordById('_pb_users_auth_', targetUserId)
               const referrerId = targetUserRec ? targetUserRec.getString('referred_by') : ''
 
               if (referrerId && referrerId !== targetUserId) {
-                // Verificar se o indicador é assinante pago ativo
-                let referrerIsActive = false
+                // Verificar se o indicador possui assinatura PRO ativa no momento do processamento
+                let referrerActiveSub = null
                 try {
                   const refSubs = $app.findRecordsByFilter(
                     'subscriptions',
@@ -1705,65 +1708,278 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
                     0,
                   )
                   if (refSubs && refSubs.length > 0) {
-                    referrerIsActive = true
+                    referrerActiveSub = refSubs[0]
                   }
                 } catch (_) {}
 
-                if (referrerIsActive) {
-                  // Verificar se já não foi concedido crédito para este par (referrer + targetUserId)
-                  let alreadyGranted = false
+                // Buscar registro da oportunidade PRO em referral_credits
+                let proRefRecord = null
+                try {
+                  const candidateProRefs = $app.findRecordsByFilter(
+                    'referral_credits',
+                    `referrer = "${referrerId}" && referred_user = "${targetUserId}"`,
+                    '-created',
+                    1,
+                    0,
+                  )
+                  if (candidateProRefs && candidateProRefs.length > 0) {
+                    proRefRecord = candidateProRefs[0]
+                  }
+                } catch (_) {}
+
+                // Se não existir registro prévio de referral_credits, criamos um se o indicador for PRO
+                if (!proRefRecord && referrerActiveSub) {
+                  // Verificar se o indicador PRO já usou sua única oportunidade com outra pessoa
+                  let otherProUsed = null
                   try {
-                    const existingCreds = $app.findRecordsByFilter(
+                    const prevs = $app.findRecordsByFilter(
                       'referral_credits',
-                      `referrer = "${referrerId}" && referred_user = "${targetUserId}"`,
+                      `referrer = "${referrerId}" && reward_type = "pro_refund" && (refund_status = "refunded" || refund_status = "refund_pending_manual" || refund_status = "processing")`,
                       '-created',
                       1,
                       0,
                     )
-                    if (existingCreds && existingCreds.length > 0) {
-                      alreadyGranted = true
-                    }
+                    if (prevs && prevs.length > 0) otherProUsed = prevs[0]
                   } catch (_) {}
 
-                  if (!alreadyGranted) {
-                    const refCredCol = $app.findCollectionByNameOrId('referral_credits')
-                    const newCred = new Record(refCredCol)
-                    const expireAtDate = new Date(now.getTime() + 30 * 24 * 3600 * 1000)
+                  if (!otherProUsed) {
+                    try {
+                      const refCredCol = $app.findCollectionByNameOrId('referral_credits')
+                      proRefRecord = new Record(refCredCol)
+                      proRefRecord.set('referrer', referrerId)
+                      proRefRecord.set('referred_user', targetUserId)
+                      proRefRecord.set('credits_granted', 0)
+                      proRefRecord.set('credits_remaining', 0)
+                      proRefRecord.set('status', 'active')
+                      proRefRecord.set(
+                        'referrer_plan',
+                        referrerActiveSub.getString('plan') || 'monthly',
+                      )
+                      proRefRecord.set('reward_type', 'pro_refund')
+                      proRefRecord.set('refund_amount', 19.9)
+                      proRefRecord.set('refund_status', 'pending_payment')
+                      $app.save(proRefRecord)
+                    } catch (_) {}
+                  }
+                }
 
-                    newCred.set('referrer', referrerId)
-                    newCred.set('referred_user', targetUserId)
-                    newCred.set('credits_granted', 20)
-                    newCred.set('credits_remaining', 20)
-                    newCred.set('expires_at', expireAtDate.toISOString())
-                    newCred.set('status', 'active')
-                    $app.save(newCred)
+                // Processar estorno caso o registro exista e ainda não tenha sido liquidado
+                if (proRefRecord) {
+                  const currentRefundStatus =
+                    proRefRecord.getString('refund_status') || 'pending_payment'
+                  if (currentRefundStatus === 'refunded') {
+                    console.log(
+                      `[mp-webhook-referral] Indicação PRO ${proRefRecord.id} já foi estornada anteriormente. Idempotência mantida.`,
+                    )
+                  } else if (!referrerActiveSub) {
+                    // Indicador não está com plano PRO ativo
+                    proRefRecord.set('refund_status', 'not_eligible')
+                    proRefRecord.set(
+                      'refund_reason',
+                      'Indicador não possuía assinatura PRO ativa no momento da confirmação do pagamento do indicado.',
+                    )
+                    proRefRecord.set('processed_at', new Date().toISOString())
+                    $app.save(proRefRecord)
+                    console.warn(
+                      `[mp-webhook-referral] Indicador ${referrerId} não elegível para estorno (sem assinatura ativa).`,
+                    )
+                  } else {
+                    // Indicador é PRO ativo e tem direito ao estorno de 1 mensalidade (R$ 19,90)
+                    const refundAmount = 19.9
+                    const referrerSubPmtId = referrerActiveSub.getString('mp_payment_id') || ''
+                    const referrerPreapprovalId =
+                      referrerActiveSub.getString('mp_preapproval_id') || ''
 
-                    // Registrar evento no funil
+                    // Localizar último pagamento aprovado da assinatura do indicador para estornar
+                    let referrerTargetPayment = null
+                    if (referrerSubPmtId) {
+                      try {
+                        referrerTargetPayment = $app.findFirstRecordByData(
+                          'payments_history',
+                          'mp_payment_id',
+                          referrerSubPmtId,
+                        )
+                      } catch (_) {}
+                    }
+                    if (!referrerTargetPayment) {
+                      try {
+                        const rPmts = $app.findRecordsByFilter(
+                          'payments_history',
+                          `user = "${referrerId}" && payment_type = "subscription" && status = "approved"`,
+                          '-created',
+                          1,
+                          0,
+                        )
+                        if (rPmts && rPmts.length > 0) referrerTargetPayment = rPmts[0]
+                      } catch (_) {}
+                    }
+
+                    let refundExecuted = false
+                    let refundId = ''
+                    let refundReason = ''
+
+                    // Tentar estorno real via MP se tivermos o pagamento do indicador e o token configurado
+                    if (token && referrerTargetPayment) {
+                      const pmtIdToRefund = referrerTargetPayment.getString('mp_payment_id')
+                      if (pmtIdToRefund) {
+                        try {
+                          const idempotencyKey = `ref_reward_${proRefRecord.id}_${pmtIdToRefund}`
+                          const refRes = $http.send({
+                            method: 'POST',
+                            url: `https://api.mercadopago.com/v1/payments/${pmtIdToRefund}/refunds`,
+                            headers: {
+                              'Content-Type': 'application/json',
+                              Authorization: `Bearer ${token}`,
+                              'X-Idempotency-Key': idempotencyKey,
+                            },
+                            body: JSON.stringify({ amount: refundAmount }),
+                            timeout: 30,
+                          })
+
+                          const refData = refRes.json || {}
+                          if (refRes.statusCode >= 200 && refRes.statusCode < 300) {
+                            refundExecuted = true
+                            refundId = String(refData.id || '')
+                            refundReason =
+                              'Estorno de 1 mensalidade executado com sucesso no Mercado Pago!'
+                            console.log(
+                              `[mp-webhook-referral] Estorno PRO aprovado no MP! Refund ID=${refundId}`,
+                            )
+                          } else {
+                            const errDesc =
+                              refData.message ||
+                              (refData.cause && refData.cause[0] && refData.cause[0].description) ||
+                              `Status ${refRes.statusCode}`
+                            refundReason = `MP não permitiu estorno automático: ${errDesc}`
+                            console.warn(
+                              `[mp-webhook-referral] MP recusou estorno automático (${refRes.statusCode}):`,
+                              refData,
+                            )
+                          }
+                        } catch (refNetErr) {
+                          refundReason = `Erro de conexão ao estornar no MP: ${refNetErr.message || String(refNetErr)}`
+                          console.warn(
+                            '[mp-webhook-referral] Exceção ao conectar ao MP para estorno:',
+                            refNetErr,
+                          )
+                        }
+                      }
+                    } else {
+                      refundReason =
+                        'Pagamento do indicador não identificado diretamente para estorno automático ou token MP não configurado.'
+                    }
+
+                    // Garantir extensão da vigência / "um mês grátis" na assinatura do indicador
+                    // Adiciona +30 dias ao end_date da assinatura atual para que o mês seja 100% grátis
+                    try {
+                      const currentEnd = referrerActiveSub.getDateTime('end_date')
+                      const baseDate =
+                        currentEnd && new Date(currentEnd) > new Date()
+                          ? new Date(currentEnd)
+                          : new Date()
+                      const newEnd = new Date(baseDate.getTime() + 30 * 24 * 3600 * 1000)
+                      referrerActiveSub.set('end_date', newEnd.toISOString())
+                      $app.save(referrerActiveSub)
+                      console.log(
+                        `[mp-webhook-referral] Vigência da assinatura do indicador ${referrerId} estendida em +30 dias até ${newEnd.toISOString()}`,
+                      )
+                    } catch (extErr) {
+                      console.warn(
+                        '[mp-webhook-referral] Erro ao estender vigência da assinatura do indicador:',
+                        extErr,
+                      )
+                    }
+
+                    // Atualizar registro de referral_credits com auditoria completa
+                    proRefRecord.set('mp_payment_id', String(resourceId))
+                    proRefRecord.set('refund_amount', refundAmount)
+                    proRefRecord.set('processed_at', new Date().toISOString())
+
+                    if (refundExecuted) {
+                      proRefRecord.set('refund_status', 'refunded')
+                      proRefRecord.set('mp_refund_id', refundId)
+                      proRefRecord.set('refund_reason', refundReason)
+                      proRefRecord.set('status', 'completed')
+                    } else {
+                      proRefRecord.set('refund_status', 'refund_pending_manual')
+                      proRefRecord.set(
+                        'refund_reason',
+                        refundReason +
+                          ' (Registrado como PENDENTE DE ESTORNO MANUAL pelo administrador)',
+                      )
+                      proRefRecord.set('status', 'active')
+                    }
+                    $app.save(proRefRecord)
+
+                    // Notificar admin por e-mail sobre a recompensa PRO concedida / estorno
+                    try {
+                      const adminEmail = 'juniorrodriguesjr123.jr@gmail.com'
+                      const mailer = $app.newMailClient()
+                      let sEmail = 'noreply@prompts-virais.com'
+                      let sName = 'Prompts Virais Shop'
+                      try {
+                        const st = $app.settings()
+                        if (st && st.meta) {
+                          if (st.meta.senderAddress) sEmail = st.meta.senderAddress
+                          if (st.meta.senderName) sName = st.meta.senderName
+                        }
+                      } catch (_) {}
+
+                      const adminSubj = refundExecuted
+                        ? `[Indicação PRO] Estorno de 1 mensalidade realizado para indicador ${referrerId}`
+                        : `[Indicação PRO] Estorno pendente manual de 1 mensalidade para indicador ${referrerId}`
+
+                      const adminHtml = `
+                        <h2>${refundExecuted ? '✅ Estorno PRO Concluído' : '⚠️ Estorno PRO Pendente Manual'}</h2>
+                        <p>O indicado <strong>${targetUserId}</strong> assinou o plano PRO com pagamento <strong>${resourceId}</strong> confirmado.</p>
+                        <p><strong>Indicador:</strong> ${referrerId}</p>
+                        <p><strong>Valor do estorno:</strong> R$ 19,90</p>
+                        <p><strong>Status do estorno:</strong> ${refundExecuted ? 'Estornado automaticamente no MP' : 'PENDENTE DE ESTORNO MANUAL'}</p>
+                        <p><strong>Motivo/Detalhes:</strong> ${refundReason}</p>
+                        <p><strong>Vigência do indicador:</strong> Estendida em +30 dias.</p>
+                      `
+                      mailer.send(
+                        new MailerMessage({
+                          from: { address: sEmail, name: sName },
+                          to: [{ address: adminEmail }],
+                          subject: adminSubj,
+                          html: adminHtml,
+                        }),
+                      )
+                    } catch (_) {}
+
+                    // Registrar evento de funil
                     try {
                       const evCol = $app.findCollectionByNameOrId('events')
                       const evRec = new Record(evCol)
                       evRec.set('user', referrerId)
-                      evRec.set('event_type', 'referral_converted')
+                      evRec.set(
+                        'event_type',
+                        refundExecuted
+                          ? 'referral_pro_refund_confirmed'
+                          : 'referral_pro_refund_pending_manual',
+                      )
                       evRec.set(
                         'metadata',
                         JSON.stringify({
                           referred_user: targetUserId,
-                          credits_granted: 20,
-                          expires_at: expireAtDate.toISOString(),
-                          plan: planTarget,
+                          payment_id: String(resourceId),
+                          refund_amount: refundAmount,
+                          refund_id: refundId,
+                          status: proRefRecord.getString('refund_status'),
                         }),
                       )
                       $app.save(evRec)
                     } catch (_) {}
 
                     console.log(
-                      `[mp-webhook] Indicação convertida! Usuário ${referrerId} recebeu +20 créditos válidos por 30 dias pela assinatura de ${targetUserId}`,
+                      `[mp-webhook-referral] Conclusão do processamento de indicação PRO: status=${proRefRecord.getString('refund_status')}`,
                     )
                   }
                 }
               }
             } catch (refErr) {
-              console.warn('[mp-webhook] Erro ao processar bônus de indicação:', refErr)
+              console.warn('[mp-webhook] Erro ao processar bônus de indicação PRO:', refErr)
             }
           } catch (subSaveErr) {
             console.error('[mp-webhook] Erro ao salvar assinatura:', subSaveErr)
@@ -2044,13 +2260,13 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
 
           console.log(`[mp-webhook] Assinatura mensal ativada via preapproval para ${targetUserId}`)
 
-          // 🎁 PROGRAMA DE INDICAÇÃO (AFILIADOS - PREAPPROVAL):
+          // 🎁 NOVO PROGRAMA DE INDICAÇÃO PRO (ESTORNO DE 1 MENSALIDADE - PREAPPROVAL):
           try {
             const targetUserRec = $app.findRecordById('_pb_users_auth_', targetUserId)
             const referrerId = targetUserRec ? targetUserRec.getString('referred_by') : ''
 
             if (referrerId && referrerId !== targetUserId) {
-              let referrerIsActive = false
+              let referrerActiveSub = null
               try {
                 const refSubs = $app.findRecordsByFilter(
                   'subscriptions',
@@ -2060,57 +2276,166 @@ routerAdd('POST', '/backend/v1/mp/webhook', (e) => {
                   0,
                 )
                 if (refSubs && refSubs.length > 0) {
-                  referrerIsActive = true
+                  referrerActiveSub = refSubs[0]
                 }
               } catch (_) {}
 
-              if (referrerIsActive) {
-                let alreadyGranted = false
+              let proRefRecord = null
+              try {
+                const candidateProRefs = $app.findRecordsByFilter(
+                  'referral_credits',
+                  `referrer = "${referrerId}" && referred_user = "${targetUserId}"`,
+                  '-created',
+                  1,
+                  0,
+                )
+                if (candidateProRefs && candidateProRefs.length > 0) {
+                  proRefRecord = candidateProRefs[0]
+                }
+              } catch (_) {}
+
+              if (!proRefRecord && referrerActiveSub) {
+                let otherProUsed = null
                 try {
-                  const existingCreds = $app.findRecordsByFilter(
+                  const prevs = $app.findRecordsByFilter(
                     'referral_credits',
-                    `referrer = "${referrerId}" && referred_user = "${targetUserId}"`,
+                    `referrer = "${referrerId}" && reward_type = "pro_refund" && (refund_status = "refunded" || refund_status = "refund_pending_manual" || refund_status = "processing")`,
                     '-created',
                     1,
                     0,
                   )
-                  if (existingCreds && existingCreds.length > 0) {
-                    alreadyGranted = true
-                  }
+                  if (prevs && prevs.length > 0) otherProUsed = prevs[0]
                 } catch (_) {}
 
-                if (!alreadyGranted) {
-                  const refCredCol = $app.findCollectionByNameOrId('referral_credits')
-                  const newCred = new Record(refCredCol)
-                  const expireAtDate = new Date(now.getTime() + 30 * 24 * 3600 * 1000)
-
-                  newCred.set('referrer', referrerId)
-                  newCred.set('referred_user', targetUserId)
-                  newCred.set('credits_granted', 20)
-                  newCred.set('credits_remaining', 20)
-                  newCred.set('expires_at', expireAtDate.toISOString())
-                  newCred.set('status', 'active')
-                  $app.save(newCred)
-
+                if (!otherProUsed) {
                   try {
-                    const evCol = $app.findCollectionByNameOrId('events')
-                    const evRec = new Record(evCol)
-                    evRec.set('user', referrerId)
-                    evRec.set('event_type', 'referral_converted')
-                    evRec.set(
-                      'metadata',
-                      JSON.stringify({
-                        referred_user: targetUserId,
-                        credits_granted: 20,
-                        expires_at: expireAtDate.toISOString(),
-                        plan: 'monthly_preapproval',
-                      }),
+                    const refCredCol = $app.findCollectionByNameOrId('referral_credits')
+                    proRefRecord = new Record(refCredCol)
+                    proRefRecord.set('referrer', referrerId)
+                    proRefRecord.set('referred_user', targetUserId)
+                    proRefRecord.set('credits_granted', 0)
+                    proRefRecord.set('credits_remaining', 0)
+                    proRefRecord.set('status', 'active')
+                    proRefRecord.set(
+                      'referrer_plan',
+                      referrerActiveSub.getString('plan') || 'monthly',
                     )
-                    $app.save(evRec)
+                    proRefRecord.set('reward_type', 'pro_refund')
+                    proRefRecord.set('refund_amount', 19.9)
+                    proRefRecord.set('refund_status', 'pending_payment')
+                    $app.save(proRefRecord)
                   } catch (_) {}
+                }
+              }
+
+              if (proRefRecord) {
+                const currentRefundStatus =
+                  proRefRecord.getString('refund_status') || 'pending_payment'
+                if (currentRefundStatus === 'refunded') {
                   console.log(
-                    `[mp-webhook] Indicação convertida via preapproval para ${referrerId}`,
+                    `[mp-webhook-preapproval-referral] Indicação PRO ${proRefRecord.id} já liquidada. Idempotência mantida.`,
                   )
+                } else if (!referrerActiveSub) {
+                  proRefRecord.set('refund_status', 'not_eligible')
+                  proRefRecord.set(
+                    'refund_reason',
+                    'Indicador não possuía assinatura PRO ativa no momento da confirmação preapproval do indicado.',
+                  )
+                  proRefRecord.set('processed_at', new Date().toISOString())
+                  $app.save(proRefRecord)
+                } else {
+                  const refundAmount = 19.9
+                  let referrerTargetPayment = null
+                  try {
+                    const rPmts = $app.findRecordsByFilter(
+                      'payments_history',
+                      `user = "${referrerId}" && payment_type = "subscription" && status = "approved"`,
+                      '-created',
+                      1,
+                      0,
+                    )
+                    if (rPmts && rPmts.length > 0) referrerTargetPayment = rPmts[0]
+                  } catch (_) {}
+
+                  let refundExecuted = false
+                  let refundId = ''
+                  let refundReason = ''
+
+                  if (token && referrerTargetPayment) {
+                    const pmtIdToRefund = referrerTargetPayment.getString('mp_payment_id')
+                    if (pmtIdToRefund) {
+                      try {
+                        const idempotencyKey = `ref_pre_${proRefRecord.id}_${pmtIdToRefund}`
+                        const refRes = $http.send({
+                          method: 'POST',
+                          url: `https://api.mercadopago.com/v1/payments/${pmtIdToRefund}/refunds`,
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                            'X-Idempotency-Key': idempotencyKey,
+                          },
+                          body: JSON.stringify({ amount: refundAmount }),
+                          timeout: 30,
+                        })
+
+                        const refData = refRes.json || {}
+                        if (refRes.statusCode >= 200 && refRes.statusCode < 300) {
+                          refundExecuted = true
+                          refundId = String(refData.id || '')
+                          refundReason =
+                            'Estorno de 1 mensalidade executado via Mercado Pago no fluxo preapproval!'
+                        } else {
+                          const errDesc =
+                            refData.message ||
+                            (refData.cause && refData.cause[0] && refData.cause[0].description) ||
+                            `Status ${refRes.statusCode}`
+                          refundReason = `MP não permitiu estorno automático: ${errDesc}`
+                        }
+                      } catch (refNetErr) {
+                        refundReason = `Erro de conexão ao estornar no MP: ${refNetErr.message || String(refNetErr)}`
+                      }
+                    }
+                  } else {
+                    refundReason =
+                      'Pagamento do indicador não identificado para estorno automático ou token não configurado.'
+                  }
+
+                  // Extensão de vigência da assinatura do indicador em +30 dias ("um mês grátis")
+                  try {
+                    const currentEnd = referrerActiveSub.getDateTime('end_date')
+                    const baseDate =
+                      currentEnd && new Date(currentEnd) > new Date()
+                        ? new Date(currentEnd)
+                        : new Date()
+                    const newEnd = new Date(baseDate.getTime() + 30 * 24 * 3600 * 1000)
+                    referrerActiveSub.set('end_date', newEnd.toISOString())
+                    $app.save(referrerActiveSub)
+                  } catch (extErr) {
+                    console.warn(
+                      '[mp-webhook-preapproval-referral] Erro ao estender vigência do indicador:',
+                      extErr,
+                    )
+                  }
+
+                  proRefRecord.set('mp_payment_id', String(resourceId))
+                  proRefRecord.set('refund_amount', refundAmount)
+                  proRefRecord.set('processed_at', new Date().toISOString())
+
+                  if (refundExecuted) {
+                    proRefRecord.set('refund_status', 'refunded')
+                    proRefRecord.set('mp_refund_id', refundId)
+                    proRefRecord.set('refund_reason', refundReason)
+                    proRefRecord.set('status', 'completed')
+                  } else {
+                    proRefRecord.set('refund_status', 'refund_pending_manual')
+                    proRefRecord.set(
+                      'refund_reason',
+                      refundReason +
+                        ' (Registrado como PENDENTE DE ESTORNO MANUAL pelo administrador)',
+                    )
+                    proRefRecord.set('status', 'active')
+                  }
+                  $app.save(proRefRecord)
                 }
               }
             }

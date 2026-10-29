@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T16:31:48.080Z",
+  "generatedAt": "2026-10-29T17:06:03.220Z",
   "collections": [
     {
       "name": "users",
@@ -917,15 +917,15 @@
         {
           "name": "expires_at",
           "type": "date",
-          "required": true,
+          "required": false,
           "system": false
         },
         {
           "name": "status",
           "type": "select",
-          "required": true,
+          "required": false,
           "system": false,
-          "selectValues": ["active", "consumed", "expired"]
+          "selectValues": ["active", "consumed", "expired", "completed", "cancelled"]
         },
         {
           "name": "created",
@@ -940,12 +940,69 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "referrer_plan",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "referral_code_used",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reward_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "refund_amount",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "refund_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "refund_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mp_payment_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mp_refund_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "processed_at",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_ref_credits_referrer_status ON referral_credits (referrer, status)",
         "CREATE INDEX idx_ref_credits_referrer_expires ON referral_credits (referrer, expires_at)",
-        "CREATE UNIQUE INDEX idx_ref_credits_pair ON referral_credits (referrer, referred_user)"
+        "CREATE UNIQUE INDEX idx_ref_credits_pair ON referral_credits (referrer, referred_user)",
+        "CREATE INDEX `idx_ref_credits_reward_type` ON `referral_credits` (reward_type)",
+        "CREATE INDEX `idx_ref_credits_referrer_reward` ON `referral_credits` (referrer, reward_type)",
+        "CREATE INDEX `idx_ref_credits_referred_user` ON `referral_credits` (referred_user)"
       ]
     },
     {

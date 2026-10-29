@@ -449,8 +449,8 @@ export const Login: React.FC = () => {
                     />
                     {referralCode && (
                       <p className="text-[10px] text-pink-600 dark:text-pink-400 font-medium">
-                        ✨ Código de indicação aplicado! Ao assinar 1 mês pago, seu indicador ganha
-                        +20 créditos PRO.
+                        ✨ Código de indicação aplicado! Seu cadastro renderá recompensas para quem
+                        indicou você.
                       </p>
                     )}
                   </div>

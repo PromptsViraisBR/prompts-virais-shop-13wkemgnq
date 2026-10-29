@@ -23,25 +23,104 @@ export interface ConsumeDailyLimitResponse {
   limit_reached?: boolean
 }
 
+export interface ReferralHistoryItem {
+  id: string
+  referred_user_id: string
+  referred_user_name: string
+  referred_user_plan: string
+  reward_type: 'generations_5' | 'pro_refund' | string
+  referrer_plan: string
+  credits_granted: number
+  credits_remaining: number
+  refund_status:
+    | 'not_applicable'
+    | 'pending_payment'
+    | 'processing'
+    | 'refunded'
+    | 'refund_pending_manual'
+    | 'not_eligible'
+    | 'failed'
+    | string
+  refund_amount: number
+  refund_reason: string
+  status: string
+  created: string
+  processed_at?: string
+}
+
+export interface ProOpportunityRecord {
+  id: string
+  referred_user_id: string
+  referred_user_name: string
+  referred_user_plan: string
+  created: string
+  refund_status: string
+  refund_amount: number
+  refund_reason: string
+  mp_payment_id?: string
+  mp_refund_id?: string
+  processed_at?: string
+}
+
 export interface ReferralOverviewResponse {
+  success: boolean
+  user_plan: 'free' | 'monthly' | 'annual' | string
+  is_pro: boolean
   referral_code: string
   referral_link: string
-  total_referred_users: number
-  total_credits_remaining: number
-  credits: Array<{
-    id: string
-    referred_user: string
-    credits_granted: number
-    credits_remaining: number
-    expires_at: string
-    status: 'active' | 'consumed' | 'expired'
-    created: string
-  }>
-  rules: {
-    credits_per_paid_sub: number
-    validity_days: number
-    condition: string
+  link_active: boolean
+  should_hide_link: boolean
+  free_stats: {
+    total_referred_users: number
+    valid_referrals: number
+    generations_earned: number
+    current_balance: number
+    reward_per_referral: number
+    is_unlimited: boolean
   }
+  pro_stats: {
+    has_referral_registered: boolean
+    opportunity_used: boolean
+    opportunity_record: ProOpportunityRecord | null
+    stage:
+      | 'awaiting_signup'
+      | 'signup_confirmed_awaiting_pro'
+      | 'payment_confirmed'
+      | 'refund_processing'
+      | 'refund_confirmed'
+      | 'pending_manual'
+      | 'not_completed'
+      | string
+    stage_label: string
+    stage_detail: string
+    max_referrals: number
+  }
+  history: ReferralHistoryItem[]
+  texts: {
+    free: {
+      title: string
+      description: string
+      button: string
+      highlight: string
+    }
+    pro: {
+      title: string
+      description: string
+      button: string
+      highlight: string
+    }
+  }
+}
+
+export interface ProcessSignupReferralResult {
+  success: boolean
+  processed: boolean
+  idempotent?: boolean
+  reward_type?: string
+  credits_granted?: number
+  referrer_new_balance?: number
+  message?: string
+  error?: string
 }
 
 /**
@@ -122,7 +201,7 @@ export async function consumeDailyGeneration(
 }
 
 /**
- * Consulta o painel de indicações e bônus de créditos PRO do usuário
+ * Consulta o painel de indicações com regras completas (Grátis +5 e PRO Estorno)
  */
 export async function getReferralOverview(): Promise<ReferralOverviewResponse> {
   const token = pb.authStore.token
@@ -139,7 +218,40 @@ export async function getReferralOverview(): Promise<ReferralOverviewResponse> {
 }
 
 /**
- * Consome 1 crédito de indicação para ações PRO
+ * Processa a indicação no servidor após o cadastro de um novo usuário.
+ * Idempotente, valida autoindicação, unicidade e credita +5 para GRÁTIS ou registra oportunidade PRO.
+ */
+export async function processSignupReferral(
+  referralCode?: string,
+): Promise<ProcessSignupReferralResult> {
+  const token = pb.authStore.token
+  if (!token) {
+    return { success: false, processed: false, error: 'Usuário não autenticado.' }
+  }
+
+  try {
+    const res = await pb.send<ProcessSignupReferralResult>('/backend/v1/referrals/process-signup', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: {
+        referral_code: referralCode || '',
+      },
+    })
+    return res
+  } catch (err: any) {
+    console.warn('[processSignupReferral] Falha ao acionar rota de indicação:', err)
+    return {
+      success: false,
+      processed: false,
+      error: err?.message || 'Falha ao processar indicação.',
+    }
+  }
+}
+
+/**
+ * Consome 1 crédito de indicação para ações PRO (compatibilidade)
  */
 export async function consumeReferralCredit(): Promise<{
   success: boolean

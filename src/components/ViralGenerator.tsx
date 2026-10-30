@@ -23,6 +23,8 @@ import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
 import { PromptSceneList } from '@/components/PromptSceneList'
 import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
+import { WrittenPostCard } from '@/components/WrittenPostCard'
+import { generateWrittenPost } from '@/lib/writtenPostHelper'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -95,6 +97,7 @@ export const ViralGenerator: React.FC = () => {
   const [copiedConcept, setCopiedConcept] = useState(false)
   const [copiedScript, setCopiedScript] = useState(false)
   const [copiedAll, setCopiedAll] = useState(false)
+  const [writtenPost, setWrittenPost] = useState<string>('')
 
   // Auth Gate para deslogados
   const [authGateOpen, setAuthGateOpen] = useState(false)
@@ -282,12 +285,22 @@ export const ViralGenerator: React.FC = () => {
         setResult(genRes)
         setVariations([])
         setSelectedVarId(null)
+        const post =
+          genRes.written_post ||
+          generateWrittenPost({
+            niche: niche || genRes.niche,
+            themeOrProduct: effectiveTheme,
+            characterOrIdea: trimmedChar || trimmedIdea,
+            durationText: '~60s',
+            category: 'virais',
+          })
+        setWrittenPost(post)
         toast({
           title: 'Roteiro Viral Gerado com Sucesso! 🎬✨',
           description:
             referenceFiles.length > 0 && trimmedIdea
-              ? 'Roteiro construído com base na sua ideia e nos detalhes da foto!'
-              : 'Roteiro de ~60s dividido em 6 cenas de 10s pronto para gravação.',
+              ? 'Roteiro e post escrito construídos com base na sua ideia e nos detalhes da foto!'
+              : 'Roteiro de ~60s e opção de post escrito prontos para cópia.',
         })
       } else {
         throw new Error(genRes?.error || 'Erro ao gerar roteiro viral.')
@@ -840,6 +853,17 @@ export const ViralGenerator: React.FC = () => {
                     inModal={false}
                   />
                 </CardContent>
+
+                {/* 3. POST ESCRITO (Legenda Pronta para o Vídeo com Marcadores "# ") */}
+                {writtenPost && (
+                  <div className="p-4 sm:p-5 pt-0">
+                    <WrittenPostCard
+                      postText={writtenPost}
+                      nicheLabel={NICHE_LABELS[result.niche] || NICHE_LABELS[niche]}
+                      title="Post Escrito (Legenda Pronta para Postar com o Vídeo)"
+                    />
+                  </div>
+                )}
 
                 <CardFooter className="bg-muted/20 border-t py-3 px-5 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">

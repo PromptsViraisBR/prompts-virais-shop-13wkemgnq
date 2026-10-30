@@ -2,6 +2,7 @@ import pb from '@/lib/pocketbase/client'
 import { trackFunnelEvent } from '@/services/events'
 import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/types'
 import { NICHE_LABELS, STYLE_LABELS, PLATFORM_LABELS } from '@/types'
+import { generateWrittenPost } from '@/lib/writtenPostHelper'
 
 export interface GeneratePromptInput {
   userId: string
@@ -53,6 +54,7 @@ export interface GenerateViralSceneResult {
   niche_label: string
   scene_concept: string
   optional_script: string
+  written_post?: string
   image_count: number
   record_id?: string
   error?: string
@@ -562,6 +564,16 @@ ${input.characterName ? `🎯 PERSONAGEM: ${input.characterName}\n` : ''}📌 DI
       }
     }
 
+    const resolvedWrittenPost =
+      backendResult?.written_post ||
+      generateWrittenPost({
+        niche: input.niche,
+        themeOrProduct: theme,
+        characterOrIdea: input.characterName || userIdea,
+        durationText: '~60s',
+        category: 'virais',
+      })
+
     return {
       success: true,
       theme_name: theme,
@@ -571,11 +583,20 @@ ${input.characterName ? `🎯 PERSONAGEM: ${input.characterName}\n` : ''}📌 DI
       niche_label: nicheLabel,
       scene_concept: sceneConcept,
       optional_script: optionalScript,
+      written_post: resolvedWrittenPost,
       image_count: imagesCount,
       record_id: createdRecordId,
     }
   } catch (err: any) {
     console.warn('Erro ao gerar cena viral:', err)
+    const fallbackPost = generateWrittenPost({
+      niche: input.niche,
+      themeOrProduct: theme,
+      characterOrIdea: input.characterName || userIdea,
+      durationText: '~60s',
+      category: 'virais',
+    })
+
     return {
       success: false,
       theme_name: theme,
@@ -585,6 +606,7 @@ ${input.characterName ? `🎯 PERSONAGEM: ${input.characterName}\n` : ''}📌 DI
       niche_label: NICHE_LABELS[input.niche] || 'Vídeos Virais',
       scene_concept: '',
       optional_script: '',
+      written_post: fallbackPost,
       image_count: imagesCount,
       error: err.message || 'Erro desconhecido ao gerar cena viral.',
     }

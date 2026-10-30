@@ -295,6 +295,25 @@ routerAdd('POST', '/backend/v1/generate-viral-scene', (e) => {
     }
     const nicheLabel = nicheNames[niche] || 'Vídeos Virais'
 
+    const buildWrittenPostTemplate = function (n, title, char) {
+      const cleanTitle = (title || char || 'vídeo viral').trim()
+      const cleanChar = char && char !== cleanTitle ? ` (${char})` : ''
+      const posts = {
+        historinhas_frutas: `Você nunca mais vai olhar para uma fruta do mesmo jeito depois disso! 😱🍎\n\nAcompanhe a história do(a) ${cleanTitle}${cleanChar} que viralizou e conquistou todo mundo.\n\nQual fruta você quer ver no próximo vídeo? Deixe nos comentários! 👇\n\n# # # # # `,
+        infantil_historinhas: `Era uma vez uma aventura cheia de lições e magia! 🌟📚\n\nVenha se encantar com ${cleanTitle}${cleanChar}, perfeito para todas as idades.\n\nCompartilhe com quem adora boas historinhas e fábulas encantadas! 💖\n\n# # # # # `,
+        terror_suspense: `NÃO ASSISTA ESTE VÍDEO SE VOCÊ TIVER MEDO DO ESCURO... 🕯️👁️\n\nO que aconteceu com ${cleanTitle}${cleanChar} às 3 da manhã não tem explicação lógica.\n\nVocê teria coragem de ficar sozinho nesse lugar? Comente sua teoria aqui embaixo... se tiver coragem. 😱\n\n# # # # # `,
+        comedia_engracado: `Eu juro que tentei disfarçar, mas não deu! 😂🤣\n\nQuando o assunto é ${cleanTitle}${cleanChar}, o perrengue vem em dose dupla!\n\nMarca aquele amigo que passa exatamente pela mesma vergonha todo dia! 👇👇\n\n# # # # # `,
+        face_swap: `Parece real, mas é pura inteligência artificial! 🤖✨\n\nTroca de rosto épica com ${cleanTitle}${cleanChar}. O nível de realismo ficou absurdo.\n\nQuem você gostaria de ver transformado no próximo vídeo? Manda nos comentários! 👇\n\n# # # # # `,
+        asmr_sensorial: `Coloque os fones de ouvido e sinta o relaxamento imediato... 🎧🫧\n\nSons táteis e visual super satisfatório de ${cleanTitle}${cleanChar}.\n\nDeixe nos comentários qual gatilho te dá mais arrepio bom! 💆‍♀️✨\n\n# # # # # `,
+        animais_falantes: `Se os bichinhos pudessem falar tudo o que pensam, seria exatamente assim! 🐶🐱🗣️\n\nA reação de ${cleanTitle}${cleanChar} é simplesmente impagável.\n\nQual é a raça do seu pet? Me conta nos comentários como ele reagiria! 👇❤️\n\n# # # # # `,
+        perfumes_cosmeticos: `O segredo para ficar com cheiro de gente rica e marcante o dia inteiro! 💎✨\n\nConheça todos os detalhes de ${cleanTitle}${cleanChar}. Projeção e fixação que chamam atenção por onde passar.\n\nVocê já testou essa fragrância? Me conta nos comentários o que achou! 👇🛍️\n\n# # # # # `,
+      }
+      return (
+        posts[n] ||
+        `Você não vai acreditar no que aconteceu aqui! 😱🎬\n\nConfira todos os detalhes de ${cleanTitle}${cleanChar}. Uma história pensada para prender sua atenção do primeiro ao último segundo.\n\nO que você faria nessa situação? Deixe sua opinião sincera nos comentários e siga para mais! 👇💬\n\n# # # # # `
+      )
+    }
+
     // Análise multimodal da imagem via Gemini se houver imagem enviada
     let analyzedImageDescription = ''
     if (imagesPayload.length > 0) {
@@ -500,6 +519,8 @@ ${activeChar ? `🎯 PERSONAGEM: ${activeChar}\n` : ''}📌 DIRETRIZES ESSENCIAI
 - Narração (PT-BR): "O que você faria se estivesse nessa situação? Comente a sua opinião sincera aqui embaixo e já segue para não perder a continuação!"`
     }
 
+    const writtenPost = buildWrittenPostTemplate(niche, themeName, characterName || userIdea)
+
     return e.json(200, {
       success: true,
       theme_name: themeName,
@@ -509,6 +530,7 @@ ${activeChar ? `🎯 PERSONAGEM: ${activeChar}\n` : ''}📌 DIRETRIZES ESSENCIAI
       niche_label: nicheLabel,
       scene_concept: sceneConcept.trim(),
       optional_script: optionalScript.trim(),
+      written_post: writtenPost.trim(),
       image_count: imageCount,
     })
   } catch (err) {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
 import {
   saveGeneratedPrompt,
   getUserGenerations,
@@ -20,7 +19,9 @@ import {
 } from '@/services/regenerationCredits'
 import { RegenerationPaymentModal } from '@/components/RegenerationPaymentModal'
 import { AuthGateModal } from '@/components/AuthGateModal'
-import { RefreshCw, Lock } from 'lucide-react'
+import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
+import { WrittenPostCard } from '@/components/WrittenPostCard'
+import { generateWrittenPost } from '@/lib/writtenPostHelper'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,6 +56,8 @@ import {
   ArrowRight,
   Flame,
   ShoppingBag,
+  RefreshCw,
+  Lock,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import type { GenerationRecord, NicheType, StyleType, PlatformType } from '@/types'
@@ -92,6 +95,7 @@ export const Generator: React.FC = () => {
   const [generating, setGenerating] = useState(false)
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null)
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null)
+  const [writtenPost, setWrittenPost] = useState<string>('')
   const [copied, setCopied] = useState(false)
   const [history, setHistory] = useState<GenerationRecord[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -337,12 +341,21 @@ export const Generator: React.FC = () => {
       setCurrentGenerationId(record.id)
       setHistory((prev) => [record, ...prev])
 
+      const post = generateWrittenPost({
+        niche: niche || record.niche,
+        themeOrProduct: productName.trim(),
+        characterOrIdea: targetAudience.trim() || details.trim(),
+        durationText: '~30-60s',
+        category: 'ecommerce',
+      })
+      setWrittenPost(post)
+
       toast({
         title: 'Roteiro Gerado com Sucesso! 🎬✨',
         description:
           referenceFiles.length > 0
-            ? `Roteiro 100% calibrado nas ${referenceFiles.length} foto(s) da sua vitrine!`
-            : 'Pronto para você gravar e vender no TikTok Shop ou Shopee.',
+            ? `Roteiro e post escrito calibrados nas ${referenceFiles.length} foto(s) da sua vitrine!`
+            : 'Roteiro de vídeo e legenda pronta para postar gerados com sucesso!',
       })
     } catch (err: any) {
       console.error('Erro na geração do prompt:', err)
@@ -617,6 +630,15 @@ export const Generator: React.FC = () => {
                     setProductName(item.product_name)
                     setNiche(item.niche)
                     setStyle(item.style)
+                    setWrittenPost(
+                      generateWrittenPost({
+                        niche: item.niche,
+                        themeOrProduct: item.product_name,
+                        characterOrIdea: item.target_audience,
+                        durationText: '~30-60s',
+                        category: 'ecommerce',
+                      }),
+                    )
                     setHistoryOpen(false)
                     window.scrollTo({ top: 300, behavior: 'smooth' })
                   }}
@@ -970,6 +992,15 @@ export const Generator: React.FC = () => {
                   <div className="bg-muted/30 border rounded-xl p-4 font-mono text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-foreground select-all max-h-[460px] overflow-y-auto">
                     {currentPrompt}
                   </div>
+
+                  {/* Post Escrito Pronto para Copiar e Postar com o Vídeo */}
+                  {writtenPost && (
+                    <WrittenPostCard
+                      postText={writtenPost}
+                      nicheLabel={NICHE_LABELS[niche]}
+                      title="Post Escrito (Legenda Pronta para o Vídeo)"
+                    />
+                  )}
 
                   <div className="flex flex-col sm:flex-row gap-2 pt-1">
                     <Button

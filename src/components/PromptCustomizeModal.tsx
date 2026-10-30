@@ -28,6 +28,8 @@ import { toast } from '@/hooks/use-toast'
 import { PromptInfoCard } from '@/components/PromptInfoCard'
 import { PromptSceneList } from '@/components/PromptSceneList'
 import { ExternalVideoToolsCard } from '@/components/ExternalVideoToolsCard'
+import { WrittenPostCard } from '@/components/WrittenPostCard'
+import { generateWrittenPost } from '@/lib/writtenPostHelper'
 import {
   adaptPromptWithImages,
   regeneratePromptVariations,
@@ -58,6 +60,7 @@ export interface PromptCustomizeModalProps {
   initialAdaptedPrompt?: string | null
   initialProductName?: string
   initialCharacterName?: string
+  writtenPost?: string
 }
 
 export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
@@ -74,6 +77,7 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
   initialAdaptedPrompt = null,
   initialProductName = '',
   initialCharacterName = '',
+  writtenPost: propWrittenPost,
 }) => {
   const { isAdmin } = useAuth()
   const isViral = category === 'virais' || prompt?.category === 'virais'
@@ -86,6 +90,7 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
   const [visualDetails, setVisualDetails] = useState('')
   const [adapting, setAdapting] = useState(false)
   const [adaptedResult, setAdaptedResult] = useState<string | null>(null)
+  const [modalWrittenPost, setModalWrittenPost] = useState<string>(propWrittenPost || '')
 
   // Variações de regeneração
   const [variations, setVariations] = useState<PromptVariation[]>([])
@@ -108,8 +113,18 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
       setCharacterName(initialCharacterName || '')
       setVisualDetails('')
       setSavedToHistory(false)
+      const post =
+        propWrittenPost ||
+        generateWrittenPost({
+          niche: prompt.niche,
+          themeOrProduct: initialProductName || prompt.title,
+          characterOrIdea: initialCharacterName || prompt.description,
+          durationText: '60s',
+          category: isViral ? 'virais' : 'ecommerce',
+        })
+      setModalWrittenPost(post)
     }
-  }, [open, prompt?.id])
+  }, [open, prompt?.id, propWrittenPost, initialProductName, initialCharacterName, isViral])
 
   // Limpa URLs de preview
   useEffect(() => {
@@ -218,6 +233,16 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
       if (res && res.success && res.adapted_prompt) {
         setAdaptedResult(res.adapted_prompt)
         setSavedToHistory(false)
+
+        // Atualiza também o post escrito com os dados adaptados
+        const updatedPost = generateWrittenPost({
+          niche: prompt.niche,
+          themeOrProduct: targetProd,
+          characterOrIdea: visualDetails?.trim() || prompt.description,
+          durationText: '60s',
+          category: isViral ? 'virais' : 'ecommerce',
+        })
+        setModalWrittenPost(updatedPost)
 
         // Comunica à página pai para já refletir o roteiro adaptado na sessão atual
         if (onAdaptedApplied) {
@@ -643,6 +668,15 @@ export const PromptCustomizeModal: React.FC<PromptCustomizeModalProps> = ({
                 promptTitle={activeProductOrCharacter}
                 inModal={true}
               />
+
+              {/* Post Escrito Pronto com Marcadores de Hashtag "# " */}
+              {modalWrittenPost && (
+                <WrittenPostCard
+                  postText={modalWrittenPost}
+                  nicheLabel={prompt?.niche}
+                  title="Post Escrito (Legenda Pronta para o Vídeo)"
+                />
+              )}
 
               {/* Botão Concluir & Manter na Página */}
               <div className="pt-2 flex justify-end">

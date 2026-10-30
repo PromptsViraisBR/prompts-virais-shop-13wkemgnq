@@ -202,13 +202,14 @@ export const HypeonRadar: React.FC = () => {
               <h1 className="text-xl sm:text-2xl font-black text-white">Radar Viral</h1>
               <Badge
                 variant="outline"
-                className="bg-cyan-500/10 text-cyan-300 border-cyan-500/30 text-[10px] font-mono uppercase"
+                className="bg-emerald-500/10 text-emerald-300 border-emerald-500/30 text-[10px] font-mono uppercase"
               >
-                Fase 2 • Ao Vivo
+                Curadoria de Entretenimento • Ao Vivo
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-slate-400">
-              Feed visual de vídeos e tendências com alto engajamento no TikTok, Reels e Shorts.
+              Feed curado para criadores: curiosidades, tutoriais, historinhas narradas, personagens
+              humanizados e experimentos — 100% livre de notícias e política.
             </p>
           </div>
 

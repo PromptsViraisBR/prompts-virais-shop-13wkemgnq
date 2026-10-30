@@ -21,51 +21,51 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.80'
+export const CURRENT_VERSION = 'v0.0.81'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
-  releaseDate: '2025-05-11',
+  releaseDate: '2025-05-12',
   tagline: 'PROMPTS VIRAIS — Inteligência para criar conteúdos que conquistam a internet.',
-  headline: 'Radar Viral com Vídeos Reais do YouTube & Player Embutido! ⚡🎬',
+  headline: 'Curadoria Fina do Radar Viral: 100% Conteúdo de Entretenimento! 🎭✨',
   highlights: [
     {
-      icon: 'radar',
-      badge: 'DADOS REAIS',
-      title: 'Radar Viral com vídeos reais do YouTube rodando dentro do site',
+      icon: 'sparkles',
+      badge: 'CURADORIA FINA',
+      title: 'Foco exclusivo em referências de entretenimento para criadores',
       description:
-        'A integração com a YouTube Data API v3 está ativa! Agora o Radar exibe Shorts populares reais do Brasil com visualizações, curtidas e comentários verdadeiros.',
+        'O Radar Viral agora isola formatos autênticos de criação: curiosidades ("você sabia"), tutoriais ("como fazer"), historinhas animadas (incluindo frutas e personagens humanoides ou pessoas reais narrando), experimentos caseiros e humor criativo.',
+    },
+    {
+      icon: 'shield',
+      badge: 'ANTI-NOTÍCIAS',
+      title: 'Filtro rígido contra notícias, política e acontecimentos do dia',
+      description:
+        'Descarte automático de reportagens jornalísticas, debates políticos, tragédias e agenda esportiva. Seu feed é 100% limpo, inspirador e voltado para roteiros virais.',
     },
     {
       icon: 'zap',
-      badge: 'PLAYER EMBUTIDO',
-      title: 'Player oficial YouTube para assistir sem sair da página',
+      badge: 'SCORE VIRAL',
+      title: 'Score de formato de entretenimento com ordenação inteligente',
       description:
-        'Toque em qualquer card para reproduzir o vídeo em alta qualidade embutido no site, com crédito oficial ao criador e link para abrir no YouTube.',
+        'Algoritmo server-side que pontua e prioriza vídeos com formatos comprovados de retenção e narrativa, garantindo que o topo do feed traga o melhor repertório.',
+    },
+    {
+      icon: 'radar',
+      badge: 'PLAYER & SALVAR',
+      title: 'Player embutido e salvar na Biblioteca Viral intactos',
+      description:
+        'Assista a qualquer Short com 1 clique diretamente na página sem anúncios e guarde suas referências prediletas na Biblioteca Viral (/hypeon/biblioteca).',
     },
     {
       icon: 'layers',
       badge: '16 NICHOS',
-      title: 'Filtros avançados por 16 nichos, período e ordenação',
+      title: 'Busca inteligente com fallback automático por tema',
       description:
-        'Navegue por Histórias, Terror, Comédia, Curiosidades, IA, Animais e mais, com filtros de 24h, 7d, 30d e ordenação por mais visualizados, engajamento ou recentes.',
-    },
-    {
-      icon: 'bookmark',
-      badge: 'BIBLIOTECA',
-      title: 'Salvar referências virais com 1 clique',
-      description:
-        'Guarde qualquer vídeo de sucesso diretamente na sua Biblioteca Viral (/hypeon/biblioteca) para inspirar seus roteiros e prompts.',
-    },
-    {
-      icon: 'sliders',
-      badge: 'PERFORMANCE',
-      title: 'Cache inteligente para carregamento instantâneo',
-      description:
-        'Respostas em cache no backend para economizar cota e carregar tendências rapidamente sem travar sua navegação.',
+        'Se o filtro eliminar vídeos fora do padrão, o backend busca automaticamente termos complementares para entregar sempre uma vitrine completa.',
     },
   ],
-  ctaText: 'Abrir Radar Viral Agora',
+  ctaText: 'Explorar Radar Curado',
   ctaLink: '/hypeon/radar',
 }

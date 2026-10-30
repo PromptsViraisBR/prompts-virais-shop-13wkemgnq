@@ -126,8 +126,8 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
       })
     }
 
-    // Cache simples em memória usando o objeto global de cache
-    const cacheKey = `yt_radar_${platform}_${niche}_${period}_${sort}`
+    // Cache simples em memória usando o objeto global de cache (v2 com curadoria estrita)
+    const cacheKey = `yt_radar_v2_${platform}_${niche}_${period}_${sort}`
     const cacheTtlMs = 20 * 60 * 1000 // 20 minutos
     const nowTs = Date.now()
 
@@ -142,29 +142,100 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
       })
     }
 
-    // Mapeamento semântico dos 16 nichos para termos de busca Shorts Brasil
-    const nicheQueries = {
-      all: 'shorts viral brasil',
-      historias: '#historias #relatos shorts brasil',
-      terror: '#terror #suspense shorts brasil',
-      suspense: '#suspense #mistério shorts brasil',
-      misterio: '#misterio #curiosidades shorts brasil',
-      humor: '#humor #comedia shorts brasil',
-      comedia: '#comedia #humor shorts brasil',
-      curiosidades: '#curiosidades #fatos shorts brasil',
-      ia: '#ia #inteligenciaartificial shorts brasil',
-      animacoes: '#animacao shorts brasil',
-      personagens: '#personagens shorts brasil',
-      animais: '#pets #animais shorts brasil',
-      relacionamentos: '#relacionamento shorts brasil',
-      motivacao: '#motivacao #reflexao shorts brasil',
-      conhecimento: '#educacao #conhecimento shorts brasil',
-      tecnologia: '#tecnologia #tech shorts brasil',
-      experimentos: '#experimentos shorts brasil',
-      satisfatorios: '#satisfatorio #asmr shorts brasil',
-      outros: 'viral shorts brasil',
+    // Helper de normalização (remove acentos, pontuação e transforma em minúsculas)
+    const normalizeText = (text) => {
+      if (!text) return ''
+      return String(text)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
     }
-    const queryTerm = nicheQueries[niche] || `${niche} shorts brasil`
+
+    // 1. REFINAR TERMOS DE BUSCA: foco 100% em formatos de ENTRETENIMENTO para criadores
+    // Termo principal + termo alternativo para fallback se sobrar poucos vídeos
+    const nicheQueries = {
+      all: {
+        primary: '"você sabia" OR "curiosidades" OR "como fazer" shorts brasil',
+        fallback: '"história narrada" OR "experimento caseiro" shorts brasil',
+      },
+      historias: {
+        primary: 'história narrada shorts brasil relatos',
+        fallback: 'histórias reais narradas animação shorts',
+      },
+      terror: {
+        primary: 'história de terror narrada shorts brasil contos',
+        fallback: 'relatos assustadores narrados shorts',
+      },
+      suspense: {
+        primary: 'suspense mistério história narrada shorts',
+        fallback: 'casos misteriosos curiosidades shorts brasil',
+      },
+      misterio: {
+        primary: 'mistério revelado curiosidades fatos shorts',
+        fallback: 'segredos e mistérios você sabia shorts',
+      },
+      humor: {
+        primary: 'comédia esquetes engraçado humor shorts brasil',
+        fallback: 'piadas engraçadas meme criativo shorts',
+      },
+      comedia: {
+        primary: 'comédia esquetes engraçado shorts brasil',
+        fallback: 'situações engraçadas paródia shorts',
+      },
+      curiosidades: {
+        primary: '"você sabia" curiosidades fatos incríveis shorts',
+        fallback: 'curiosidades que você não sabia shorts brasil',
+      },
+      ia: {
+        primary: 'inteligência artificial tutorial dicas como fazer shorts',
+        fallback: 'ferramentas de IA incríveis truques shorts',
+      },
+      animacoes: {
+        primary: 'animação curta história em desenho shorts brasil',
+        fallback: 'desenho animado história narrada shorts',
+      },
+      personagens: {
+        primary: 'frutas humanizadas animais humanizados história shorts',
+        fallback: 'personagens humanizados animação shorts brasil',
+      },
+      animais: {
+        primary: 'animais fofos engraçados curiosidades pet shorts',
+        fallback: 'cães e gatos engraçados dublagem shorts',
+      },
+      relacionamentos: {
+        primary: 'dicas de relacionamento conselhos história shorts',
+        fallback: 'relacionamento amoroso reflexão histórias shorts',
+      },
+      motivacao: {
+        primary: 'motivação reflexão lição de vida história shorts',
+        fallback: 'mensagem motivacional para o dia shorts',
+      },
+      conhecimento: {
+        primary: 'como fazer tutorial aprenda dica truque shorts',
+        fallback: 'conhecimento prático você sabia como funciona shorts',
+      },
+      tecnologia: {
+        primary: 'dicas de tecnologia truques celular pc shorts',
+        fallback: 'tecnologia segredos recursos incríveis shorts',
+      },
+      experimentos: {
+        primary: 'experimento caseiro teste na prática ciência shorts',
+        fallback: 'experiência incrível testando truques shorts',
+      },
+      satisfatorios: {
+        primary: 'vídeo satisfatório asmr relaxante shorts',
+        fallback: 'oddly satisfying asmr visual shorts',
+      },
+      outros: {
+        primary: 'curiosidades como fazer você sabia shorts brasil',
+        fallback: 'truques criativos tutoriais shorts brasil',
+      },
+    }
+
+    const currentNicheConfig = nicheQueries[niche] || {
+      primary: `${niche} como fazer curiosidades shorts brasil`,
+      fallback: `${niche} dicas tutorial shorts brasil`,
+    }
 
     // Período
     let daysAgo = 7
@@ -172,52 +243,212 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
     if (period === '30d') daysAgo = 30
     const publishedAfter = new Date(nowTs - daysAgo * 24 * 60 * 60 * 1000).toISOString()
 
-    // Ordenação do search
+    // Ordenação da YouTube API
     let ytOrder = 'viewCount'
     if (sort === 'recent') ytOrder = 'date'
     if (sort === 'growth' || sort === 'engagement') ytOrder = 'relevance'
 
-    // 1. Busca por vídeos curtos (Shorts) no Brasil
-    const searchUrl =
-      'https://www.googleapis.com/youtube/v3/search?' +
-      'part=snippet&type=video&videoDuration=short&maxResults=24' +
-      '&regionCode=BR' +
-      '&relevanceLanguage=pt' +
-      '&q=' +
-      encodeURIComponent(queryTerm) +
-      '&order=' +
-      ytOrder +
-      '&publishedAfter=' +
-      encodeURIComponent(publishedAfter) +
-      '&key=' +
-      encodeURIComponent(ytKey)
+    // 2. FILTRO DE EXCLUSÃO DURO: NUNCA notícia, política, jornalismo, tragédias, agenda esportiva
+    // Termos normalizados (sem acentos) para bater contra título e canal
+    const excludedPhrases = [
+      'noticia',
+      'noticias',
+      'jornal',
+      'jornalismo',
+      'cnn',
+      'bbc',
+      'globonews',
+      'globo news',
+      'bandnews',
+      'band news',
+      'record news',
+      'uol',
+      'g1',
+      'metropoles',
+      'jovem pan',
+      'ao vivo',
+      'plantao',
+      'politica',
+      'politico',
+      'eleicao',
+      'eleicoes',
+      'presidente',
+      'lula',
+      'bolsonaro',
+      'tarcisio',
+      'governo',
+      'congresso',
+      'senado',
+      'stf',
+      'deputado',
+      'vereador',
+      'prefeito',
+      'ministro',
+      'guerra',
+      'ataque',
+      'atentado',
+      'protesto',
+      'greve',
+      'tragedia',
+      'acidente',
+      'naufragio',
+      'incendio',
+      'chacina',
+      'fuzilamento',
+      'tiroteio',
+      'morre',
+      'morte de',
+      'morte do',
+      'morte da',
+      'assassinato',
+      'assassinado',
+      'executado',
+      'jogo de',
+      'jogo do',
+      'campeonato',
+      'copa do',
+      'placar',
+      'escalacao',
+      'brasileirao',
+      'rodada',
+      'melhores momentos',
+      'gols da rodada',
+    ]
 
-    const searchRes = $http.send({
-      url: searchUrl,
-      method: 'GET',
-      timeout: 15,
-    })
+    const isExcluded = (titleNorm, channelNorm) => {
+      for (let i = 0; i < excludedPhrases.length; i++) {
+        const p = excludedPhrases[i]
+        // Se a frase proibida aparecer no canal
+        if (channelNorm.includes(p)) return true
 
-    if (searchRes.statusCode !== 200) {
+        // Se for frase multi-palavra, busca direta no título
+        if (p.includes(' ')) {
+          if (titleNorm.includes(p)) return true
+        } else {
+          // Palavra única: regex com limites para evitar falso positivo (ex.: morte vs morte de)
+          // Exceção controlada: "morre" bloqueia "morre hoje", etc.
+          const rx = new RegExp(`(^|[^a-z0-9])${p}([^a-z0-9]|$)`)
+          if (rx.test(titleNorm)) return true
+        }
+      }
+      return false
+    }
+
+    // 3. SCORE DE RELEVÂNCIA: bônus para formatos autênticos de entretenimento
+    const entertainmentKeywords = [
+      'curiosidade',
+      'curiosidades',
+      'voce sabia',
+      'sabia que',
+      'como fazer',
+      'fazer em casa',
+      'aprenda',
+      'tutorial',
+      'dica',
+      'dicas',
+      'truque',
+      'truques',
+      'historia',
+      'historias',
+      'narrada',
+      'relato',
+      'relatos',
+      'conto',
+      'desenho',
+      'animacao',
+      'personagem',
+      'humanizada',
+      'humanizado',
+      'fruta',
+      'engracado',
+      'comedia',
+      'esquete',
+      'teste',
+      'testando',
+      'experimento',
+      'segredo',
+      'revelado',
+      'passo a passo',
+      'fatos',
+      'incrivel',
+      'satisfatorio',
+      'asmr',
+    ]
+
+    const computeEntertainmentScore = (titleNorm) => {
+      let score = 0
+      for (let i = 0; i < entertainmentKeywords.length; i++) {
+        const kw = entertainmentKeywords[i]
+        if (kw.includes(' ')) {
+          if (titleNorm.includes(kw)) score += 15
+        } else {
+          const rx = new RegExp(`(^|[^a-z0-9])${kw}([^a-z0-9]|$)`)
+          if (rx.test(titleNorm)) score += 8
+        }
+      }
+      return score
+    }
+
+    // Helper para buscar vídeos na YouTube API v3
+    const fetchYouTubeVideos = (term) => {
+      const searchUrl =
+        'https://www.googleapis.com/youtube/v3/search?' +
+        'part=snippet&type=video&videoDuration=short&maxResults=25' +
+        '&regionCode=BR' +
+        '&relevanceLanguage=pt' +
+        '&q=' +
+        encodeURIComponent(term) +
+        '&order=' +
+        ytOrder +
+        '&publishedAfter=' +
+        encodeURIComponent(publishedAfter) +
+        '&key=' +
+        encodeURIComponent(ytKey)
+
+      const searchRes = $http.send({
+        url: searchUrl,
+        method: 'GET',
+        timeout: 15,
+      })
+
+      if (searchRes.statusCode !== 200) {
+        return { error: 'HTTP ' + searchRes.statusCode, items: [] }
+      }
+
+      try {
+        const data = JSON.parse(searchRes.raw)
+        return { items: data.items || [] }
+      } catch (e) {
+        return { error: 'parse_error', items: [] }
+      }
+    }
+
+    // 1ª busca: termo primário refinado para entretenimento
+    const primaryResult = fetchYouTubeVideos(currentNicheConfig.primary)
+    if (primaryResult.error && !primaryResult.items.length) {
       return e.json(502, {
         success: false,
         connected: false,
-        error: 'A YouTube Data API retornou erro HTTP ' + searchRes.statusCode,
+        error: 'A YouTube Data API retornou erro: ' + primaryResult.error,
         filters_applied: { platform, niche, period, sort },
         items: [],
       })
     }
 
-    const searchData = JSON.parse(searchRes.raw)
-    const items = searchData.items || []
-    const videoIds = items.map((it) => it.id && it.id.videoId).filter(Boolean)
+    let combinedRawItems = primaryResult.items || []
 
-    // 2. Buscar estatísticas reais completas (views, likes, comments) via /videos
-    let statsMap = {}
-    if (videoIds.length > 0) {
+    // Coletar IDs para buscar estatísticas
+    const extractIds = (list) => list.map((it) => it.id && it.id.videoId).filter(Boolean)
+
+    let initialIds = extractIds(combinedRawItems)
+
+    // Helper para buscar estatísticas (/videos)
+    const fetchStats = (ids) => {
+      if (!ids || ids.length === 0) return {}
+      const statsMap = {}
       const statsUrl =
         'https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=' +
-        encodeURIComponent(videoIds.join(',')) +
+        encodeURIComponent(ids.join(',')) +
         '&key=' +
         encodeURIComponent(ytKey)
 
@@ -228,45 +459,69 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
       })
 
       if (statsRes.statusCode === 200) {
-        const statsData = JSON.parse(statsRes.raw)
-        const statItems = statsData.items || []
-        for (const s of statItems) {
-          statsMap[s.id] = {
-            statistics: s.statistics || {},
-            snippet: s.snippet || {},
-            contentDetails: s.contentDetails || {},
+        try {
+          const statsData = JSON.parse(statsRes.raw)
+          const statItems = statsData.items || []
+          for (let i = 0; i < statItems.length; i++) {
+            const s = statItems[i]
+            statsMap[s.id] = {
+              statistics: s.statistics || {},
+              snippet: s.snippet || {},
+              contentDetails: s.contentDetails || {},
+            }
           }
-        }
+        } catch (_) {}
       }
+      return statsMap
     }
 
-    // 3. Formatar vídeos com dados 100% REAIS
-    let formatted = items
-      .map((it) => {
+    let allStatsMap = fetchStats(initialIds)
+
+    // Formatar e filtrar 1ª rodada
+    const processItems = (rawItems, statsMap) => {
+      const valid = []
+      const seen = {}
+
+      for (let i = 0; i < rawItems.length; i++) {
+        const it = rawItems[i]
         const vId = it.id?.videoId
-        if (!vId) return null
+        if (!vId || seen[vId]) continue
+        seen[vId] = true
 
         const details = statsMap[vId] || {}
         const st = details.statistics || {}
         const sn = details.snippet || it.snippet || {}
 
+        const title = sn.title || it.snippet?.title || 'Short Sem Título'
+        const channelTitle = sn.channelTitle || it.snippet?.channelTitle || 'Canal'
+        const titleNorm = normalizeText(title)
+        const channelNorm = normalizeText(channelTitle)
+
+        // Filtro rígido de exclusão
+        if (isExcluded(titleNorm, channelNorm)) {
+          continue
+        }
+
         const views = parseInt(st.viewCount || '0', 10)
         const likes = parseInt(st.likeCount || '0', 10)
         const comments = parseInt(st.commentCount || '0', 10)
 
-        // Score de engajamento calculado sobre métricas reais
+        // Score de engajamento base
         const engagementRatio = views > 0 ? ((likes + comments * 2) / views) * 100 : 0
-        const growthScore = Math.min(
+        const baseGrowth = Math.min(
           100,
           Math.max(10, Math.round(engagementRatio * 8 + Math.log10(views + 1) * 7)),
         )
 
-        return {
+        // Score de entretenimento
+        const entertainmentScore = computeEntertainmentScore(titleNorm)
+
+        valid.push({
           id: vId,
           external_id: vId,
           platform: 'youtube',
           platform_name: 'YouTube Shorts',
-          title: sn.title || it.snippet?.title || 'Short Sem Título',
+          title: title,
           description: sn.description || it.snippet?.description || '',
           thumbnail_url:
             sn.thumbnails?.maxres?.url ||
@@ -277,44 +532,84 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
             `https://i.ytimg.com/vi/${vId}/hqdefault.jpg`,
           original_url: 'https://www.youtube.com/shorts/' + vId,
           embed_url: 'https://www.youtube-nocookie.com/embed/' + vId,
-          author_name: sn.channelTitle || it.snippet?.channelTitle || 'Canal',
-          author_handle:
-            '@' +
-            (sn.channelTitle || it.snippet?.channelTitle || 'canal')
-              .replace(/\s+/g, '')
-              .toLowerCase(),
+          author_name: channelTitle,
+          author_handle: '@' + channelTitle.replace(/\s+/g, '').toLowerCase(),
           channel_id: sn.channelId || it.snippet?.channelId || '',
           views_count: views,
           likes_count: likes,
           comments_count: comments,
-          shares_count: null, // YouTube não expõe compartilhamentos na v3
+          shares_count: null,
           niche: niche === 'all' ? 'curiosidades' : niche,
           country: 'BR',
           language: 'pt',
-          growth_score: growthScore,
+          growth_score: baseGrowth,
+          entertainment_score: entertainmentScore,
           published_at: sn.publishedAt || it.snippet?.publishedAt || '',
-        }
-      })
-      .filter(Boolean)
-
-    // Reordenar em memória se necessário
-    if (sort === 'views') {
-      formatted.sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
-    } else if (sort === 'engagement' || sort === 'growth') {
-      formatted.sort((a, b) => (b.growth_score || 0) - (a.growth_score || 0))
-    } else if (sort === 'recent') {
-      formatted.sort(
-        (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime(),
-      )
+        })
+      }
+      return valid
     }
+
+    let filtered = processItems(combinedRawItems, allStatsMap)
+
+    // 4. Se após o filtro sobrar menos de ~6 vídeos, executar busca complementar com termo fallback
+    if (filtered.length < 6 && currentNicheConfig.fallback) {
+      const fallbackResult = fetchYouTubeVideos(currentNicheConfig.fallback)
+      if (fallbackResult.items && fallbackResult.items.length > 0) {
+        const existingIds = {}
+        for (let i = 0; i < filtered.length; i++) {
+          existingIds[filtered[i].id] = true
+        }
+
+        const newRaw = fallbackResult.items.filter(
+          (it) => it.id?.videoId && !existingIds[it.id.videoId],
+        )
+
+        if (newRaw.length > 0) {
+          const newIds = newRaw.map((it) => it.id.videoId)
+          const newStatsMap = fetchStats(newIds)
+          const additional = processItems(newRaw, newStatsMap)
+          filtered = filtered.concat(additional)
+        }
+      }
+    }
+
+    // Ordenação com Score de Relevância de Entretenimento no topo
+    // Critério: vídeos com maior aderência aos formatos de entretenimento ganham destaque,
+    // desempatando pela ordenação selecionada (views, crescimento/engajamento ou data).
+    filtered.sort((a, b) => {
+      // Prioridade 1: se um tem score de entretenimento relevante e o outro não
+      const entDiff = (b.entertainment_score || 0) - (a.entertainment_score || 0)
+      if (Math.abs(entDiff) >= 15) {
+        return entDiff
+      }
+
+      // Desempate / ordenação pelo critério escolhido pelo criador
+      if (sort === 'views') {
+        const vDiff = (b.views_count || 0) - (a.views_count || 0)
+        if (vDiff !== 0) return vDiff
+        return entDiff
+      } else if (sort === 'engagement' || sort === 'growth') {
+        const gDiff = (b.growth_score || 0) - (a.growth_score || 0)
+        if (gDiff !== 0) return gDiff
+        return entDiff
+      } else if (sort === 'recent') {
+        const tDiff = new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+        if (tDiff !== 0) return tDiff
+        return entDiff
+      }
+
+      // Default: views
+      return (b.views_count || 0) - (a.views_count || 0)
+    })
 
     const payload = {
       success: true,
       connected: true,
       source: 'youtube_data_api_v3',
       filters_applied: { platform, niche, period, sort },
-      total_items: formatted.length,
-      items: formatted,
+      total_items: filtered.length,
+      items: filtered,
     }
 
     // Salvar no cache

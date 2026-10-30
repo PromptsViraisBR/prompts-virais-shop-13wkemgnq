@@ -21,6 +21,7 @@ export interface RadarVideoItem {
   country?: string
   language?: string
   growth_score: number
+  entertainment_score?: number
   published_at: string
 }
 

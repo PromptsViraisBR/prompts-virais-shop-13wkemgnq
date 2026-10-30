@@ -138,13 +138,13 @@ export async function cloneVideo(params: CloneVideoParams): Promise<CloneVideoRe
       }
       if (res.status === 504 || res.status === 408) {
         throw new Error(
-          'A IA demorou demais para responder. Tente com um vídeo mais curto ou descrição mais simples.',
+          'O processamento de IA atingiu o tempo limite. Tente novamente com um vídeo ou descrição mais objetiva.',
         )
       }
       if (res.status >= 500) {
         throw new Error(
           data?.error ||
-            'Serviço de IA temporariamente indisponível. Tente novamente em instantes.',
+            'O serviço de geração de IA está temporariamente ocupado. Tente novamente em instantes.',
         )
       }
       throw new Error(data?.error || `Erro HTTP ${res.status} ao processar vídeo.`)
@@ -154,7 +154,7 @@ export async function cloneVideo(params: CloneVideoParams): Promise<CloneVideoRe
   } catch (err: any) {
     if (err?.name === 'AbortError') {
       throw new Error(
-        'A IA demorou demais para processar (limite de 120s estourado). Tente um vídeo mais curto ou descrição resumida.',
+        'O processamento demorou mais do que o esperado (limite de 120s). Tente novamente com uma descrição mais curta.',
       )
     }
     throw err

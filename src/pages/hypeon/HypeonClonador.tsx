@@ -245,11 +245,13 @@ export function HypeonClonador() {
     } catch (err: any) {
       const msg = err?.message || ''
       const isTimeout =
-        msg.toLowerCase().includes('demorou') ||
+        msg.toLowerCase().includes('tempo limite') ||
+        msg.toLowerCase().includes('demor') ||
         msg.toLowerCase().includes('120s') ||
         msg.toLowerCase().includes('abort')
       const isUnavailable =
         msg.toLowerCase().includes('indisponível') ||
+        msg.toLowerCase().includes('ocupado') ||
         msg.toLowerCase().includes('503') ||
         msg.toLowerCase().includes('500')
 
@@ -257,11 +259,11 @@ export function HypeonClonador() {
         title: isTimeout
           ? 'Tempo limite esgotado'
           : isUnavailable
-            ? 'Serviço de IA Indisponível'
+            ? 'Serviço de IA Instável'
             : 'Erro na Geração',
         description:
           msg ||
-          'A IA demorou demais ou o serviço está temporariamente instável. Tente novamente em instantes com uma descrição mais curta.',
+          'O serviço demorou mais que o esperado ou está oscilando. Tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {

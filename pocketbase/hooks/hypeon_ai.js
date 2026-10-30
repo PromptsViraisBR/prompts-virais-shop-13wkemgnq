@@ -256,57 +256,66 @@ ${manualDescription}`
     }
     const currentModeInstruction = modeDescriptions[mode] || modeDescriptions.recriar_formato
 
-    const systemPrompt = `Você é o Diretor Criativo Sênior do HYPEON (engenharia reversa e criação de conteúdo viral em PT-BR).
-
-REGRA ÉTICA OBRIGATÓRIA:
-NUNCA copie literalmente nem reproduza roteiros protegidos. Crie conteúdo 100% ORIGINAL E INÉDITO baseado na dinâmica e mecanismos de retenção.
-
-DIRETRIZES:
-- PT-BR natural, dinâmico e magnético para Shorts/Reels/TikTok.
-- Roteiro enxuto com 3 a 5 cenas essenciais.
-- Retorne EXCLUSIVAMENTE um objeto JSON válido (sem blocos markdown e sem texto antes ou depois).
-
-CHAVES DO JSON:
+    const systemPrompt = `Você é o Diretor Criativo do HYPEON (PT-BR). Crie um roteiro viral original para Shorts/Reels.
+Retorne EXCLUSIVAMENTE um JSON estrito, sem markdown, conciso e rápido:
 {
   "title": "Título magnético curto",
-  "category": "Categoria",
+  "category": "${category}",
   "reference_analysis": {
-    "detected_hook": "Gancho original identificado",
-    "narrative_structure": "Estrutura narrativa",
-    "pacing": "Ritmo e cadência",
-    "emotional_trigger": "Gatilho emocional central",
-    "peak_impact_moment": "Momento de ápice",
-    "originality_note": "Como esta nova versão inova"
+    "detected_hook": "Gancho original",
+    "narrative_structure": "Estrutura",
+    "pacing": "Ritmo rápido",
+    "emotional_trigger": "Curiosidade",
+    "peak_impact_moment": "Momento de impacto",
+    "originality_note": "Versão original inédita"
   },
   "hook": "Gancho inicial hipnótico (0-3s)",
-  "full_script": "Roteiro narrado completo",
-  "narration": "Locução/voz em off fluida",
-  "dialogues": "Falas principais ou narração",
+  "full_script": "Roteiro narrado curto e direto",
+  "narration": "Locução em off fluida",
+  "dialogues": "Narração ou falas",
   "scenes": [
     {
       "scene_number": 1,
       "duration": "0-3s",
-      "visual_description": "Cena visual precisa",
+      "visual_description": "Cena visual concisa",
       "voiceover": "Fala da cena",
-      "screen_text": "Texto curto na tela",
-      "sound_effects": "Efeito sonoro",
-      "transition": "Transição sugerida"
+      "screen_text": "Texto na tela",
+      "sound_effects": "SFX",
+      "transition": "Corte seco"
+    },
+    {
+      "scene_number": 2,
+      "duration": "3-15s",
+      "visual_description": "Cena visual do meio",
+      "voiceover": "Fala da cena",
+      "screen_text": "Texto na tela",
+      "sound_effects": "SFX",
+      "transition": "Corte seco"
+    },
+    {
+      "scene_number": 3,
+      "duration": "15-30s",
+      "visual_description": "Desfecho com clímax",
+      "voiceover": "Fala final",
+      "screen_text": "Texto na tela",
+      "sound_effects": "SFX",
+      "transition": "Fade"
     }
   ],
-  "sound_effects_overview": "Resumo dos efeitos sonoros recomendados",
-  "transitions_overview": "Guia de ritmo e cortes",
-  "closure": "Desfecho e encerramento",
-  "cta": "Chamada para ação de alta conversão"
+  "sound_effects_overview": "SFX principais",
+  "transitions_overview": "Cortes dinâmicos",
+  "closure": "Desfecho",
+  "cta": "Chamada para ação"
 }`
 
-    const userPrompt = `${referenceContext}
-
-CATEGORIA: ${category}
-${currentModeInstruction}
-
-Gere o raio-X completo da estrutura e o roteiro original em formato JSON estrito.`
+    const userPrompt = `REFERÊNCIA: ${referenceContext.slice(0, 400)}
+CATEGORIA: ${category} | MODO: ${mode} | DURAÇÃO: ${durationShort}
+Gere exatamente 3 cenas rápidas e originais no formato JSON estrito acima.`
 
     let generatedJson = null
+    let aiCallError = null
+
+    // Tentativa principal otimizada com max_tokens 650 para resposta em ~4-8 segundos
     try {
       const aiReply = $ai.chat({
         model: 'fast',
@@ -314,8 +323,8 @@ Gere o raio-X completo da estrutura e o roteiro original em formato JSON estrito
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 1800,
-        temperature: 0.7,
+        max_tokens: 650,
+        temperature: 0.6,
       })
 
       const rawContent = aiReply?.choices?.[0]?.message?.content || ''
@@ -330,7 +339,8 @@ Gere o raio-X completo da estrutura e o roteiro original em formato JSON estrito
         generatedJson = JSON.parse(cleaned)
       }
     } catch (aiErr) {
-      console.warn('[hypeon] Falha ao processar $ai.chat no Clonador:', aiErr)
+      aiCallError = String(aiErr)
+      console.warn('[hypeon] Chamada $ai.chat falhou no Clonador:', aiErr)
     }
 
     if (!generatedJson || !generatedJson.title) {
@@ -431,14 +441,14 @@ Gere o raio-X completo da estrutura e o roteiro original em formato JSON estrito
       const projRec = new Record(projCol)
       projRec.set('user', authRecord.id)
       projRec.set('tool_id', 'clonador')
-      projRec.set('title', generatedJson.title || 'Roteiro Clonador')
+      projRec.set('title', (generatedJson.title || 'Roteiro Clonador').slice(0, 100))
       projRec.set('category', category)
       projRec.set('mode', mode)
       projRec.set(
         'source_type',
         ytId ? 'youtube_link' : videoUrl ? 'external_link' : 'manual_description',
       )
-      projRec.set('source_reference', videoUrl || manualDescription.slice(0, 100))
+      projRec.set('source_reference', (videoUrl || manualDescription || '').slice(0, 100))
       projRec.set('payload', JSON.stringify(generatedJson))
       projRec.set('is_favorite', false)
       e.app.save(projRec)
@@ -458,8 +468,12 @@ Gere o raio-X completo da estrutura e o roteiro original em formato JSON estrito
         daily_limit: activeDailyLimit,
         remaining: Math.max(0, remaining - 1),
       },
+      warning: aiCallError
+        ? 'Aviso: gerado com adaptação resiliente devido a instabilidade passageira no gateway de IA.'
+        : undefined,
     })
   } catch (err) {
+    console.error('[hypeon-clonador-fatal-catch]', err && err.stack ? err.stack : String(err))
     return e.json(500, { success: false, error: 'Erro ao processar Clonador: ' + String(err) })
   }
 })

@@ -2817,7 +2817,8 @@ routerAdd('POST', '/backend/v1/mp/cancel-subscription', (e) => {
       const adminEmail = 'juniorrodriguesjr123.jr@gmail.com'
       const clientEmail = authUser.getString('email') || 'cliente@desconhecido.com'
       const clientName = authUser.getString('name') || 'Cliente'
-      const dateStr = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+      const nowBrt = new Date(Date.now() - 3 * 3600 * 1000)
+      const dateStr = nowBrt.toISOString().replace('T', ' ').slice(0, 19)
       const amountStr =
         refundAmount > 0 ? `R$ ${refundAmount.toFixed(2).replace('.', ',')}` : 'R$ 0,00'
 

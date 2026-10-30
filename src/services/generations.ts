@@ -179,36 +179,101 @@ export function buildPromptScript(input: Omit<GeneratePromptInput, 'userId'>): s
   }
 }
 
+const VALID_GENERATION_NICHES = new Set([
+  'moda_feminina',
+  'moda_masculina',
+  'fitness_academia',
+  'moda_praia',
+  'acessorios_calcados',
+  'streetwear_casual',
+  'infantil_kids',
+  'lingerie_pijamas',
+  'espelhos_decoracao',
+  'produtos_eletronicos',
+  'capinhas_acessorios_celular',
+  'moda_fitness_plus_size',
+  'pet_acessorios',
+  'cozinha_utilidades',
+  'relogios_bijus',
+  'perfumes_cosmeticos',
+  'historinhas_frutas',
+  'infantil_historinhas',
+  'terror_suspense',
+  'comedia_engracado',
+  'face_swap',
+  'asmr_sensorial',
+  'animais_falantes',
+  'curiosidades_fatos',
+])
+
+const VALID_GENERATION_STYLES = new Set(['pov', 'modelo', 'unboxing_vitrine'])
+const VALID_GENERATION_PLATFORMS = new Set(['tiktok_shop', 'shopee', 'ambos'])
+
+export function sanitizeGenerationNiche(niche?: string): NicheType {
+  const norm = (niche || '').trim().toLowerCase()
+  if (VALID_GENERATION_NICHES.has(norm)) {
+    return norm as NicheType
+  }
+  return 'moda_feminina'
+}
+
+export function sanitizeGenerationStyle(style?: string): StyleType {
+  const norm = (style || '').trim().toLowerCase()
+  if (VALID_GENERATION_STYLES.has(norm)) {
+    return norm as StyleType
+  }
+  return 'pov'
+}
+
+export function sanitizeGenerationPlatform(platform?: string): PlatformType {
+  const norm = (platform || '').trim().toLowerCase()
+  if (VALID_GENERATION_PLATFORMS.has(norm)) {
+    return norm as PlatformType
+  }
+  return 'ambos'
+}
+
 export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<GenerationRecord> {
-  const generatedText = buildPromptScript(input)
+  const sanitizedNiche = sanitizeGenerationNiche(input.niche)
+  const sanitizedStyle = sanitizeGenerationStyle(input.style)
+  const sanitizedPlatform = sanitizeGenerationPlatform(input.platform)
+
+  const sanitizedInput: GeneratePromptInput = {
+    ...input,
+    niche: sanitizedNiche,
+    style: sanitizedStyle,
+    platform: sanitizedPlatform,
+  }
+
+  const generatedText = buildPromptScript(sanitizedInput)
 
   // Disparar evento de primeiro prompt de forma segura e idempotente no hook
-  if (input.userId) {
+  if (sanitizedInput.userId) {
     trackFunnelEvent(
       'first_prompt_generated',
       {
-        product_name: input.productName,
-        niche: input.niche,
+        product_name: sanitizedInput.productName,
+        niche: sanitizedNiche,
       },
-      input.userId,
+      sanitizedInput.userId,
     )
   }
 
-  if (input.referenceImages && input.referenceImages.length > 0) {
+  if (sanitizedInput.referenceImages && sanitizedInput.referenceImages.length > 0) {
     const formData = new FormData()
-    formData.append('user', input.userId)
-    formData.append('product_name', input.productName)
-    formData.append('niche', input.niche)
-    formData.append('style', input.style)
-    formData.append('platform', input.platform || 'ambos')
-    formData.append('target_audience', input.targetAudience || '')
+    formData.append('user', sanitizedInput.userId)
+    formData.append('product_name', sanitizedInput.productName)
+    formData.append('niche', sanitizedNiche)
+    formData.append('style', sanitizedStyle)
+    formData.append('platform', sanitizedPlatform)
+    formData.append('target_audience', sanitizedInput.targetAudience || '')
     formData.append('generated_prompt', generatedText)
 
-    if (input.visualDetails) {
-      formData.append('image_prompt_description', input.visualDetails)
+    if (sanitizedInput.visualDetails) {
+      formData.append('image_prompt_description', sanitizedInput.visualDetails)
     }
 
-    input.referenceImages.slice(0, 3).forEach((file) => {
+    sanitizedInput.referenceImages.slice(0, 3).forEach((file) => {
       formData.append('reference_images', file)
     })
 
@@ -216,14 +281,14 @@ export async function saveGeneratedPrompt(input: GeneratePromptInput): Promise<G
   }
 
   return await pb.collection('generations').create<GenerationRecord>({
-    user: input.userId,
-    product_name: input.productName,
-    niche: input.niche,
-    style: input.style,
-    platform: input.platform || 'ambos',
-    target_audience: input.targetAudience || '',
+    user: sanitizedInput.userId,
+    product_name: sanitizedInput.productName,
+    niche: sanitizedNiche,
+    style: sanitizedStyle,
+    platform: sanitizedPlatform,
+    target_audience: sanitizedInput.targetAudience || '',
     generated_prompt: generatedText,
-    image_prompt_description: input.visualDetails || '',
+    image_prompt_description: sanitizedInput.visualDetails || '',
   })
 }
 
@@ -340,6 +405,9 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
     (input.referenceImages ? input.referenceImages.length : 0)
   const iterationSeed = input.iterationSeed || Math.floor(Math.random() * 1000000)
 
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 25000) // 25s timeout amigável
+
   try {
     const response = await fetch(`${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/adapt-prompt`, {
       method: 'POST',
@@ -353,13 +421,14 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
         product_name: input.productName,
         character_name: input.characterName,
         visual_details: input.visualDetails,
-        niche: input.niche,
-        style: input.style || 'pov',
-        platform: input.platform || 'ambos',
+        niche: sanitizeGenerationNiche(input.niche),
+        style: sanitizeGenerationStyle(input.style),
+        platform: sanitizeGenerationPlatform(input.platform),
         images_count: imagesCount,
         category: input.category || 'ecommerce',
         iteration_seed: iterationSeed,
       }),
+      signal: controller.signal,
     })
 
     if (!response.ok) {
@@ -369,7 +438,14 @@ export async function adaptPromptWithImages(input: AdaptPromptInput): Promise<Ad
 
     return (await response.json()) as AdaptPromptResult
   } catch (err: any) {
-    console.warn('Erro na rota de adaptação, usando fallback local inteligente:', err)
+    clearTimeout(timer)
+    if (err?.name === 'AbortError') {
+      console.warn(
+        '[adaptPromptWithImages] Tempo limite de 25s atingido, recorrendo ao roteiro base local.',
+      )
+    } else {
+      console.warn('Erro na rota de adaptação, usando fallback local inteligente:', err)
+    }
     const char = input.characterName
     const prod = char || input.productName || input.promptTitle || 'Peça em destaque'
     const visual =
@@ -440,32 +516,48 @@ export async function generateViralSceneWithImages(
     }
   }
 
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-viral-scene`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
-        },
-        body: JSON.stringify({
-          user_idea: userIdea,
-          script_idea: userIdea,
-          theme_name: theme,
-          character_name: input.characterName,
-          niche: input.niche,
-          visual_details: input.visualDetails,
-          images_count: imagesCount,
-          images: base64Images,
-          seed,
-        }),
-      },
-    )
+  const viralController = new AbortController()
+  const viralTimer = setTimeout(() => viralController.abort(), 25000)
 
+  try {
     let backendResult: GenerateViralSceneResult | null = null
-    if (response.ok) {
-      backendResult = (await response.json()) as GenerateViralSceneResult
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/generate-viral-scene`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(pb.authStore.token ? { Authorization: pb.authStore.token } : {}),
+          },
+          body: JSON.stringify({
+            user_idea: userIdea,
+            script_idea: userIdea,
+            theme_name: theme,
+            character_name: input.characterName,
+            niche: sanitizeGenerationNiche(input.niche),
+            visual_details: input.visualDetails,
+            images_count: imagesCount,
+            images: base64Images,
+            seed,
+          }),
+          signal: viralController.signal,
+        },
+      )
+
+      if (response.ok) {
+        backendResult = (await response.json()) as GenerateViralSceneResult
+      }
+    } catch (vErr: any) {
+      if (vErr?.name === 'AbortError') {
+        console.warn(
+          '[generateViralSceneWithImages] Timeout de 25s esgotado, usando gerador viral local resiliente.',
+        )
+      } else {
+        console.warn('[generateViralSceneWithImages] Erro na requisição:', vErr)
+      }
+    } finally {
+      clearTimeout(viralTimer)
     }
 
     const nicheLabel = NICHE_LABELS[input.niche] || 'Vídeos Virais'

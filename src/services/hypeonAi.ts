@@ -132,22 +132,35 @@ export async function cloneVideo(params: CloneVideoParams): Promise<CloneVideoRe
           mode: params.mode,
           data: null as any,
           usage: { used_today: 0, daily_limit: 0, remaining: 0 },
-          error: data?.error || 'Limite diário do Clonador atingido.',
+          error:
+            data?.error ||
+            'Você atingiu o limite diário de uso do Clonador Viral. Faça upgrade para o plano PRO para gerar sem limites!',
           is_limit_reached: true,
         }
       }
+      if (res.status === 401) {
+        throw new Error('Sua sessão expirou ou você não está autenticado. Faça login novamente.')
+      }
+      if (res.status === 400) {
+        throw new Error(
+          data?.error ||
+            'O link informado parece inválido ou incompleto. Verifique a URL do YouTube Shorts, TikTok ou Reels e tente novamente.',
+        )
+      }
       if (res.status === 504 || res.status === 408) {
         throw new Error(
-          'O processamento de IA atingiu o tempo limite. Tente novamente com um vídeo ou descrição mais objetiva.',
+          'O processamento de IA atingiu o tempo limite de resposta. O serviço pode estar sobrecarregado; tente novamente em instantes com um vídeo ou descrição mais objetiva.',
         )
       }
       if (res.status >= 500) {
         throw new Error(
           data?.error ||
-            'O serviço de geração de IA está temporariamente ocupado. Tente novamente em instantes.',
+            'O serviço de geração de IA está temporariamente sobrecarregado. Tentamos a recuperação resiliente, mas os servidores de IA estão com alta demanda. Tente novamente em instantes.',
         )
       }
-      throw new Error(data?.error || `Erro HTTP ${res.status} ao processar vídeo.`)
+      throw new Error(
+        data?.error || `Não foi possível processar o vídeo (código HTTP ${res.status}).`,
+      )
     }
 
     return data as CloneVideoResponse

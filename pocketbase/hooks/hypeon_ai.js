@@ -105,6 +105,12 @@ routerAdd('POST', '/backend/v1/hypeon/clone-video', (e) => {
     return brt.toISOString().slice(0, 10)
   }
 
+  const formatCount = (n) => {
+    const num = parseInt(n || '0', 10)
+    if (isNaN(num)) return '0'
+    return String(num).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  }
+
   const extractYoutubeId = (url) => {
     if (!url) return ''
     const regExp =
@@ -230,10 +236,12 @@ routerAdd('POST', '/backend/v1/hypeon/clone-video', (e) => {
 
     let referenceContext = ''
     if (ytMeta) {
+      const viewsFormatted = formatCount(ytMeta.views)
+      const likesFormatted = formatCount(ytMeta.likes)
       referenceContext = `[VÍDEO DE REFERÊNCIA DO YOUTUBE SHORTS (DADOS REAIS DA API)]
-- Título do vídeo: "${ytMeta.title}"
-- Canal: "${ytMeta.channelTitle}"
-- Visualizações reais: ${ytMeta.views.toLocaleString('pt-BR')} | Curtidas: ${ytMeta.likes.toLocaleString('pt-BR')}
+- Título do vídeo: "${ytMeta.title || 'Vídeo de Referência'}"
+- Canal: "${ytMeta.channelTitle || 'Canal do YouTube'}"
+- Visualizações reais: ${viewsFormatted} | Curtidas: ${likesFormatted}
 - Descrição da referência: ${ytMeta.description || '(sem descrição)'}
 ${manualDescription ? `- Observações adicionais do usuário: ${manualDescription}` : ''}`
     } else if (videoUrl) {
@@ -315,7 +323,7 @@ Gere exatamente 3 cenas rápidas e originais no formato JSON estrito acima.`
     let generatedJson = null
     let aiCallError = null
 
-    // Tentativa principal otimizada com max_tokens 650 para resposta em ~4-8 segundos
+    // Tentativa principal otimizada com max_tokens 900 para resposta rápida
     try {
       const aiReply = $ai.chat({
         model: 'fast',
@@ -323,24 +331,30 @@ Gere exatamente 3 cenas rápidas e originais no formato JSON estrito acima.`
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 650,
-        temperature: 0.6,
+        max_tokens: 900,
+        temperature: 0.5,
       })
 
-      const rawContent = aiReply?.choices?.[0]?.message?.content || ''
-      let cleaned = rawContent
+      let rawContent = ''
+      if (aiReply && aiReply.choices && aiReply.choices.length > 0) {
+        rawContent = aiReply.choices[0]?.message?.content || ''
+      } else if (typeof aiReply === 'string') {
+        rawContent = aiReply
+      }
+
+      let cleaned = String(rawContent || '')
         .replace(/```(?:json)?/gi, '')
         .replace(/```/g, '')
         .trim()
       const jsonStart = cleaned.indexOf('{')
       const jsonEnd = cleaned.lastIndexOf('}')
-      if (jsonStart !== -1 && jsonEnd !== -1) {
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
         cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
         generatedJson = JSON.parse(cleaned)
       }
     } catch (aiErr) {
-      aiCallError = String(aiErr)
-      console.warn('[hypeon] Chamada $ai.chat falhou no Clonador:', aiErr)
+      aiCallError = String(aiErr && aiErr.message ? aiErr.message : aiErr)
+      console.warn('[hypeon] Chamada $ai.chat falhou no Clonador:', aiCallError)
     }
 
     if (!generatedJson || !generatedJson.title) {

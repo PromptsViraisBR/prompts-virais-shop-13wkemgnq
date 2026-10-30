@@ -273,6 +273,24 @@ export const Generator: React.FC = () => {
         reason: limitRes.is_unlimited ? 'paid_or_admin' : 'free',
       })
     } catch (limitErr: any) {
+      const isAuthProblem =
+        limitErr?.status === 401 ||
+        limitErr?.status === 403 ||
+        limitErr?.message?.toLowerCase().includes('autentic') ||
+        limitErr?.message?.toLowerCase().includes('sessão') ||
+        limitErr?.message?.toLowerCase().includes('login')
+
+      if (isAuthProblem) {
+        setAuthGateAction('Sua sessão expirou. Entre novamente para gerar o roteiro.')
+        setAuthGateOpen(true)
+        toast({
+          title: 'Sessão expirada',
+          description: 'Por favor, faça login novamente para continuar gerando seus roteiros.',
+          variant: 'destructive',
+        })
+        return
+      }
+
       if (limitErr.limitReached) {
         toast({
           title: 'Limite diário atingido (6/6 prompts)',
@@ -359,11 +377,36 @@ export const Generator: React.FC = () => {
       })
     } catch (err: any) {
       console.error('Erro na geração do prompt:', err)
-      toast({
-        title: 'Não foi possível gerar agora',
-        description: err?.message || 'Tente novamente em instantes.',
-        variant: 'destructive',
-      })
+      const errText = err?.message || ''
+      const isAuthErr =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        errText.toLowerCase().includes('autentic') ||
+        errText.toLowerCase().includes('sessão') ||
+        errText.toLowerCase().includes('token')
+
+      if (isAuthErr) {
+        setAuthGateAction('Faça login para continuar gerando roteiros')
+        setAuthGateOpen(true)
+        toast({
+          title: 'Sessão expirada',
+          description: 'Entre novamente com sua conta para salvar e gerar novos roteiros.',
+          variant: 'destructive',
+        })
+      } else {
+        const isTimeout =
+          errText.toLowerCase().includes('tempo limite') ||
+          errText.toLowerCase().includes('timeout') ||
+          errText.toLowerCase().includes('abort')
+
+        toast({
+          title: isTimeout ? 'Tempo limite esgotado' : 'Instabilidade temporária na IA',
+          description: isTimeout
+            ? 'O servidor demorou mais que o esperado. Tente novamente em alguns segundos.'
+            : errText || 'O serviço está sobrecarregado no momento. Tente novamente em instantes.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setGenerating(false)
     }

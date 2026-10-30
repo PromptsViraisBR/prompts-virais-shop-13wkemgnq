@@ -249,21 +249,36 @@ export function HypeonClonador() {
         msg.toLowerCase().includes('demor') ||
         msg.toLowerCase().includes('120s') ||
         msg.toLowerCase().includes('abort')
+      const isInvalidLink =
+        msg.toLowerCase().includes('link informado') ||
+        msg.toLowerCase().includes('link inválido') ||
+        msg.toLowerCase().includes('incompleto') ||
+        msg.toLowerCase().includes('informe um link')
+      const isAuth =
+        msg.toLowerCase().includes('sessão') ||
+        msg.toLowerCase().includes('autentic') ||
+        msg.toLowerCase().includes('login')
       const isUnavailable =
+        msg.toLowerCase().includes('sobrecarregado') ||
         msg.toLowerCase().includes('indisponível') ||
         msg.toLowerCase().includes('ocupado') ||
+        msg.toLowerCase().includes('alta demanda') ||
         msg.toLowerCase().includes('503') ||
         msg.toLowerCase().includes('500')
 
       toast({
         title: isTimeout
-          ? 'Tempo limite esgotado'
-          : isUnavailable
-            ? 'Serviço de IA Instável'
-            : 'Erro na Geração',
+          ? 'Tempo Limite Esgotado ⏱️'
+          : isInvalidLink
+            ? 'Link de Vídeo Inválido 🔗'
+            : isAuth
+              ? 'Sessão Expirada 🔒'
+              : isUnavailable
+                ? 'Serviço de IA Sobrecarregado ⚡'
+                : 'Aviso ao Processar Vídeo',
         description:
           msg ||
-          'O serviço demorou mais que o esperado ou está oscilando. Tente novamente em instantes.',
+          'Não foi possível concluir o clone do formato neste momento. Verifique a referência e tente novamente em instantes.',
         variant: 'destructive',
       })
     } finally {

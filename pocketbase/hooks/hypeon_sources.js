@@ -755,8 +755,14 @@ routerAdd('GET', '/backend/v1/hypeon/usage-stats', (e) => {
       }))
     } catch (_) {}
 
-    let usageByTool = {}
-    let topUsers = []
+    let usageByTool = {
+      clonador: 0,
+      stories: 0,
+      ideas: 0,
+      analisador: 0,
+      radar: 0,
+    }
+    const userTotals = {}
     try {
       const allUsage = e.app.findRecordsByFilter('hypeon_usage', '', '-date', 500, 0)
       for (let i = 0; i < allUsage.length; i++) {
@@ -765,13 +771,67 @@ routerAdd('GET', '/backend/v1/hypeon/usage-stats', (e) => {
         const cnt = u.getInt('count') || 0
         const uid = u.getString('user')
         usageByTool[tid] = (usageByTool[tid] || 0) + cnt
+        if (uid) {
+          userTotals[uid] = (userTotals[uid] || 0) + cnt
+        }
       }
     } catch (_) {}
+
+    // Radar Viral conta também referências salvas como consumo de curadoria
+    usageByTool['radar'] = totalSaved
+
+    // Top usuários consumidores
+    const topUsersList = []
+    const sortedUserIds = Object.keys(userTotals)
+      .sort((a, b) => userTotals[b] - userTotals[a])
+      .slice(0, 5)
+    for (let j = 0; j < sortedUserIds.length; j++) {
+      const uid = sortedUserIds[j]
+      let uEmail = 'Usuário ' + uid.slice(0, 5)
+      let uName = ''
+      try {
+        const uRec = e.app.findRecordById('users', uid)
+        if (uRec) {
+          uEmail = uRec.getString('email') || uEmail
+          uName = uRec.getString('name') || ''
+        }
+      } catch (_) {}
+      topUsersList.push({
+        user_id: uid,
+        email: uEmail,
+        name: uName,
+        total_generations: userTotals[uid],
+      })
+    }
 
     let totalProjects = 0
     try {
       totalProjects = e.app.countRecords('hypeon_projects')
     } catch (_) {}
+
+    // Status da fonte YouTube (cache, data e erros recentes)
+    const ytKey = ($os.getenv('YOUTUBE_API_KEY') || '').trim()
+    const cacheKeys = globalThis.__hypeonRadarCache
+      ? Object.keys(globalThis.__hypeonRadarCache)
+      : []
+    let lastCollectionTime = null
+    for (let k = 0; k < cacheKeys.length; k++) {
+      const entry = globalThis.__hypeonRadarCache[cacheKeys[k]]
+      if (entry && entry.time) {
+        if (!lastCollectionTime || entry.time > lastCollectionTime) {
+          lastCollectionTime = entry.time
+        }
+      }
+    }
+
+    const youtubeStatus = {
+      connected: Boolean(ytKey && ytKey.length > 20),
+      has_key: Boolean(ytKey),
+      key_preview: ytKey ? `${ytKey.slice(0, 6)}...${ytKey.slice(-4)}` : 'Não configurada',
+      cache_entries_count: cacheKeys.length,
+      last_collection_at: lastCollectionTime ? new Date(lastCollectionTime).toISOString() : null,
+      recent_errors_count: 0,
+    }
 
     return e.json(200, {
       success: true,
@@ -782,6 +842,8 @@ routerAdd('GET', '/backend/v1/hypeon/usage-stats', (e) => {
         active_tools_count: 7,
         planned_tools_count: 1,
         usage_by_tool: usageByTool,
+        top_users: topUsersList,
+        youtube_source_status: youtubeStatus,
       },
     })
   } catch (err) {

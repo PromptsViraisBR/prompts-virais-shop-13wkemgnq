@@ -1,13 +1,15 @@
-import React, { useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { HypeonLayout } from '@/components/hypeon/HypeonLayout'
+import { RADAR_NICHES } from '@/pages/hypeon/HypeonRadar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { TrendingUp, Flame, Radio, ArrowRight, Sparkles, Layers, Video } from 'lucide-react'
+import { TrendingUp, Flame, Radio, ArrowRight, Sparkles, Layers, Video, Filter } from 'lucide-react'
 
 const NICHE_TRENDS = [
   {
+    id: 'historias',
     niche: 'Histórias & Relatos',
     growth: '+42% este mês',
     dominantStyle: 'POV Narrado com cortes visuais dinâmicos',
@@ -16,6 +18,7 @@ const NICHE_TRENDS = [
     link: '/nichos',
   },
   {
+    id: 'curiosidades',
     niche: 'Curiosidades & Fatos',
     growth: '+38% este mês',
     dominantStyle: 'Unboxing visual / Zoom dramático em objetos',
@@ -24,6 +27,7 @@ const NICHE_TRENDS = [
     link: '/nichos',
   },
   {
+    id: 'terror',
     niche: 'Terror & Suspense',
     growth: '+29% este mês',
     dominantStyle: 'Câmera escura, efeito VHS, iluminação pontual',
@@ -32,6 +36,16 @@ const NICHE_TRENDS = [
     link: '/nichos',
   },
   {
+    id: 'suspense',
+    niche: 'Suspense & Mistério',
+    growth: '+33% este mês',
+    dominantStyle: 'Loop narrativo aberto com revelação final nos últimos 3s',
+    hotAudio: 'Batimento cardíaco acelerando + silêncio repentino antes do susto',
+    tip: 'Nunca entregue a resposta da pergunta antes de 80% do vídeo rodar.',
+    link: '/nichos',
+  },
+  {
+    id: 'humor',
     niche: 'Comédia & Humor',
     growth: '+35% este mês',
     dominantStyle: 'Interpretação rápida de dois personagens com cortes secos',
@@ -40,27 +54,101 @@ const NICHE_TRENDS = [
     link: '/nichos',
   },
   {
-    niche: 'Moda Feminina & Achadinhos',
-    growth: '+51% este mês',
-    dominantStyle: 'Provador dinâmico, caimento real sem filtro exagerado',
-    hotAudio: 'Pop instrumental acelerado + som de sacola abrindo',
-    tip: 'Aponte o dedo diretamente para onde o carrinho amarelo fica no TikTok.',
-    link: '/biblioteca',
+    id: 'ia',
+    niche: 'Inteligência Artificial & Tech',
+    growth: '+62% este mês',
+    dominantStyle: 'Gravação de tela acelerada + rosto em miniatura reagindo',
+    hotAudio: 'Música eletrônica lo-fi dinâmica sem vocais',
+    tip: 'Mostre o resultado final impressionante já nos primeiros 1.5 segundo.',
+    link: '/gerador',
   },
   {
-    niche: 'Perfumes & Cosméticos',
-    growth: '+44% este mês',
-    dominantStyle: 'Spray em câmera lenta, ASMR da tampa e frasco',
-    hotAudio: 'Sons sensoriais nítidos (vidro, borrifador)',
-    tip: 'Descreva a sensação olfativa com metáforas ("cheiro de quem tem a vida ganha").',
+    id: 'animacoes',
+    niche: 'Animações & Arte 3D',
+    growth: '+47% este mês',
+    dominantStyle: 'Cenas 3D hiper-realistas intercaladas com zoom in/out',
+    hotAudio: 'Sonoplastia detalhada (foley) com passos e estalos',
+    tip: 'Cada transição de cena precisa coincidir com o compasso da música.',
+    link: '/nichos',
+  },
+  {
+    id: 'personagens',
+    niche: 'Personagens Humanizados',
+    growth: '+58% este mês',
+    dominantStyle: 'Objetos ou animais falando com voz humana e sotaque regional',
+    hotAudio: 'Diálogos sarcásticos com pausas para risada mental',
+    tip: 'Crie uma personalidade marcante recorrente para gerar comunidade.',
+    link: '/hypeon/stories',
+  },
+  {
+    id: 'animais',
+    niche: 'Animais & Pets',
+    growth: '+40% este mês',
+    dominantStyle: 'POV do pet com pensamentos legendados em fontes coloridas',
+    hotAudio: 'Voz fina cômica ou narração séria estilo documentário',
+    tip: 'Gere empatia imediata mostrando o dilema do animal no primeiro frame.',
+    link: '/nichos',
+  },
+  {
+    id: 'relacionamentos',
+    niche: 'Relacionamentos & Comportamento',
+    growth: '+39% este mês',
+    dominantStyle: 'Prints de conversas encenadas com narração expressiva',
+    hotAudio: 'Trilha suave melancólica ou comédia romântica',
+    tip: 'Use perguntas polarizadoras ("Você aceitaria isso?") para inflamar os comentários.',
+    link: '/nichos',
+  },
+  {
+    id: 'motivacao',
+    niche: 'Motivação & Desenvolvimento Pessoal',
+    growth: '+31% este mês',
+    dominantStyle: 'Cenas estéticas em academia/trabalho com tipografia bold central',
+    hotAudio: 'Discursos de impacto gravados com sub-bass e piano épico',
+    tip: 'Corte imediatamente qualquer frase que pareça clichê sem ação prática.',
+    link: '/nichos',
+  },
+  {
+    id: 'conhecimento',
+    niche: 'Conhecimento & Educação Prática',
+    growth: '+45% este mês',
+    dominantStyle: 'Micro-aulas com 3 tópicos numerados em até 45 segundos',
+    hotAudio: 'Trilhas neutras que não competem com a voz do narrador',
+    tip: 'Entregue o valor logo de cara: "3 coisas que mudaram minha produtividade".',
+    link: '/nichos',
+  },
+  {
+    id: 'experimentos',
+    niche: 'Experimentos & Desafios',
+    growth: '+48% este mês',
+    dominantStyle: 'Câmera lenta nos momentos de colisão, mistura ou explosão controlada',
+    hotAudio: 'Whooshes acentuados e som de impacto amplificado',
+    tip: 'Mostre o aviso "Não tente isso em casa" para aumentar a curiosidade.',
+    link: '/nichos',
+  },
+  {
+    id: 'satisfatorios',
+    niche: 'Vídeos Satisfatórios & ASMR',
+    growth: '+53% este mês',
+    dominantStyle: 'Cortes perfeitos, prensas hidráulicas, restauração e sabonete cortado',
+    hotAudio: 'Áudio binaural hiper-nítido sem nenhuma música de fundo',
+    tip: 'A iluminação suave e sem reflexos indesejados dobra o tempo de tela.',
     link: '/nichos',
   },
 ]
 
 export const HypeonTendencias: React.FC = () => {
+  const [selectedNiche, setSelectedNiche] = useState<string>('all')
+
   useEffect(() => {
     document.title = 'Tendências por Nicho — HYPEON | Prompts Virais'
   }, [])
+
+  const filteredTrends =
+    selectedNiche === 'all'
+      ? NICHE_TRENDS
+      : NICHE_TRENDS.filter(
+          (t) => t.id === selectedNiche || t.niche.toLowerCase().includes(selectedNiche),
+        )
 
   return (
     <HypeonLayout>
@@ -95,8 +183,40 @@ export const HypeonTendencias: React.FC = () => {
           </Link>
         </div>
 
+        {/* BARRA DE CHIPS DE NICHOS COM QUEBRA (FLEX-WRAP) A PARTIR DE 320PX */}
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-purple-400" />
+              Filtrar por Nicho ({RADAR_NICHES.length} opções disponíveis)
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">
+              Exibindo {filteredTrends.length} card(s)
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {RADAR_NICHES.map((n) => {
+              const isSelected = selectedNiche === n.id
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => setSelectedNiche(n.id)}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all touch-manipulation text-center ${
+                    isSelected
+                      ? 'bg-purple-600 text-white shadow-xs ring-1 ring-purple-400/50'
+                      : 'bg-slate-950 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+                  }`}
+                >
+                  {n.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {NICHE_TRENDS.map((t, idx) => (
+          {filteredTrends.map((t, idx) => (
             <Card
               key={idx}
               className="rounded-2xl bg-slate-900/90 border-slate-800 hover:border-purple-500/40 transition-all p-5 space-y-3.5"

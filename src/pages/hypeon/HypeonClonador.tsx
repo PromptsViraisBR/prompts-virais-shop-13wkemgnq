@@ -243,9 +243,25 @@ export function HypeonClonador() {
         description: 'Engenharia reversa concluída e roteiro original pronto.',
       })
     } catch (err: any) {
+      const msg = err?.message || ''
+      const isTimeout =
+        msg.toLowerCase().includes('demorou') ||
+        msg.toLowerCase().includes('120s') ||
+        msg.toLowerCase().includes('abort')
+      const isUnavailable =
+        msg.toLowerCase().includes('indisponível') ||
+        msg.toLowerCase().includes('503') ||
+        msg.toLowerCase().includes('500')
+
       toast({
-        title: 'Falha na conexão',
-        description: err?.message || 'Tente novamente em instantes.',
+        title: isTimeout
+          ? 'Tempo limite esgotado'
+          : isUnavailable
+            ? 'Serviço de IA Indisponível'
+            : 'Erro na Geração',
+        description:
+          msg ||
+          'A IA demorou demais ou o serviço está temporariamente instável. Tente novamente em instantes com uma descrição mais curta.',
         variant: 'destructive',
       })
     } finally {

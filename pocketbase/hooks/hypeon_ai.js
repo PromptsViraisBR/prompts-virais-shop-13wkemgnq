@@ -256,58 +256,55 @@ ${manualDescription}`
     }
     const currentModeInstruction = modeDescriptions[mode] || modeDescriptions.recriar_formato
 
-    const systemPrompt = `Você é o Diretor Criativo e Estrategista Sênior do HYPEON (motor de engenharia reversa e criação de conteúdo viral em Português do Brasil - PT-BR).
+    const systemPrompt = `Você é o Diretor Criativo Sênior do HYPEON (engenharia reversa e criação de conteúdo viral em PT-BR).
 
-REGRA ÉTICA FUNDAMENTAL E OBRIGATÓRIA:
-O sistema NUNCA deve simplesmente copiar vídeos ou reproduzir integralmente roteiros protegidos de terceiros. A sua finalidade é identificar estruturas, mecanismos narrativos, gatilhos de retenção e características gerais para CRIAR CONTEÚDOS TOTALMENTE ORIGINAIS E INÉDITOS. Nenhuma marca registrada ou identidade particular alheia deve ser infringida.
+REGRA ÉTICA OBRIGATÓRIA:
+NUNCA copie literalmente nem reproduza roteiros protegidos. Crie conteúdo 100% ORIGINAL E INÉDITO baseado na dinâmica e mecanismos de retenção.
 
-DIRETRIZES DE ESTILO:
-- Português Brasileiro (PT-BR) natural, coloquial, dinâmico e magnético.
-- Roteiro pronto para gravação ou produção em vídeo vertical (Shorts, Reels, TikTok).
-- SEM textos ou legendas geradas dentro da imagem que poluam a tela (o vídeo é 100% limpo; textos na tela devem ser apenas palavras-chave ou números de alto impacto).
+DIRETRIZES:
+- PT-BR natural, dinâmico e magnético para Shorts/Reels/TikTok.
+- Roteiro enxuto com 3 a 5 cenas essenciais.
+- Retorne EXCLUSIVAMENTE um objeto JSON válido (sem blocos markdown e sem texto antes ou depois).
 
-ESTRUTURA DE RESPOSTA OBRIGATÓRIA EM JSON:
-Você DEVE responder ESTRITAMENTE em formato JSON VÁLIDO com as seguintes chaves:
+CHAVES DO JSON:
 {
-  "title": "Título magnético sugerido",
-  "category": "Categoria do vídeo",
+  "title": "Título magnético curto",
+  "category": "Categoria",
   "reference_analysis": {
-    "detected_hook": "Análise do gancho da referência",
-    "narrative_structure": "Estrutura narrativa identificada",
+    "detected_hook": "Gancho original identificado",
+    "narrative_structure": "Estrutura narrativa",
     "pacing": "Ritmo e cadência",
-    "emotional_trigger": "Emoção transmitida (curiosidade, medo, fascínio, riso)",
-    "peak_impact_moment": "Momento de maior impacto",
-    "originality_note": "Explicação de como a nova versão inova em relação à referência"
+    "emotional_trigger": "Gatilho emocional central",
+    "peak_impact_moment": "Momento de ápice",
+    "originality_note": "Como esta nova versão inova"
   },
   "hook": "Gancho inicial hipnótico (0-3s)",
-  "full_script": "Roteiro completo narrado do início ao fim",
-  "narration": "Texto integral apenas da locução / voz em off",
-  "dialogues": "Diálogos ou falas principais (se aplicável, ou narração)",
+  "full_script": "Roteiro narrado completo",
+  "narration": "Locução/voz em off fluida",
+  "dialogues": "Falas principais ou narração",
   "scenes": [
     {
       "scene_number": 1,
       "duration": "0-3s",
-      "visual_description": "Descrição cinematográfica da cena",
-      "voiceover": "O que é dito nesta cena",
-      "screen_text": "Texto curto na tela (ex: 'O SEGREDO REVELADO')",
-      "sound_effects": "Efeito sonoro sugerido (ex: 'Whoosh grave + batimento cardíaco')",
-      "transition": "Sugestão de transição (ex: 'Zoom-in rápido com corte seco')"
+      "visual_description": "Cena visual precisa",
+      "voiceover": "Fala da cena",
+      "screen_text": "Texto curto na tela",
+      "sound_effects": "Efeito sonoro",
+      "transition": "Transição sugerida"
     }
   ],
-  "sound_effects_overview": "Resumo dos efeitos sonoros recomendados para o vídeo todo",
-  "transitions_overview": "Sugestões de transições e ritmo de edição",
-  "closure": "Momento de encerramento e desfecho",
-  "cta": "Chamada para ação de alta conversão (comentário, like, seguir)"
-}
-
-Responda APENAS o JSON válido sem preâmbulos.`
+  "sound_effects_overview": "Resumo dos efeitos sonoros recomendados",
+  "transitions_overview": "Guia de ritmo e cortes",
+  "closure": "Desfecho e encerramento",
+  "cta": "Chamada para ação de alta conversão"
+}`
 
     const userPrompt = `${referenceContext}
 
-CATEGORIA DO CONTEÚDO: ${category}
+CATEGORIA: ${category}
 ${currentModeInstruction}
 
-Gere o raio-X completo da estrutura e o roteiro original em 14 blocos estruturados no JSON especificado.`
+Gere o raio-X completo da estrutura e o roteiro original em formato JSON estrito.`
 
     let generatedJson = null
     try {
@@ -317,6 +314,8 @@ Gere o raio-X completo da estrutura e o roteiro original em 14 blocos estruturad
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
+        max_tokens: 1800,
+        temperature: 0.7,
       })
 
       const rawContent = aiReply?.choices?.[0]?.message?.content || ''

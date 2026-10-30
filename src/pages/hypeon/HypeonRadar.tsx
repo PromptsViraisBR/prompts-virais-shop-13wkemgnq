@@ -43,6 +43,7 @@ import {
   Pause,
   X,
   Youtube,
+  Copy,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -108,6 +109,7 @@ export const HypeonRadar: React.FC = () => {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   // Controle de reprodução embutida por vídeo
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
     document.title = 'Radar Viral — HYPEON | Prompts Virais'
@@ -152,6 +154,38 @@ export const HypeonRadar: React.FC = () => {
   useEffect(() => {
     loadRadar()
   }, [platform, niche, period, sort])
+
+  const handleCopyLink = async (video: RadarVideoItem) => {
+    const url = video.original_url || `https://www.youtube.com/watch?v=${video.id}`
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = url
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setCopiedId(video.id)
+      toast({
+        title: 'Link copiado! 📋',
+        description: 'URL do YouTube copiada para a área de transferência.',
+      })
+      setTimeout(() => {
+        setCopiedId((curr) => (curr === video.id ? null : curr))
+      }, 2500)
+    } catch (_) {
+      toast({
+        title: 'Não foi possível copiar',
+        description: 'Copie manualmente o link direto do YouTube.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const handleSaveReference = async (video: RadarVideoItem) => {
     if (!user) {
@@ -297,12 +331,17 @@ export const HypeonRadar: React.FC = () => {
             </div>
           </div>
 
-          {/* Nichos: Tags Selecionáveis */}
-          <div className="space-y-1.5 pt-1">
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Nicho Viral ({RADAR_NICHES.length - 1} nichos mapeados)
-            </label>
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+          {/* Nichos: Tags Selecionáveis com quebra de linha (flex-wrap) acessível a partir de 320px */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Nicho Viral ({RADAR_NICHES.length - 1} nichos mapeados)
+              </label>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {RADAR_NICHES.length} opções disponíveis
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 py-1">
               {RADAR_NICHES.map((n) => {
                 const isSelected = niche === n.id
                 return (
@@ -310,9 +349,9 @@ export const HypeonRadar: React.FC = () => {
                     key={n.id}
                     type="button"
                     onClick={() => setNiche(n.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all touch-manipulation ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all touch-manipulation text-center ${
                       isSelected
-                        ? 'bg-purple-600 text-white shadow-xs'
+                        ? 'bg-purple-600 text-white shadow-xs ring-1 ring-purple-400/50'
                         : 'bg-slate-950 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
                     }`}
                   >
@@ -545,7 +584,7 @@ export const HypeonRadar: React.FC = () => {
                   </CardContent>
 
                   <CardFooter className="p-4 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 bg-slate-950/40">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <Button
                         size="sm"
                         variant="ghost"
@@ -555,12 +594,37 @@ export const HypeonRadar: React.FC = () => {
                         {isPlaying ? (
                           <>
                             <Pause className="w-3 h-3 text-amber-400" />
-                            <span>Pausar</span>
+                            <span className="hidden sm:inline">Pausar</span>
                           </>
                         ) : (
                           <>
                             <Play className="w-3 h-3 text-rose-400 fill-rose-400" />
-                            <span>Assistir</span>
+                            <span className="hidden sm:inline">Assistir</span>
+                          </>
+                        )}
+                      </Button>
+
+                      {/* Botão Copiar Link com feedback visual */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopyLink(video)}
+                        className={`h-8 px-2.5 text-xs font-medium rounded-lg gap-1 border-slate-800 transition-colors ${
+                          copiedId === video.id
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                        }`}
+                        title="Copiar URL do vídeo"
+                      >
+                        {copiedId === video.id ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span>Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3 text-cyan-400" />
+                            <span>Copiar link</span>
                           </>
                         )}
                       </Button>
@@ -569,10 +633,9 @@ export const HypeonRadar: React.FC = () => {
                         href={video.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white font-medium hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white font-medium hover:underline px-1"
                         title="Abrir no YouTube"
                       >
-                        <span>No YouTube</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
@@ -581,7 +644,7 @@ export const HypeonRadar: React.FC = () => {
                       size="sm"
                       onClick={() => handleSaveReference(video)}
                       disabled={isSaved || isSaving}
-                      className={`text-xs font-bold h-8 px-3 rounded-xl gap-1.5 transition-all ${
+                      className={`text-xs font-bold h-8 px-3 rounded-xl gap-1.5 transition-all shrink-0 ${
                         isSaved
                           ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
                           : 'bg-purple-600 hover:bg-purple-500 text-white'

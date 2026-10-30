@@ -104,12 +104,63 @@ export interface CloneVideoResponse {
   is_limit_reached?: boolean
 }
 
+const BACKEND_URL = import.meta.env.VITE_POCKETBASE_URL || ''
+
 export async function cloneVideo(params: CloneVideoParams): Promise<CloneVideoResponse> {
-  const res = await pb.send('/backend/v1/hypeon/clone-video', {
-    method: 'POST',
-    body: params,
-  })
-  return res as CloneVideoResponse
+  const controller = new AbortController()
+  const timeoutMs = 120000 // 120s para IA completa sem cancelamento prematuro
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/backend/v1/hypeon/clone-video`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(pb.authStore.token ? { Authorization: `Bearer ${pb.authStore.token}` } : {}),
+      },
+      body: JSON.stringify(params),
+      signal: controller.signal,
+    })
+
+    const data = await res.json().catch(() => null)
+
+    if (!res.ok) {
+      if (res.status === 429) {
+        return {
+          success: false,
+          mode: params.mode,
+          data: null as any,
+          usage: { used_today: 0, daily_limit: 0, remaining: 0 },
+          error: data?.error || 'Limite diário do Clonador atingido.',
+          is_limit_reached: true,
+        }
+      }
+      if (res.status === 504 || res.status === 408) {
+        throw new Error(
+          'A IA demorou demais para responder. Tente com um vídeo mais curto ou descrição mais simples.',
+        )
+      }
+      if (res.status >= 500) {
+        throw new Error(
+          data?.error ||
+            'Serviço de IA temporariamente indisponível. Tente novamente em instantes.',
+        )
+      }
+      throw new Error(data?.error || `Erro HTTP ${res.status} ao processar vídeo.`)
+    }
+
+    return data as CloneVideoResponse
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error(
+        'A IA demorou demais para processar (limite de 120s estourado). Tente um vídeo mais curto ou descrição resumida.',
+      )
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // -------------------------------------------------------------

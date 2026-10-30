@@ -21,51 +21,44 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.82'
+export const CURRENT_VERSION = 'v0.0.83'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
   releaseDate: '2025-05-13',
   tagline: 'PROMPTS VIRAIS — Inteligência para criar conteúdos que conquistam a internet.',
-  headline: 'Fase 3 HYPEON — Clonador Viral, Stories, Ideas e Analisador com IA! 🚀✨',
+  headline: 'v0.0.83 — Clonador Otimizado, Nichos Responsivos, Copiar Link & Painel HYPEON! 🚀⚡',
   highlights: [
     {
       icon: 'sparkles',
-      badge: 'CLONADOR VIRAL',
-      title: 'Clonador Viral: Engenharia Reversa em 14 Blocos Originais',
+      badge: 'CLONADOR CORRIGIDO',
+      title: 'Clonador Viral: Geração Estável sem Falha de Conexão',
       description:
-        'Cole um link do YouTube Shorts ou descreva o vídeo para recriar o formato. 4 modos: Recriar Formato, Melhorar Original, Nova Versão e Versão Curta com divisão cena a cena.',
+        'Timeout ampliado para 120s no frontend, prompts enxutos de alta velocidade e tratamento específico de erros sem falhas genéricas.',
     },
     {
       icon: 'layers',
-      badge: 'HYPEON STORIES',
-      title: 'HYPEON Stories com Séries e Continuidade de Personagens',
+      badge: 'TODOS OS NICHOS VISÍVEIS',
+      title: 'Barra de Nichos Completa a partir de 320px',
       description:
-        'Narrativas em 11 categorias (Terror, Mistério, Ficção, Drama...) com prompts de imagem e vídeo por cena e banco de personagens contínuos em múltiplos episódios.',
+        'No Radar Viral e Tendências, todos os 16 nichos ficam sempre visíveis e selecionáveis em qualquer tamanho de tela sem cortes.',
     },
     {
       icon: 'zap',
-      badge: 'HYPEON IDEAS',
-      title: 'HYPEON Ideas: Banco Infinito com Estimativa de Retenção',
+      badge: 'RADAR VIRAL',
+      title: 'Botão Copiar Link Direto do YouTube com Feedback',
       description:
-        'Gere 5, 10 ou 20 ideias com score estimado de engajamento da IA e transforme qualquer ideia em roteiro completo com um único clique.',
+        'Copie instantaneamente a URL do vídeo de referência com um clique e confirmação visual de "Copiado!" na hora.',
     },
     {
       icon: 'shield',
-      badge: 'ANALISADOR',
-      title: 'Analisador de Vídeos: Notas 0 a 100 e Riscos de Abandono',
+      badge: 'FASE 5 ADMIN',
+      title: 'Painel HYPEON com Consumo Real e Status da Fonte YouTube',
       description:
-        'Diagnóstico cirúrgico em 8 critérios cruciais, detecção de drop-off e plano imediato de reescrita de gancho e ritmo.',
-    },
-    {
-      icon: 'radar',
-      badge: 'LIMITES NO SERVIDOR',
-      title: 'Controle de Utilização por Plano no Servidor & Painel Admin',
-      description:
-        'Limites diários server-side para planos Grátis e PRO, configuráveis pelo administrador e com estatísticas de consumo das ferramentas.',
+        'Consumo real por ferramenta (Clonador, Stories, Ideas, Analisador e Radar), ranking de top usuários, status da API do YouTube e limites editáveis incluindo upload.',
     },
   ],
-  ctaText: 'Explorar o Clonador Viral',
-  ctaLink: '/hypeon/clonador',
+  ctaText: 'Ver Novidades no Radar',
+  ctaLink: '/hypeon/radar',
 }

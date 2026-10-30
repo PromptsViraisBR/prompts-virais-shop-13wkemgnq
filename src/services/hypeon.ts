@@ -84,6 +84,22 @@ export interface UpdateLimitPayload {
   description?: string
 }
 
+export interface HypeonTopUser {
+  user_id: string
+  email: string
+  name: string
+  total_generations: number
+}
+
+export interface HypeonYoutubeSourceStatus {
+  connected: boolean
+  has_key: boolean
+  key_preview: string
+  cache_entries_count: number
+  last_collection_at: string | null
+  recent_errors_count: number
+}
+
 export interface HypeonUsageStatsResponse {
   success: boolean
   stats: {
@@ -93,6 +109,8 @@ export interface HypeonUsageStatsResponse {
     active_tools_count: number
     planned_tools_count: number
     usage_by_tool?: Record<string, number>
+    top_users?: HypeonTopUser[]
+    youtube_source_status?: HypeonYoutubeSourceStatus
   }
 }
 

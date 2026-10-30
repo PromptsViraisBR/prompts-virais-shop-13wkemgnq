@@ -976,42 +976,158 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Consumo por Ferramenta IA */}
-          {hypeonStats?.stats.usage_by_tool &&
-            Object.keys(hypeonStats.stats.usage_by_tool).length > 0 && (
-              <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-2">
+          {/* Consumo por Ferramenta IA (5 ferramentas completas) */}
+          {hypeonStats?.stats.usage_by_tool && (
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+              <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  Consumo Registrado por Ferramenta (Todas as Datas):
+                  Consumo Real por Ferramenta (Dados do Banco)
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
-                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-slate-400 text-[11px] block">Clonador Viral:</span>
-                    <span className="text-white font-bold text-sm">
-                      {hypeonStats.stats.usage_by_tool['clonador'] || 0} gerações
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-slate-400 text-[11px] block">HYPEON Stories:</span>
-                    <span className="text-white font-bold text-sm">
-                      {hypeonStats.stats.usage_by_tool['stories'] || 0} histórias
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-slate-400 text-[11px] block">HYPEON Ideas:</span>
-                    <span className="text-white font-bold text-sm">
-                      {hypeonStats.stats.usage_by_tool['ideas'] || 0} lotes
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-slate-400 text-[11px] block">Analisador de Vídeos:</span>
-                    <span className="text-white font-bold text-sm">
-                      {hypeonStats.stats.usage_by_tool['analisador'] || 0} diagnósticos
-                    </span>
-                  </div>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] border-slate-700 text-slate-400 font-mono"
+                >
+                  Coleção hypeon_usage
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-xs">
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-slate-400 text-[11px] block">Clonador Viral:</span>
+                  <span className="text-white font-bold text-sm">
+                    {hypeonStats.stats.usage_by_tool['clonador'] || 0} gerações
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-slate-400 text-[11px] block">HYPEON Stories:</span>
+                  <span className="text-white font-bold text-sm">
+                    {hypeonStats.stats.usage_by_tool['stories'] || 0} histórias
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-slate-400 text-[11px] block">HYPEON Ideas:</span>
+                  <span className="text-white font-bold text-sm">
+                    {hypeonStats.stats.usage_by_tool['ideas'] || 0} lotes
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-slate-400 text-[11px] block">Analisador de Vídeos:</span>
+                  <span className="text-white font-bold text-sm">
+                    {hypeonStats.stats.usage_by_tool['analisador'] || 0} diagnósticos
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-slate-400 text-[11px] block">Radar Viral (Refs):</span>
+                  <span className="text-cyan-300 font-bold text-sm">
+                    {hypeonStats.stats.usage_by_tool['radar'] ||
+                      hypeonStats.stats.total_saved_videos ||
+                      0}{' '}
+                    salvas
+                  </span>
                 </div>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Top Usuários Consumidores e Status Detalhado da Fonte YouTube */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Top Usuários Consumidores */}
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <Activity className="w-3.5 h-3.5 text-purple-400" />
+                  Top Usuários Consumidores (Gerações Reais)
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Ranking banco</span>
+              </div>
+              {hypeonStats?.stats.top_users && hypeonStats.stats.top_users.length > 0 ? (
+                <div className="divide-y divide-slate-800 text-xs">
+                  {hypeonStats.stats.top_users.map((u, i) => (
+                    <div key={u.user_id} className="py-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-[10px] shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="truncate">
+                          <p className="font-semibold text-white truncate">{u.name || u.email}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{u.email}</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-purple-600/30 text-purple-200 border-purple-500/30 text-[11px] font-mono shrink-0">
+                        {u.total_generations} gerações
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic py-2">
+                  Nenhum consumo registrado ainda pelos usuários.
+                </p>
+              )}
+            </div>
+
+            {/* Status Detalhado da Integração YouTube (Última Coleta, Cache, Erros) */}
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                  Status da Fonte YouTube Data API
+                </span>
+                <Badge
+                  className={`text-[9px] uppercase font-bold font-mono ${
+                    hypeonStats?.stats.youtube_source_status?.connected
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  }`}
+                >
+                  {hypeonStats?.stats.youtube_source_status?.connected
+                    ? 'Online / Coleta Ativa'
+                    : 'Pendente Chave'}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                    Chave de API:
+                  </span>
+                  <span className="text-white font-mono text-xs">
+                    {hypeonStats?.stats.youtube_source_status?.key_preview || 'Não informada'}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                    Última Coleta:
+                  </span>
+                  <span className="text-white text-xs">
+                    {hypeonStats?.stats.youtube_source_status?.last_collection_at
+                      ? new Date(
+                          hypeonStats.stats.youtube_source_status.last_collection_at,
+                        ).toLocaleString('pt-BR')
+                      : 'Nenhuma recente (sob demanda)'}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                    Entradas em Cache:
+                  </span>
+                  <span className="text-cyan-300 font-bold text-xs">
+                    {hypeonStats?.stats.youtube_source_status?.cache_entries_count || 0} feeds em
+                    memória (20 min)
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                    Erros Recentes:
+                  </span>
+                  <span className="text-emerald-400 font-bold text-xs">
+                    {hypeonStats?.stats.youtube_source_status?.recent_errors_count || 0} falhas
+                    registradas
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Tabela de Limites por Ferramenta */}
           <div className="space-y-3">
@@ -1161,6 +1277,37 @@ export const AdminDashboard: React.FC = () => {
                   }
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
                 />
+              </div>
+
+              {/* Limite de Upload / Tamanho Máximo em MB */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase">
+                  Tamanho Máximo de Arquivo / Upload (MB)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={
+                    editingLimit.description?.includes('upload_mb:')
+                      ? parseInt(editingLimit.description.split('upload_mb:')[1] || '25', 10)
+                      : 25
+                  }
+                  onChange={(e) => {
+                    const mb = parseInt(e.target.value || '25', 10)
+                    const baseDesc = (editingLimit.description || '')
+                      .replace(/\s*\|?\s*upload_mb:\d+/g, '')
+                      .trim()
+                    setEditingLimit({
+                      ...editingLimit,
+                      description: baseDesc ? `${baseDesc} | upload_mb:${mb}` : `upload_mb:${mb}`,
+                    })
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Teto em megabytes para upload de imagens/vídeos de referência (padrão: 25 MB).
+                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-1">

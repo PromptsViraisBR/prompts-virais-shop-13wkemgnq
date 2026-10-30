@@ -376,24 +376,126 @@ export async function analyzeVideo(params: AnalyzeVideoParams): Promise<AnalyzeV
 // -------------------------------------------------------------
 // PROJETOS SALVOS (HYPEON PROJECTS)
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// CRIADOR DE CENAS (HYPEON CENAS - FASE 4)
+// -------------------------------------------------------------
+export type VisualStyle =
+  | 'Realista cinematográfico'
+  | 'Animação 3D'
+  | 'Cartoon'
+  | 'Anime'
+  | 'Documentário'
+  | 'Terror cinematográfico'
+  | 'Estilo viral de redes sociais'
+
+export interface SceneItem {
+  scene_number: number
+  duration: string
+  visual_description: string
+  characters?: string
+  setting?: string
+  framing?: string
+  lighting?: string
+  camera_movement?: string
+  action?: string
+  expressions?: string
+  image_prompt: string
+  video_prompt: string
+  narration: string
+}
+
+export interface GenerateScenesResult {
+  title: string
+  visual_style: string
+  total_scenes_in_batch: number
+  scenes: SceneItem[]
+}
+
+export interface GenerateScenesParams {
+  script: string
+  visual_style: VisualStyle
+  title?: string
+  batch_index?: number
+  scenes_count?: number
+}
+
+export interface GenerateScenesResponse {
+  success: boolean
+  data: GenerateScenesResult
+  project_id?: string
+  visual_style: string
+  usage: {
+    used_today: number
+    daily_limit: number
+    remaining: number
+  }
+  is_limit_reached?: boolean
+  error?: string
+  warning?: string
+}
+
+export async function generateScenes(
+  params: GenerateScenesParams,
+): Promise<GenerateScenesResponse> {
+  const token = pb.authStore.token
+  const res = await fetch(`${BACKEND_URL}/backend/v1/hypeon/generate-scenes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(params),
+  })
+
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error || `Erro HTTP ${res.status} ao gerar cenas`)
+  }
+  return data
+}
+
+// -------------------------------------------------------------
+// PROJETOS SALVOS (HYPEON PROJECTS - FASE 3 e 4)
+// -------------------------------------------------------------
 export interface HypeonProjectRecord {
   id: string
   user: string
-  tool_id: 'clonador' | 'stories' | 'ideas' | 'analisador'
+  tool_id:
+    | 'clonador'
+    | 'stories'
+    | 'ideas'
+    | 'analisador'
+    | 'cenas'
+    | 'prompt_imagem'
+    | 'prompt_video'
   title: string
   category?: string
   mode?: string
   source_type?: string
   source_reference?: string
+  content_type?: string
+  folder?: string
+  notes?: string
   payload: any
   is_favorite?: boolean
   created: string
   updated: string
 }
 
-export async function listHypeonProjects(toolId?: string): Promise<HypeonProjectRecord[]> {
-  const filter = toolId ? `tool_id = "${toolId}"` : ''
-  const records = await pb.collection('hypeon_projects').getList<HypeonProjectRecord>(1, 50, {
+export async function listHypeonProjects(
+  toolId?: string,
+  folder?: string,
+): Promise<HypeonProjectRecord[]> {
+  const filters: string[] = []
+  if (toolId && toolId !== 'all') {
+    filters.push(`tool_id = "${toolId}"`)
+  }
+  if (folder) {
+    filters.push(`folder = "${folder}"`)
+  }
+  const filter = filters.join(' && ')
+  const records = await pb.collection('hypeon_projects').getList<HypeonProjectRecord>(1, 100, {
     filter,
     sort: '-created',
   })
@@ -402,4 +504,63 @@ export async function listHypeonProjects(toolId?: string): Promise<HypeonProject
 
 export async function deleteHypeonProject(id: string): Promise<boolean> {
   return await pb.collection('hypeon_projects').delete(id)
+}
+
+export async function updateHypeonProject(
+  id: string,
+  data: Partial<
+    Pick<HypeonProjectRecord, 'title' | 'category' | 'folder' | 'notes' | 'is_favorite' | 'payload'>
+  >,
+): Promise<HypeonProjectRecord> {
+  return await pb.collection('hypeon_projects').update<HypeonProjectRecord>(id, data)
+}
+
+export async function saveHypeonProject(data: {
+  tool_id: string
+  title: string
+  category?: string
+  mode?: string
+  source_type?: string
+  source_reference?: string
+  content_type?: string
+  folder?: string
+  notes?: string
+  payload: any
+  is_favorite?: boolean
+}): Promise<HypeonProjectRecord> {
+  if (!pb.authStore.record?.id) {
+    throw new Error('Você precisa estar logado para salvar projetos.')
+  }
+  return await pb.collection('hypeon_projects').create<HypeonProjectRecord>({
+    user: pb.authStore.record.id,
+    tool_id: data.tool_id as any,
+    title: data.title,
+    category: data.category || '',
+    mode: data.mode || '',
+    source_type: data.source_type || '',
+    source_reference: data.source_reference || '',
+    content_type: data.content_type || data.tool_id,
+    folder: data.folder || '',
+    notes: data.notes || '',
+    payload: data.payload,
+    is_favorite: !!data.is_favorite,
+  })
+}
+
+export async function duplicateHypeonProject(
+  project: HypeonProjectRecord,
+): Promise<HypeonProjectRecord> {
+  return await saveHypeonProject({
+    tool_id: project.tool_id,
+    title: `${project.title} (Cópia)`,
+    category: project.category,
+    mode: project.mode,
+    source_type: project.source_type,
+    source_reference: project.source_reference,
+    content_type: project.content_type,
+    folder: project.folder,
+    notes: project.notes,
+    payload: project.payload,
+    is_favorite: project.is_favorite,
+  })
 }

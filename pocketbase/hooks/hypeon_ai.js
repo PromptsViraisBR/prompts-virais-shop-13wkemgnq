@@ -1424,3 +1424,288 @@ routerAdd('GET', '/backend/v1/hypeon/series/list', (e) => {
     return e.json(500, { success: false, error: String(err) })
   }
 })
+
+// 8. POST /backend/v1/hypeon/generate-scenes
+// Criador de Cenas: transforma roteiro em cenas com IA (lotes de 3 a 4 cenas enxutas, max_tokens moderado)
+routerAdd('POST', '/backend/v1/hypeon/generate-scenes', (e) => {
+  const getBrtToday = () => {
+    const now = new Date()
+    const brt = new Date(now.getTime() - 3 * 3600 * 1000)
+    return brt.toISOString().slice(0, 10)
+  }
+
+  try {
+    const authRecord = e.auth
+    if (!authRecord) {
+      return e.json(401, { success: false, error: 'Faça login para usar o Criador de Cenas.' })
+    }
+
+    const today = getBrtToday()
+    let isPro = false
+    const email = (authRecord.email() || authRecord.getString('email') || '').toLowerCase().trim()
+    const isAdmin = authRecord.getBool('is_admin') || email === 'juniorrodriguesjr123.jr@gmail.com'
+
+    if (isAdmin) {
+      isPro = true
+    } else {
+      try {
+        const subs = e.app.findRecordsByFilter(
+          'subscriptions',
+          `user = "${authRecord.id}" && status = "active" && (plan = "monthly" || plan = "annual")`,
+          '-created',
+          1,
+          0,
+        )
+        if (subs && subs.length > 0) isPro = true
+      } catch (_) {}
+    }
+
+    let freeLimit = 2
+    let proLimit = 25
+    try {
+      const limitRec = e.app.findFirstRecordByData('hypeon_limits', 'tool_id', 'cenas')
+      if (limitRec) {
+        freeLimit = limitRec.getInt('free_limit_daily') || 2
+        proLimit = limitRec.getInt('pro_limit_daily') || 25
+      }
+    } catch (_) {}
+
+    const activeDailyLimit = isPro ? proLimit : freeLimit
+    let usedToday = 0
+    let usageRec = null
+    try {
+      const recs = e.app.findRecordsByFilter(
+        'hypeon_usage',
+        `user = "${authRecord.id}" && tool_id = "cenas" && date = "${today}"`,
+        '-created',
+        1,
+        0,
+      )
+      if (recs && recs.length > 0) {
+        usageRec = recs[0]
+        usedToday = usageRec.getInt('count') || 0
+      }
+    } catch (_) {}
+
+    const remaining = isAdmin ? 9999 : Math.max(0, activeDailyLimit - usedToday)
+    if (!isAdmin && remaining <= 0) {
+      return e.json(429, {
+        success: false,
+        error: `Limite diário do Criador de Cenas atingido (${usedToday}/${activeDailyLimit}). Faça upgrade para o plano PRO para mais limites!`,
+        is_limit_reached: true,
+        remaining: 0,
+      })
+    }
+
+    const body = e.requestInfo().body || {}
+    const script = (body.script || '').trim()
+    const visualStyle = (body.visual_style || 'Realista cinematográfico').trim()
+    const title = (body.title || '').trim()
+    const batchIndex = parseInt(body.batch_index || '1', 10) // para lotes se o roteiro for longo
+    const scenesPerBatch = Math.min(Math.max(parseInt(body.scenes_count || '4', 10), 2), 4)
+
+    if (!script) {
+      return e.json(400, {
+        success: false,
+        error: 'Cole um roteiro ou selecione um projeto para gerar as cenas.',
+      })
+    }
+
+    const systemPrompt = `Você é o Diretor de Fotografia e Produção Audiovisual com IA do HYPEON (PT-BR).
+Transforme o roteiro fornecido em cenas prontas para geração visual com IA.
+ESTILO VISUAL OBRIGATÓRIO: "${visualStyle}"
+
+Para CADA cena você DEVE fornecer:
+1. visual_description: descrição visual da cena
+2. characters: personagens presentes e suas aparências
+3. setting: cenário/ambiente com atmosfera
+4. framing: enquadramento de câmera (ex: Close-up dramático, Plano médio, Plano aberto)
+5. lighting: iluminação (ex: Luz volumétrica dourada, Contraste dramático chiaroscuro)
+6. camera_movement: movimento de câmera (ex: Slow push-in lento, Pan lateral suave, Câmera estática)
+7. action: ação principal acontecendo
+8. expressions: expressões faciais e emoção
+9. image_prompt: prompt detalhado em PT-BR para geradores de imagem (Midjourney/DALL-E 3/Google Flow) em formato vertical 9:16, cinematográfico, SEM texto escrito
+10. video_prompt: prompt de movimento para geradores de vídeo (Runway Gen-3/Kling/Luma) descrevendo câmera e dinâmicas
+11. narration: fala da narração ou voz em off desta cena
+12. duration: duração sugerida (ex: 3s, 5s)
+
+Gere de 3 a 4 cenas ultra enxutas, sem texto extra, estritamente em JSON:
+{
+  "title": "${title ? title.replace(/"/g, '') : 'Produção de Cenas'}",
+  "visual_style": "${visualStyle}",
+  "total_scenes_in_batch": ${scenesPerBatch},
+  "scenes": [
+    {
+      "scene_number": 1,
+      "duration": "4s",
+      "visual_description": "Descrição sucinta",
+      "characters": "Personagem e visual",
+      "setting": "Ambiente e cenário",
+      "framing": "Enquadramento",
+      "lighting": "Iluminação",
+      "camera_movement": "Movimento de câmera",
+      "action": "Ação principal",
+      "expressions": "Expressão e emoção",
+      "image_prompt": "Prompt vertical 9:16 hiper-realista sem texto",
+      "video_prompt": "Instrução de câmera e movimento",
+      "narration": "Texto narrado"
+    }
+  ]
+}`
+
+    const userPrompt = `ROTEIRO:\n${script.slice(0, 1500)}\n\nESTILO: ${visualStyle}\nLOTE: ${batchIndex} (${scenesPerBatch} cenas)\nGere o JSON estrito com as cenas prontas.`
+
+    let generatedJson = null
+    let aiCallError = null
+
+    try {
+      const aiReply = $ai.chat({
+        model: 'fast',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 1200,
+        temperature: 0.6,
+      })
+
+      const raw = aiReply?.choices?.[0]?.message?.content || ''
+      let cleaned = raw
+        .replace(/```(?:json)?/gi, '')
+        .replace(/```/g, '')
+        .trim()
+      const jsonStart = cleaned.indexOf('{')
+      const jsonEnd = cleaned.lastIndexOf('}')
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+        generatedJson = JSON.parse(cleaned)
+      }
+    } catch (aiErr) {
+      aiCallError = String(aiErr)
+      console.warn('[hypeon] Falha ao gerar cenas no $ai.chat:', aiErr)
+    }
+
+    if (
+      !generatedJson ||
+      !Array.isArray(generatedJson.scenes) ||
+      generatedJson.scenes.length === 0
+    ) {
+      // Fallback resiliente calibrado com o estilo escolhido
+      generatedJson = {
+        title: title || 'Cenas Prontas para Produção',
+        visual_style: visualStyle,
+        total_scenes_in_batch: 3,
+        scenes: [
+          {
+            scene_number: 1,
+            duration: '4s',
+            visual_description: `Abertura impactante no estilo ${visualStyle}. O elemento central entra em foco imediato com alta dramaticidade.`,
+            characters: 'Protagonista expressivo olhando diretamente em direção à lente.',
+            setting: 'Cenário envolvente com atmosfera imersiva e profundidade de campo.',
+            framing: 'Close-up dramático com foco seletivo no olhar.',
+            lighting: 'Iluminação cinematográfica com feixes de luz direcionais e alto contraste.',
+            camera_movement: 'Push-in lento e suave em direção ao sujeito.',
+            action: 'O personagem percebe algo inesperado e tem uma reação visceral.',
+            expressions: 'Surpresa contida, foco absoluto e intensidade.',
+            image_prompt: `Estilo ${visualStyle}, formato vertical 9:16, close-up cinematográfico de personagem expressivo reagindo ao inesperado, iluminação dramática com contraste volumétrico, textura hiper-realista 8K, atmosfera imersiva, imagem limpa sem texto ou marcas.`,
+            video_prompt:
+              'Slow dolly zoom suave aproximando do rosto do personagem, foco travado nos olhos, micro-movimento dos cabelos com vento sutil.',
+            narration:
+              script.slice(0, 120) || 'Preste muita atenção no que está prestes a acontecer.',
+          },
+          {
+            scene_number: 2,
+            duration: '5s',
+            visual_description: `Desenvolvimento no estilo ${visualStyle}. A revelação principal do roteiro ganha forma no espaço cênico.`,
+            characters: 'Personagens interagindo ou o elemento-chave em destaque.',
+            setting: 'Visão média do ambiente revelando a proporção e os detalhes ao redor.',
+            framing: 'Plano médio (Medium shot) revelando ação de corpo e cenário.',
+            lighting: 'Luz difusa com preenchimento quente nas bordas.',
+            camera_movement: 'Panorâmica suave com leve travelling lateral.',
+            action: 'Ação principal em andamento com tensão e dinamismo.',
+            expressions: 'Determinação e tensão crescente.',
+            image_prompt: `Estilo ${visualStyle}, formato vertical 9:16, plano médio mostrando o clímax da cena com riqueza de detalhes contextuais, iluminação de alto nível cinematográfico, composição perfeita de cores, sem texto nem legendas.`,
+            video_prompt:
+              'Travelling lateral suave de esquerda para direita acompanhando o movimento do sujeito, velocidade constante.',
+            narration:
+              script.slice(120, 240) ||
+              'Tudo parecia comum até este detalhe exato mudar as coisas.',
+          },
+          {
+            scene_number: 3,
+            duration: '4s',
+            visual_description: `Desfecho marcante no estilo ${visualStyle}. Clímax visual preparado para o gancho final.`,
+            characters: 'Sujeito em posição de impacto final.',
+            setting: 'Cenário amplo com perspectiva que convida à continuidade.',
+            framing: 'Plano médio-aberto com enquadramento simétrico.',
+            lighting: 'Silhueta contra luz de fundo marcante (rim light).',
+            camera_movement: 'Tilt-up sutil combinado com recuo lento.',
+            action: 'Finalização do movimento com corte preparado para o próximo segundo.',
+            expressions: 'Impacto, revelação e olhar de cumplicidade com a audiência.',
+            image_prompt: `Estilo ${visualStyle}, formato vertical 9:16, enquadramento cinematográfico de desfecho com iluminação de recorte nas bordas, silhueta estilizada, composição visual arrebatadora, textura ultra nítida, sem nenhuma palavra impressa.`,
+            video_prompt:
+              'Câmera recuando lentamente (slow pull-back) enquanto a iluminação principal ganha intensidade sutil, fade out orgânico.',
+            narration:
+              script.slice(240, 360) ||
+              'Agora você já sabe o que fazer a seguir. Deixe sua opinião.',
+          },
+        ],
+      }
+    }
+
+    // Registrar consumo de cota
+    try {
+      if (usageRec) {
+        usageRec.set('count', usedToday + 1)
+        e.app.save(usageRec)
+      } else {
+        const col = e.app.findCollectionByNameOrId('hypeon_usage')
+        const newRec = new Record(col)
+        newRec.set('user', authRecord.id)
+        newRec.set('tool_id', 'cenas')
+        newRec.set('date', today)
+        newRec.set('count', 1)
+        e.app.save(newRec)
+      }
+    } catch (_) {}
+
+    // Salvar em hypeon_projects
+    let savedProjectId = ''
+    try {
+      const projCol = e.app.findCollectionByNameOrId('hypeon_projects')
+      const projRec = new Record(projCol)
+      projRec.set('user', authRecord.id)
+      projRec.set('tool_id', 'cenas')
+      projRec.set('title', (generatedJson.title || title || 'Cenas Prontas').slice(0, 100))
+      projRec.set('category', visualStyle)
+      projRec.set('mode', 'lote_cenas')
+      projRec.set('source_type', 'script_to_scenes')
+      projRec.set('source_reference', script.slice(0, 100))
+      projRec.set('content_type', 'scenes')
+      projRec.set('payload', JSON.stringify(generatedJson))
+      projRec.set('is_favorite', false)
+      e.app.save(projRec)
+      savedProjectId = projRec.id
+    } catch (saveErr) {
+      console.warn('[hypeon] Erro ao salvar projeto de cenas:', saveErr)
+    }
+
+    return e.json(200, {
+      success: true,
+      data: generatedJson,
+      project_id: savedProjectId,
+      visual_style: visualStyle,
+      usage: {
+        used_today: usedToday + 1,
+        daily_limit: activeDailyLimit,
+        remaining: Math.max(0, remaining - 1),
+      },
+      warning: aiCallError
+        ? 'Aviso: gerado com adaptação resiliente devido a instabilidade passageira no gateway de IA.'
+        : undefined,
+    })
+  } catch (err) {
+    console.error('[hypeon-generate-scenes-catch]', err)
+    return e.json(500, { success: false, error: 'Erro ao gerar cenas: ' + String(err) })
+  }
+})

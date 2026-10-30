@@ -991,7 +991,13 @@ export const AdminDashboard: React.FC = () => {
                   Coleção hypeon_usage
                 </Badge>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-1 text-xs">
+                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-slate-400 text-[11px] block">Criador de Cenas:</span>
+                  <span className="text-pink-400 font-bold text-sm">
+                    {hypeonStats.stats.usage_by_tool['cenas'] || 0} produções
+                  </span>
+                </div>
                 <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
                   <span className="text-slate-400 text-[11px] block">Clonador Viral:</span>
                   <span className="text-white font-bold text-sm">

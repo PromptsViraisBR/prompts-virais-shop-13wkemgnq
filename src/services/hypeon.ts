@@ -133,6 +133,18 @@ export interface ViralSavedRecord {
   growth_score?: number
   published_at?: string
   notes?: string
+  folder?: string
+  created: string
+  updated: string
+}
+
+export interface HypeonFolderRecord {
+  id: string
+  user: string
+  name: string
+  color?: string
+  icon?: string
+  description?: string
   created: string
   updated: string
 }
@@ -237,6 +249,7 @@ export async function getHypeonUsageStats(): Promise<HypeonUsageStatsResponse> {
 export async function saveViralVideoReference(
   video: Partial<RadarVideoItem>,
   notes?: string,
+  folder?: string,
 ): Promise<ViralSavedRecord> {
   if (!pb.authStore.record?.id) {
     throw new Error('Você precisa estar logado para salvar referências.')
@@ -260,6 +273,7 @@ export async function saveViralVideoReference(
     growth_score: video.growth_score || 0,
     published_at: video.published_at || '',
     notes: notes || '',
+    folder: folder || '',
   }
 
   return pb.collection('viral_saved').create<ViralSavedRecord>(recordData)
@@ -274,21 +288,83 @@ export async function removeViralSavedReference(recordId: string): Promise<boole
 }
 
 /**
+ * Atualiza um vídeo salvo da biblioteca (ex: pasta, notas, título)
+ */
+export async function updateViralSavedReference(
+  recordId: string,
+  data: Partial<ViralSavedRecord>,
+): Promise<ViralSavedRecord> {
+  return pb.collection('viral_saved').update<ViralSavedRecord>(recordId, data)
+}
+
+/**
  * Lista as referências virais salvas pelo usuário
  */
 export async function getViralSavedReferences(
   page = 1,
-  perPage = 30,
+  perPage = 50,
+  folder?: string,
 ): Promise<{ items: ViralSavedRecord[]; totalItems: number }> {
   if (!pb.authStore.record?.id) {
     return { items: [], totalItems: 0 }
   }
+  let filter = `user = "${pb.authStore.record.id}"`
+  if (folder) {
+    filter += ` && folder = "${folder}"`
+  }
   const result = await pb.collection('viral_saved').getList<ViralSavedRecord>(page, perPage, {
-    filter: `user = "${pb.authStore.record.id}"`,
+    filter,
     sort: '-created',
   })
   return {
     items: result.items,
     totalItems: result.totalItems,
   }
+}
+
+/**
+ * Gerenciamento de pastas personalizadas (hypeon_folders)
+ */
+export async function listHypeonFolders(): Promise<HypeonFolderRecord[]> {
+  if (!pb.authStore.record?.id) return []
+  try {
+    const records = await pb.collection('hypeon_folders').getList<HypeonFolderRecord>(1, 100, {
+      filter: `user = "${pb.authStore.record.id}"`,
+      sort: 'name',
+    })
+    return records.items
+  } catch (err) {
+    console.warn('[hypeon] Erro ao listar pastas:', err)
+    return []
+  }
+}
+
+export async function createHypeonFolder(
+  name: string,
+  color?: string,
+  icon?: string,
+  description?: string,
+): Promise<HypeonFolderRecord> {
+  if (!pb.authStore.record?.id) {
+    throw new Error('Você precisa estar logado para criar pastas.')
+  }
+  return pb.collection('hypeon_folders').create<HypeonFolderRecord>({
+    user: pb.authStore.record.id,
+    name: name.trim(),
+    color: color || '#8b5cf6',
+    icon: icon || 'folder',
+    description: description || '',
+  })
+}
+
+export async function updateHypeonFolder(
+  id: string,
+  data: Partial<Pick<HypeonFolderRecord, 'name' | 'color' | 'icon' | 'description'>>,
+): Promise<HypeonFolderRecord> {
+  return pb.collection('hypeon_folders').update<HypeonFolderRecord>(id, data)
+}
+
+export async function deleteHypeonFolder(id: string): Promise<boolean> {
+  await pb.collection('hypeon_folders').delete(id)
+  return true
 }

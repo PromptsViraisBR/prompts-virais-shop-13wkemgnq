@@ -24,13 +24,24 @@ export interface HypeonNavProps {
   badge?: string
 }
 
-export const HYPEON_NAV_ITEMS = [
+export type HypeonNavStatus = 'active' | 'planned'
+
+export interface HypeonNavItem {
+  id: string
+  label: string
+  href: string
+  icon: any
+  status: HypeonNavStatus
+  badge: string
+}
+
+export const HYPEON_NAV_ITEMS: HypeonNavItem[] = [
   {
     id: 'dashboard',
     label: 'Visão Geral HYPEON',
     href: '/hypeon',
     icon: Zap,
-    status: 'active' as const,
+    status: 'active',
     badge: 'Hub',
   },
   {
@@ -38,7 +49,7 @@ export const HYPEON_NAV_ITEMS = [
     label: 'Clonador Viral',
     href: '/hypeon/clonador',
     icon: Copy,
-    status: 'active' as const,
+    status: 'active',
     badge: 'NOVO',
   },
   {
@@ -46,7 +57,7 @@ export const HYPEON_NAV_ITEMS = [
     label: 'HYPEON Stories',
     href: '/hypeon/stories',
     icon: BookOpen,
-    status: 'active' as const,
+    status: 'active',
     badge: 'NOVO',
   },
   {
@@ -54,7 +65,7 @@ export const HYPEON_NAV_ITEMS = [
     label: 'HYPEON Ideas',
     href: '/hypeon/ideas',
     icon: Lightbulb,
-    status: 'active' as const,
+    status: 'active',
     badge: 'NOVO',
   },
   {
@@ -62,7 +73,7 @@ export const HYPEON_NAV_ITEMS = [
     label: 'Analisador de Vídeos',
     href: '/hypeon/analisador',
     icon: BarChart3,
-    status: 'active' as const,
+    status: 'active',
     badge: 'NOVO',
   },
   {
@@ -70,7 +81,7 @@ export const HYPEON_NAV_ITEMS = [
     label: 'Radar Viral',
     href: '/hypeon/radar',
     icon: Radio,
-    status: 'active' as const,
+    status: 'active',
     badge: 'YouTube',
   },
   {
@@ -78,7 +89,7 @@ export const HYPEON_NAV_ITEMS = [
     label: 'Tendências por Nicho',
     href: '/hypeon/tendencias',
     icon: TrendingUp,
-    status: 'active' as const,
+    status: 'active',
     badge: 'Ativo',
   },
   {
@@ -86,16 +97,16 @@ export const HYPEON_NAV_ITEMS = [
     label: 'Biblioteca Viral',
     href: '/hypeon/biblioteca',
     icon: Bookmark,
-    status: 'active' as const,
+    status: 'active',
     badge: 'Salvos',
   },
   {
     id: 'cenas',
-    label: 'Fábrica de Cenas',
+    label: 'Criador de Cenas',
     href: '/hypeon/cenas',
     icon: Clapperboard,
-    status: 'planned' as const,
-    badge: 'Fase 4',
+    status: 'active',
+    badge: 'NOVO',
   },
 ]
 

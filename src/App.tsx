@@ -60,6 +60,9 @@ const HypeonIdeas = lazy(() =>
 const HypeonAnalisador = lazy(() =>
   import('./pages/hypeon/HypeonAnalisador').then((m) => ({ default: m.HypeonAnalisador })),
 )
+const HypeonCenas = lazy(() =>
+  import('./pages/hypeon/HypeonCenas').then((m) => ({ default: m.HypeonCenas })),
+)
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'))
 const NotFound = lazy(() => import('./pages/NotFound'))
@@ -133,7 +136,7 @@ const App = () => {
                   <Route path="/hypeon/stories" element={<HypeonStories />} />
                   <Route path="/hypeon/ideas" element={<HypeonIdeas />} />
                   <Route path="/hypeon/analisador" element={<HypeonAnalisador />} />
-                  <Route path="/hypeon/cenas" element={<HypeonPlannedTool toolId="cenas" />} />
+                  <Route path="/hypeon/cenas" element={<HypeonCenas />} />
                   <Route path="/privacidade" element={<PrivacyPolicy />} />
                   <Route path="/termos" element={<TermsOfUse />} />
                 </Route>

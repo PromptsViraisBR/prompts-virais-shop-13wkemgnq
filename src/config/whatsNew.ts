@@ -21,44 +21,44 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.85'
+export const CURRENT_VERSION = 'v0.0.86'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
-  releaseDate: '2025-05-15',
+  releaseDate: '2025-05-16',
   tagline: 'PROMPTS VIRAIS — Inteligência para criar conteúdos que conquistam a internet.',
-  headline: 'v0.0.85 — Clonador Viral Otimizado & Geração Ultrarrápida em Segundos! ⚡🎬',
+  headline: 'v0.0.86 — FASE 4 HYPEON: Criador de Cenas & Biblioteca Viral Completa! 🎬📁',
   highlights: [
     {
-      icon: 'zap',
-      badge: 'CAUSA RAIZ CORRIGIDA',
-      title: 'Clonador Viral: Geração Ágil sem Timeout',
+      icon: 'film',
+      badge: 'NOVA FERRAMENTA',
+      title: 'Criador de Cenas (/hypeon/cenas)',
       description:
-        'Eliminamos os atrasos de processamento que excediam o limite de tempo. Roteiros estruturados cena a cena agora respondem de forma ágil e estável.',
+        'Transforme qualquer roteiro em cenas completas com IA: enquadramento, iluminação, câmera, ação, narração, e prompts individuais de imagem (9:16) e vídeo prontos para Midjourney, Runway e Kling.',
     },
     {
       icon: 'sparkles',
-      badge: 'RESILIÊNCIA TOTAL',
-      title: 'Recuperação Inteligente de Conexão',
+      badge: '7 ESTILOS VISUAIS',
+      title: 'Direção Visual Customizada',
       description:
-        'Se o gateway de IA tiver qualquer instabilidade momentânea, o sistema adapta a resposta de imediato para você nunca ficar na mão.',
+        'Escolha entre Realista Cinematográfico, Animação 3D, Cartoon, Anime, Documentário, Terror Cinematográfico ou Estilo Viral de Redes Sociais.',
     },
     {
-      icon: 'film',
-      badge: 'ROTEIROS EM 14 BLOCOS',
-      title: 'YouTube e Descrição Manual 100% Funcionais',
+      icon: 'bookmark',
+      badge: 'ORGANIZAÇÃO TOTAL',
+      title: 'Biblioteca Viral com Pastas Personalizadas',
       description:
-        'Cole links do YouTube Shorts ou descreva a ideia manualmente para obter gancho inicial, locução, 3 a 4 cenas estruturadas, SFX e CTA.',
+        'Crie pastas com cores, busque por palavra-chave, edite notas, duplique projetos, mova itens entre pastas e copie conteúdos com 1 clique.',
     },
     {
-      icon: 'shield',
-      badge: 'SUÍTE HYPEON COMPLETA',
-      title: 'Stories, Ideas, Analisador e Radar 100% Ativos',
+      icon: 'zap',
+      badge: 'INTEGRAÇÃO TOTAL',
+      title: 'Conexão Direta com Geradores do Site',
       description:
-        'Toda a suíte HYPEON funcionando com cotas por plano, limites diários e integração contínua sem interrupções.',
+        'Envie qualquer cena ou roteiro direto para os geradores de prompts existentes do site e salve todo o progresso na sua biblioteca na nuvem.',
     },
   ],
-  ctaText: 'Testar o Clonador Viral',
-  ctaLink: '/hypeon/clonador',
+  ctaText: 'Experimentar o Criador de Cenas',
+  ctaLink: '/hypeon/cenas',
 }

@@ -102,15 +102,16 @@ export const HYPEON_TOOLS: ToolCardData[] = [
   },
   {
     id: 'cenas',
-    title: 'Fábrica de Cenas',
-    subtitle: 'Ganchos em lote para testes A/B',
+    title: 'Criador de Cenas',
+    subtitle: 'Roteiros transformados em cenas prontas',
     description:
-      'Multiplique 1 roteiro base em 10 variações de ganchos visuais para encontrar o campeão de vendas.',
+      'Converta qualquer roteiro em cenas com IA: prompts de imagem (9:16), prompts de vídeo, câmera, iluminação e narração em 7 estilos visuais.',
     icon: Clapperboard,
     href: '/hypeon/cenas',
-    status: 'planned',
-    statusBadge: 'Em desenvolvimento',
+    status: 'active',
+    statusBadge: 'Disponível • Fase 4',
     phase: 'Fase 4',
+    highlight: '7 estilos visuais + prompts prontos',
   },
   {
     id: 'tendencias',

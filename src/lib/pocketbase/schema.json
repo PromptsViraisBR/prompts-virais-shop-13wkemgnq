@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T15:10:06.148Z",
+  "generatedAt": "2026-10-30T15:28:24.789Z",
   "collections": [
     {
       "name": "users",
@@ -29,14 +29,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "xai_api_key",
@@ -104,14 +109,22 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["free", "monthly", "annual"]
+          "selectValues": [
+            "free",
+            "monthly",
+            "annual"
+          ]
         },
         {
           "name": "status",
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["active", "cancelled", "expired"]
+          "selectValues": [
+            "active",
+            "cancelled",
+            "expired"
+          ]
         },
         {
           "name": "start_date",
@@ -142,14 +155,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "mp_preapproval_id",
@@ -277,7 +295,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["pov", "modelo", "unboxing_vitrine"]
+          "selectValues": [
+            "pov",
+            "modelo",
+            "unboxing_vitrine"
+          ]
         },
         {
           "name": "prompt_text",
@@ -302,7 +324,11 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["tiktok_shop", "shopee", "ambos"]
+          "selectValues": [
+            "tiktok_shop",
+            "shopee",
+            "ambos"
+          ]
         },
         {
           "name": "is_free",
@@ -321,14 +347,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "reference_image_url",
@@ -347,7 +378,10 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["ecommerce", "virais"]
+          "selectValues": [
+            "ecommerce",
+            "virais"
+          ]
         }
       ],
       "indexes": [
@@ -386,14 +420,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -462,14 +501,22 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["pov", "modelo", "unboxing_vitrine"]
+          "selectValues": [
+            "pov",
+            "modelo",
+            "unboxing_vitrine"
+          ]
         },
         {
           "name": "platform",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["tiktok_shop", "shopee", "ambos"]
+          "selectValues": [
+            "tiktok_shop",
+            "shopee",
+            "ambos"
+          ]
         },
         {
           "name": "target_audience",
@@ -488,14 +535,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "generated_image_url",
@@ -546,7 +598,9 @@
           "system": false
         }
       ],
-      "indexes": ["CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"]
+      "indexes": [
+        "CREATE INDEX idx_generations_user_created ON generations (user, created DESC)"
+      ]
     },
     {
       "name": "video_credits_usage",
@@ -589,14 +643,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -651,14 +710,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -748,14 +812,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -804,14 +873,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -843,7 +917,10 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["virais", "vendas"]
+          "selectValues": [
+            "virais",
+            "vendas"
+          ]
         },
         {
           "name": "date",
@@ -862,14 +939,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -925,21 +1007,32 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["active", "consumed", "expired", "completed", "cancelled"]
+          "selectValues": [
+            "active",
+            "consumed",
+            "expired",
+            "completed",
+            "cancelled"
+          ]
         },
         {
           "name": "created",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "referrer_plan",
@@ -1046,28 +1139,42 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["bug", "idea", "compliment", "other"]
+          "selectValues": [
+            "bug",
+            "idea",
+            "compliment",
+            "other"
+          ]
         },
         {
           "name": "status",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["unread", "read", "archived"]
+          "selectValues": [
+            "unread",
+            "read",
+            "archived"
+          ]
         },
         {
           "name": "created",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1134,17 +1241,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE UNIQUE INDEX idx_hypeon_limits_tool ON hypeon_limits (tool_id)"]
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_hypeon_limits_tool ON hypeon_limits (tool_id)"
+      ]
     },
     {
       "name": "viral_saved",
@@ -1265,14 +1379,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "folder",
@@ -1327,14 +1446,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1413,14 +1537,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "folder",
@@ -1510,17 +1639,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_hypeon_series_user ON hypeon_series (user, created DESC)"]
+      "indexes": [
+        "CREATE INDEX idx_hypeon_series_user ON hypeon_series (user, created DESC)"
+      ]
     },
     {
       "name": "hypeon_folders",
@@ -1569,17 +1705,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_hypeon_folders_user ON hypeon_folders (user, created DESC)"]
+      "indexes": [
+        "CREATE INDEX idx_hypeon_folders_user ON hypeon_folders (user, created DESC)"
+      ]
     }
   ]
 }

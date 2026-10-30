@@ -9,8 +9,10 @@ export interface RadarVideoItem {
   description: string
   thumbnail_url: string
   original_url: string
+  embed_url?: string
   author_name: string
   author_handle: string
+  channel_id?: string
   views_count: number
   likes_count: number
   comments_count: number
@@ -44,6 +46,7 @@ export interface SourceItem {
   id: string
   name: string
   connected: boolean
+  status_detail?: string
   required_secret: string
   type: string
   description: string

@@ -899,10 +899,15 @@ export const AdminDashboard: React.FC = () => {
                               : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                           }`}
                         >
-                          {src.connected ? 'Conectado' : 'Desconectado'}
+                          {src.connected ? 'Conectado / Ativo' : 'Desconectado'}
                         </Badge>
                       </div>
                       <p className="text-[11px] text-slate-400 leading-tight">{src.description}</p>
+                      {src.status_detail && (
+                        <p className="text-[10px] text-slate-400 font-mono pt-0.5">
+                          Status: {src.status_detail}
+                        </p>
+                      )}
                     </div>
 
                     <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
@@ -910,7 +915,7 @@ export const AdminDashboard: React.FC = () => {
                         Segredo: {src.required_secret}
                       </span>
                       <span className="font-semibold">
-                        {src.connected ? '✓ Ativo' : '⚠ Pendente'}
+                        {src.connected ? '✓ Conexão Ativa' : '⚠ Pendente'}
                       </span>
                     </div>
                   </div>

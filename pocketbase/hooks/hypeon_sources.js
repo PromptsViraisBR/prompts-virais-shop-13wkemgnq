@@ -2,24 +2,49 @@
  * HYPEON Sources & Radar Engine (PocketBase Hook)
  *
  * Provê endpoints server-side para o HYPEON:
- * 1. GET  /backend/v1/hypeon/sources-status   -> status das fontes (YouTube Data API, etc.)
- * 2. GET  /backend/v1/hypeon/radar            -> feed do Radar Viral com dados reais
+ * 1. GET  /backend/v1/hypeon/sources-status   -> status das fontes (YouTube Data API v3, etc.)
+ * 2. GET  /backend/v1/hypeon/radar            -> feed do Radar Viral com dados REAIS do YouTube
  * 3. GET  /backend/v1/hypeon/limits           -> lista de limites por ferramenta
  * 4. POST /backend/v1/hypeon/admin/update-limit -> atualização de limites (admin)
  * 5. GET  /backend/v1/hypeon/usage-stats      -> estatísticas de uso (admin)
  *
  * REGRA SAGRADA DE DADOS REAIS:
  * Nunca retorna vídeos ou métricas fictícios como se fossem reais.
- * Se YOUTUBE_API_KEY ou fonte correspondente não estiver configurada nos segredos,
- * a API retorna status `connected: false` com instrução clara e lista vazia de vídeos.
+ * Se YOUTUBE_API_KEY falhar ou não estiver configurada, a API retorna
+ * status `connected: false` com instrução clara e lista vazia de vídeos.
+ * Chave nunca exposta nem logada.
  */
 
 // 1. GET /backend/v1/hypeon/sources-status
 routerAdd('GET', '/backend/v1/hypeon/sources-status', (e) => {
   try {
-    const ytKey = $os.getenv('YOUTUBE_API_KEY') || ''
-    const ttKey = $os.getenv('TIKTOK_API_KEY') || ''
-    const igKey = $os.getenv('INSTAGRAM_API_KEY') || ''
+    const ytKey = ($os.getenv('YOUTUBE_API_KEY') || '').trim()
+    const ttKey = ($os.getenv('TIKTOK_API_KEY') || '').trim()
+    const igKey = ($os.getenv('INSTAGRAM_API_KEY') || '').trim()
+
+    let ytStatusActive = false
+    let ytStatusDetails = 'Chave YOUTUBE_API_KEY não cadastrada nos segredos'
+
+    if (ytKey && ytKey.length > 5) {
+      try {
+        // Teste leve oficial à API do YouTube (1 unidade de cota)
+        const probeUrl =
+          'https://www.googleapis.com/youtube/v3/videos?part=id&chart=mostPopular&regionCode=BR&maxResults=1&key=' +
+          encodeURIComponent(ytKey)
+        const probeRes = $http.send({
+          url: probeUrl,
+          method: 'GET',
+          timeout: 8,
+        })
+        ytStatusActive = probeRes.statusCode === 200
+        ytStatusDetails = ytStatusActive
+          ? 'YouTube Data API v3 conectada e ativa (BR)'
+          : 'Falha na validação: HTTP ' + probeRes.statusCode
+      } catch (probeErr) {
+        ytStatusActive = false
+        ytStatusDetails = 'Erro de rede ao validar chave'
+      }
+    }
 
     return e.json(200, {
       success: true,
@@ -27,32 +52,34 @@ routerAdd('GET', '/backend/v1/hypeon/sources-status', (e) => {
         youtube: {
           id: 'youtube',
           name: 'YouTube Data API v3 (Shorts)',
-          connected: Boolean(ytKey && ytKey.trim().length > 5),
+          connected: ytStatusActive,
+          status_detail: ytStatusDetails,
           required_secret: 'YOUTUBE_API_KEY',
           type: 'official_api',
           description:
-            'Busca oficial de Shorts virais, estatísticas reais de visualizações e curtidas',
+            'Busca oficial de Shorts virais do Brasil com métricas reais de visualizações, curtidas e comentários',
         },
         tiktok: {
           id: 'tiktok',
           name: 'TikTok Commercial / Research API',
-          connected: Boolean(ttKey && ttKey.trim().length > 5),
+          connected: Boolean(ttKey && ttKey.length > 5),
           required_secret: 'TIKTOK_API_KEY',
           type: 'partner_api',
-          description: 'Tendências e vídeos virais do TikTok por nicho',
+          description:
+            'Tendências e vídeos virais do TikTok (ativação futura com provedor de dados oficial)',
         },
         instagram: {
           id: 'instagram',
           name: 'Instagram Graph API (Reels)',
-          connected: Boolean(igKey && igKey.trim().length > 5),
+          connected: Boolean(igKey && igKey.length > 5),
           required_secret: 'INSTAGRAM_API_KEY',
           type: 'meta_api',
           description: 'Reels públicos de alto engajamento',
         },
       },
-      message: ytKey
-        ? 'Fontes de tendências ativas'
-        : 'Nenhuma chave de API de vídeo configurada nos segredos',
+      message: ytStatusActive
+        ? 'Fonte do YouTube Data API ativa e conectada'
+        : 'YouTube Data API pendente de validação nos segredos',
     })
   } catch (err) {
     return e.json(500, { success: false, error: String(err) })
@@ -62,23 +89,36 @@ routerAdd('GET', '/backend/v1/hypeon/sources-status', (e) => {
 // 2. GET /backend/v1/hypeon/radar
 routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
   try {
-    const platform = e.request.url.query().get('platform') || 'all' // all | tiktok | instagram | youtube | facebook
+    const platform = e.request.url.query().get('platform') || 'youtube'
     const niche = e.request.url.query().get('niche') || 'all'
-    const period = e.request.url.query().get('period') || '7d' // 24h | 7d | 30d
-    const sort = e.request.url.query().get('sort') || 'recent' // recent | views | engagement | growth
+    const period = e.request.url.query().get('period') || '7d'
+    const sort = e.request.url.query().get('sort') || 'views'
 
-    const ytKey = $os.getenv('YOUTUBE_API_KEY') || ''
-    const isYtConnected = Boolean(ytKey && ytKey.trim().length > 5)
+    const ytKey = ($os.getenv('YOUTUBE_API_KEY') || '').trim()
+    const isYtConnected = Boolean(ytKey && ytKey.length > 5)
 
-    // Se não há fonte real configurada, cumpre a regra de ouro:
-    // NUNCA gerar dados fake! Retornar aviso honesto e estruturado.
+    // Se o usuário selecionou uma plataforma sem fonte oficial conectada ainda (TikTok, Instagram, Facebook):
+    if (platform !== 'all' && platform !== 'youtube') {
+      return e.json(200, {
+        success: true,
+        connected: false,
+        source: null,
+        message: `Fonte para ${platform} ainda não possui provedor de dados oficial conectado. Selecione YouTube para ver tendências reais em tempo real.`,
+        required_secret: `${platform.toUpperCase()}_API_KEY`,
+        filters_applied: { platform, niche, period, sort },
+        total_items: 0,
+        items: [],
+      })
+    }
+
+    // Se a chave não existe nos segredos:
     if (!isYtConnected) {
       return e.json(200, {
         success: true,
         connected: false,
         source: null,
         message:
-          'Fonte de tendências não conectada — conecte a YouTube Data API (YOUTUBE_API_KEY) nos segredos do Skip Cloud para ver vídeos e métricas reais.',
+          'Fonte de tendências não conectada — configure a chave YOUTUBE_API_KEY nos segredos do Skip Cloud para ver vídeos e métricas reais.',
         required_secret: 'YOUTUBE_API_KEY',
         filters_applied: { platform, niche, period, sort },
         total_items: 0,
@@ -86,44 +126,63 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
       })
     }
 
-    // Provider real YouTube Data API v3
-    // Mapeamento de query por nicho e plataforma
-    let queryTerm = 'shorts viral'
-    if (niche && niche !== 'all') {
-      const nicheTerms = {
-        historias: '#historias #relatos shorts',
-        terror: '#terror #suspense shorts',
-        comedia: '#comedia #humor shorts',
-        curiosidades: '#curiosidades #fatos shorts',
-        ia: '#ia #ai #tecnologia shorts',
-        animacoes: '#animacao shorts',
-        personagens: '#personagens shorts',
-        animais: '#pets #animais shorts',
-        relacionamentos: '#relacionamento shorts',
-        motivacao: '#motivacao shorts',
-        conhecimento: '#educacao #conhecimento shorts',
-        tecnologia: '#tecnologia shorts',
-        experimentos: '#experimentos shorts',
-        satisfatorios: '#satisfatorio #asmr shorts',
-        outros: 'viral shorts',
-      }
-      queryTerm = nicheTerms[niche] || `${niche} shorts viral`
+    // Cache simples em memória usando o objeto global de cache
+    const cacheKey = `yt_radar_${platform}_${niche}_${period}_${sort}`
+    const cacheTtlMs = 20 * 60 * 1000 // 20 minutos
+    const nowTs = Date.now()
+
+    if (!globalThis.__hypeonRadarCache) {
+      globalThis.__hypeonRadarCache = {}
+    }
+    const cachedEntry = globalThis.__hypeonRadarCache[cacheKey]
+    if (cachedEntry && nowTs - cachedEntry.time < cacheTtlMs) {
+      return e.json(200, {
+        ...cachedEntry.payload,
+        cached: true,
+      })
     }
 
-    // Cálculo da data publishedAfter
-    const now = new Date()
+    // Mapeamento semântico dos 16 nichos para termos de busca Shorts Brasil
+    const nicheQueries = {
+      all: 'shorts viral brasil',
+      historias: '#historias #relatos shorts brasil',
+      terror: '#terror #suspense shorts brasil',
+      suspense: '#suspense #mistério shorts brasil',
+      misterio: '#misterio #curiosidades shorts brasil',
+      humor: '#humor #comedia shorts brasil',
+      comedia: '#comedia #humor shorts brasil',
+      curiosidades: '#curiosidades #fatos shorts brasil',
+      ia: '#ia #inteligenciaartificial shorts brasil',
+      animacoes: '#animacao shorts brasil',
+      personagens: '#personagens shorts brasil',
+      animais: '#pets #animais shorts brasil',
+      relacionamentos: '#relacionamento shorts brasil',
+      motivacao: '#motivacao #reflexao shorts brasil',
+      conhecimento: '#educacao #conhecimento shorts brasil',
+      tecnologia: '#tecnologia #tech shorts brasil',
+      experimentos: '#experimentos shorts brasil',
+      satisfatorios: '#satisfatorio #asmr shorts brasil',
+      outros: 'viral shorts brasil',
+    }
+    const queryTerm = nicheQueries[niche] || `${niche} shorts brasil`
+
+    // Período
     let daysAgo = 7
     if (period === '24h') daysAgo = 1
     if (period === '30d') daysAgo = 30
-    const publishedAfter = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000).toISOString()
+    const publishedAfter = new Date(nowTs - daysAgo * 24 * 60 * 60 * 1000).toISOString()
 
-    let ytOrder = 'date'
-    if (sort === 'views') ytOrder = 'viewCount'
+    // Ordenação do search
+    let ytOrder = 'viewCount'
+    if (sort === 'recent') ytOrder = 'date'
     if (sort === 'growth' || sort === 'engagement') ytOrder = 'relevance'
 
+    // 1. Busca por vídeos curtos (Shorts) no Brasil
     const searchUrl =
       'https://www.googleapis.com/youtube/v3/search?' +
       'part=snippet&type=video&videoDuration=short&maxResults=24' +
+      '&regionCode=BR' +
+      '&relevanceLanguage=pt' +
       '&q=' +
       encodeURIComponent(queryTerm) +
       '&order=' +
@@ -142,9 +201,9 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
     if (searchRes.statusCode !== 200) {
       return e.json(502, {
         success: false,
-        connected: true,
-        error: 'Falha ao consultar a YouTube Data API: HTTP ' + searchRes.statusCode,
-        details: searchRes.raw,
+        connected: false,
+        error: 'A YouTube Data API retornou erro HTTP ' + searchRes.statusCode,
+        filters_applied: { platform, niche, period, sort },
         items: [],
       })
     }
@@ -153,11 +212,11 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
     const items = searchData.items || []
     const videoIds = items.map((it) => it.id && it.id.videoId).filter(Boolean)
 
-    // Buscar métricas reais (views, likes, comments) via videos endpoint
+    // 2. Buscar estatísticas reais completas (views, likes, comments) via /videos
     let statsMap = {}
     if (videoIds.length > 0) {
       const statsUrl =
-        'https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id=' +
+        'https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=' +
         encodeURIComponent(videoIds.join(',')) +
         '&key=' +
         encodeURIComponent(ytKey)
@@ -172,58 +231,99 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
         const statsData = JSON.parse(statsRes.raw)
         const statItems = statsData.items || []
         for (const s of statItems) {
-          statsMap[s.id] = s.statistics || {}
+          statsMap[s.id] = {
+            statistics: s.statistics || {},
+            snippet: s.snippet || {},
+            contentDetails: s.contentDetails || {},
+          }
         }
       }
     }
 
-    // Formatar itens para a resposta limpa e padronizada do Radar
-    const formatted = items.map((it) => {
-      const vId = it.id?.videoId
-      const st = statsMap[vId] || {}
-      const views = parseInt(st.viewCount || '0', 10)
-      const likes = parseInt(st.likeCount || '0', 10)
-      const comments = parseInt(st.commentCount || '0', 10)
+    // 3. Formatar vídeos com dados 100% REAIS
+    let formatted = items
+      .map((it) => {
+        const vId = it.id?.videoId
+        if (!vId) return null
 
-      // Score de engajamento calculado com base em métricas reais
-      const engagementRatio = views > 0 ? ((likes + comments * 2) / views) * 100 : 0
-      const growthScore = Math.min(100, Math.round(engagementRatio * 8 + Math.log10(views + 1) * 6))
+        const details = statsMap[vId] || {}
+        const st = details.statistics || {}
+        const sn = details.snippet || it.snippet || {}
 
-      return {
-        id: vId,
-        external_id: vId,
-        platform: 'youtube', // no futuro: tiktok / instagram conforme chave presente
-        platform_name: 'YouTube Shorts',
-        title: it.snippet?.title || 'Short Sem Título',
-        description: it.snippet?.description || '',
-        thumbnail_url:
-          it.snippet?.thumbnails?.high?.url ||
-          it.snippet?.thumbnails?.medium?.url ||
-          it.snippet?.thumbnails?.default?.url ||
-          '',
-        original_url: 'https://www.youtube.com/shorts/' + vId,
-        author_name: it.snippet?.channelTitle || 'Canal',
-        author_handle: '@' + (it.snippet?.channelTitle || '').replace(/\s+/g, '').toLowerCase(),
-        views_count: views,
-        likes_count: likes,
-        comments_count: comments,
-        shares_count: null, // YouTube não expõe compartilhamentos via API v3
-        niche: niche === 'all' ? 'curiosidades' : niche,
-        country: 'BR',
-        language: 'pt',
-        growth_score: growthScore,
-        published_at: it.snippet?.publishedAt || '',
-      }
-    })
+        const views = parseInt(st.viewCount || '0', 10)
+        const likes = parseInt(st.likeCount || '0', 10)
+        const comments = parseInt(st.commentCount || '0', 10)
 
-    return e.json(200, {
+        // Score de engajamento calculado sobre métricas reais
+        const engagementRatio = views > 0 ? ((likes + comments * 2) / views) * 100 : 0
+        const growthScore = Math.min(
+          100,
+          Math.max(10, Math.round(engagementRatio * 8 + Math.log10(views + 1) * 7)),
+        )
+
+        return {
+          id: vId,
+          external_id: vId,
+          platform: 'youtube',
+          platform_name: 'YouTube Shorts',
+          title: sn.title || it.snippet?.title || 'Short Sem Título',
+          description: sn.description || it.snippet?.description || '',
+          thumbnail_url:
+            sn.thumbnails?.maxres?.url ||
+            sn.thumbnails?.high?.url ||
+            sn.thumbnails?.medium?.url ||
+            it.snippet?.thumbnails?.high?.url ||
+            it.snippet?.thumbnails?.medium?.url ||
+            `https://i.ytimg.com/vi/${vId}/hqdefault.jpg`,
+          original_url: 'https://www.youtube.com/shorts/' + vId,
+          embed_url: 'https://www.youtube-nocookie.com/embed/' + vId,
+          author_name: sn.channelTitle || it.snippet?.channelTitle || 'Canal',
+          author_handle:
+            '@' +
+            (sn.channelTitle || it.snippet?.channelTitle || 'canal')
+              .replace(/\s+/g, '')
+              .toLowerCase(),
+          channel_id: sn.channelId || it.snippet?.channelId || '',
+          views_count: views,
+          likes_count: likes,
+          comments_count: comments,
+          shares_count: null, // YouTube não expõe compartilhamentos na v3
+          niche: niche === 'all' ? 'curiosidades' : niche,
+          country: 'BR',
+          language: 'pt',
+          growth_score: growthScore,
+          published_at: sn.publishedAt || it.snippet?.publishedAt || '',
+        }
+      })
+      .filter(Boolean)
+
+    // Reordenar em memória se necessário
+    if (sort === 'views') {
+      formatted.sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
+    } else if (sort === 'engagement' || sort === 'growth') {
+      formatted.sort((a, b) => (b.growth_score || 0) - (a.growth_score || 0))
+    } else if (sort === 'recent') {
+      formatted.sort(
+        (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime(),
+      )
+    }
+
+    const payload = {
       success: true,
       connected: true,
       source: 'youtube_data_api_v3',
       filters_applied: { platform, niche, period, sort },
       total_items: formatted.length,
       items: formatted,
-    })
+    }
+
+    // Salvar no cache
+    globalThis.__hypeonRadarCache[cacheKey] = {
+      time: nowTs,
+      payload,
+    }
+
+    return e.json(200, payload)
   } catch (err) {
     return e.json(500, {
       success: false,
@@ -337,13 +437,11 @@ routerAdd('GET', '/backend/v1/hypeon/usage-stats', (e) => {
       return e.json(403, { success: false, error: 'Permissão negada' })
     }
 
-    // Contagem de vídeos salvos
     let totalSaved = 0
     try {
       totalSaved = e.app.countRecords('viral_saved')
     } catch (_) {}
 
-    // Eventos recentes do HYPEON
     let recentEvents = []
     try {
       const eventRecs = e.app.findRecordsByFilter(
@@ -367,8 +465,8 @@ routerAdd('GET', '/backend/v1/hypeon/usage-stats', (e) => {
       stats: {
         total_saved_videos: totalSaved,
         recent_events: recentEvents,
-        active_tools_count: 3, // radar, tendencias, biblioteca
-        planned_tools_count: 5, // clonador, stories, ideas, analisador, cenas
+        active_tools_count: 3,
+        planned_tools_count: 5,
       },
     })
   } catch (err) {

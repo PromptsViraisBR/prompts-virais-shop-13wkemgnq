@@ -21,51 +21,51 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.78'
+export const CURRENT_VERSION = 'v0.0.80'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
-  releaseDate: '2025-05-10',
+  releaseDate: '2025-05-11',
   tagline: 'PROMPTS VIRAIS — Inteligência para criar conteúdos que conquistam a internet.',
-  headline: 'Nasceu o HYPEON — O Núcleo de Inteligência Viral! ⚡✨',
+  headline: 'Radar Viral com Vídeos Reais do YouTube & Player Embutido! ⚡🎬',
   highlights: [
     {
-      icon: 'zap',
-      badge: 'NOVA DIVISÃO',
-      title: 'HYPEON: O Próximo Viral Começa Aqui',
+      icon: 'radar',
+      badge: 'DADOS REAIS',
+      title: 'Radar Viral com vídeos reais do YouTube rodando dentro do site',
       description:
-        'A plataforma evoluiu para uma central de inteligência com 8 módulos estratégicos pensados para criadores, afiliados e marcas.',
+        'A integração com a YouTube Data API v3 está ativa! Agora o Radar exibe Shorts populares reais do Brasil com visualizações, curtidas e comentários verdadeiros.',
     },
     {
-      icon: 'radar',
-      badge: 'FASE 2 ATIVA',
-      title: 'Radar Viral com Arquitetura de Dados Reais',
+      icon: 'zap',
+      badge: 'PLAYER EMBUTIDO',
+      title: 'Player oficial YouTube para assistir sem sair da página',
       description:
-        'Monitore vídeos de alta retenção no TikTok, Instagram Reels e YouTube Shorts com filtros de nichos, ordenação e período — transparência total, sem métricas falsas.',
+        'Toque em qualquer card para reproduzir o vídeo em alta qualidade embutido no site, com crédito oficial ao criador e link para abrir no YouTube.',
     },
     {
       icon: 'layers',
-      badge: 'ORGANIZAÇÃO',
-      title: 'Painel Central HYPEON (/hypeon)',
+      badge: '16 NICHOS',
+      title: 'Filtros avançados por 16 nichos, período e ordenação',
       description:
-        'Acesso direto com identidade visual dark premium (grafite, roxo neon e azul elétrico), navegação lateral no desktop e menu adaptado no mobile.',
-    },
-    {
-      icon: 'sliders',
-      badge: 'ADMIN',
-      title: 'Gestão de Limites e Fontes de Tendências',
-      description:
-        'Administradores agora configuram limites diários por ferramenta e monitoram conexões oficiais de APIs com total controle.',
+        'Navegue por Histórias, Terror, Comédia, Curiosidades, IA, Animais e mais, com filtros de 24h, 7d, 30d e ordenação por mais visualizados, engajamento ou recentes.',
     },
     {
       icon: 'bookmark',
-      badge: 'SALVOS',
-      title: 'Biblioteca de Referências Virais',
+      badge: 'BIBLIOTECA',
+      title: 'Salvar referências virais com 1 clique',
       description:
-        'Salve referências do Radar com 1 clique para alimentar futuros roteiros e gerações.',
+        'Guarde qualquer vídeo de sucesso diretamente na sua Biblioteca Viral (/hypeon/biblioteca) para inspirar seus roteiros e prompts.',
+    },
+    {
+      icon: 'sliders',
+      badge: 'PERFORMANCE',
+      title: 'Cache inteligente para carregamento instantâneo',
+      description:
+        'Respostas em cache no backend para economizar cota e carregar tendências rapidamente sem travar sua navegação.',
     },
   ],
-  ctaText: 'Explorar o HYPEON Agora',
-  ctaLink: '/hypeon',
+  ctaText: 'Abrir Radar Viral Agora',
+  ctaLink: '/hypeon/radar',
 }

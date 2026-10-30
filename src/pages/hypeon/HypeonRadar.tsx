@@ -39,6 +39,10 @@ import {
   Key,
   ShieldCheck,
   Lock,
+  Play,
+  Pause,
+  X,
+  Youtube,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -89,7 +93,8 @@ export const HypeonRadar: React.FC = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const [platform, setPlatform] = useState<string>('all')
+  // YouTube passa a ser a plataforma selecionada por padrão (com outras visíveis)
+  const [platform, setPlatform] = useState<string>('youtube')
   const [niche, setNiche] = useState<string>('all')
   const [period, setPeriod] = useState<'24h' | '7d' | '30d'>('7d')
   const [sort, setSort] = useState<'recent' | 'views' | 'engagement' | 'growth'>('views')
@@ -101,6 +106,8 @@ export const HypeonRadar: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  // Controle de reprodução embutida por vídeo
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null)
 
   useEffect(() => {
     document.title = 'Radar Viral — HYPEON | Prompts Virais'
@@ -398,45 +405,101 @@ export const HypeonRadar: React.FC = () => {
             {videos.map((video) => {
               const isSaved = savedIds.has(video.id)
               const isSaving = savingId === video.id
+              const isPlaying = playingVideoId === video.id
+              const embedSrc =
+                video.embed_url ||
+                `https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&rel=0`
 
               return (
                 <Card
                   key={video.id}
                   className="overflow-hidden rounded-2xl bg-slate-900/90 border-slate-800 hover:border-purple-500/50 transition-all flex flex-col justify-between group shadow-lg"
                 >
-                  {/* Thumbnail / Header */}
+                  {/* Player Embutido / Thumbnail */}
                   <div className="relative aspect-video bg-slate-950 overflow-hidden">
-                    {video.thumbnail_url ? (
-                      <img
-                        src={video.thumbnail_url}
-                        alt={video.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-700">
-                        <Video className="w-10 h-10" />
+                    {isPlaying ? (
+                      <div className="relative w-full h-full bg-black">
+                        <iframe
+                          src={`${embedSrc}${embedSrc.includes('?') ? '&' : '?'}autoplay=1&playsinline=1`}
+                          title={video.title}
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPlayingVideoId(null)}
+                          className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/80 hover:bg-black text-white flex items-center justify-center border border-white/20 transition-all"
+                          title="Fechar player"
+                          aria-label="Fechar player"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
+                    ) : (
+                      <>
+                        {video.thumbnail_url ? (
+                          <img
+                            src={video.thumbnail_url}
+                            alt={video.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-700">
+                            <Video className="w-10 h-10" />
+                          </div>
+                        )}
+
+                        {/* Botão Play Centralizado */}
+                        <button
+                          type="button"
+                          onClick={() => setPlayingVideoId(video.id)}
+                          className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-rose-600/90 hover:bg-rose-500 text-white flex items-center justify-center shadow-2xl transition-all group-hover:scale-110 border-2 border-white/30 backdrop-blur-xs"
+                          title="Reproduzir vídeo embutido"
+                          aria-label={`Reproduzir ${video.title}`}
+                        >
+                          <Play className="w-6 h-6 fill-white translate-x-0.5" />
+                        </button>
+
+                        <div className="absolute top-2.5 left-2.5 pointer-events-none">
+                          <Badge className="bg-slate-950/80 backdrop-blur-md text-white border-0 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                            <Youtube className="w-3 h-3 text-red-500" />
+                            <span>{video.platform_name}</span>
+                          </Badge>
+                        </div>
+
+                        <div className="absolute top-2.5 right-2.5 pointer-events-none">
+                          <Badge className="bg-purple-600/90 backdrop-blur-md text-white border-0 text-[10px] font-bold flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3 text-cyan-300" />
+                            <span>Score {video.growth_score}%</span>
+                          </Badge>
+                        </div>
+
+                        <div className="absolute bottom-2 left-2.5 pointer-events-none">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-black/75 text-slate-200 font-mono font-semibold">
+                            Toque para assistir
+                          </span>
+                        </div>
+                      </>
                     )}
-
-                    <div className="absolute top-2.5 left-2.5">
-                      <Badge className="bg-slate-950/80 backdrop-blur-md text-white border-0 text-[10px] font-bold uppercase tracking-wider">
-                        {video.platform_name}
-                      </Badge>
-                    </div>
-
-                    <div className="absolute top-2.5 right-2.5">
-                      <Badge className="bg-purple-600/90 backdrop-blur-md text-white border-0 text-[10px] font-bold flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3 text-cyan-300" />
-                        <span>Score {video.growth_score}%</span>
-                      </Badge>
-                    </div>
                   </div>
 
                   <CardHeader className="p-4 space-y-1.5 flex-1">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="font-semibold text-purple-300">{video.author_name}</span>
-                      <span>{video.published_at ? video.published_at.slice(0, 10) : ''}</span>
+                    {/* Crédito explícito ao Criador */}
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-slate-400 text-[10px]">Criador:</span>
+                        <span
+                          className="font-semibold text-purple-300 truncate"
+                          title={video.author_name}
+                        >
+                          {video.author_name}
+                        </span>
+                      </div>
+                      <span className="shrink-0">
+                        {video.published_at ? video.published_at.slice(0, 10) : ''}
+                      </span>
                     </div>
 
                     <CardTitle className="text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-purple-300 transition-colors">
@@ -451,7 +514,7 @@ export const HypeonRadar: React.FC = () => {
                   </CardHeader>
 
                   <CardContent className="p-4 pt-0 space-y-3">
-                    {/* Grid de Métricas Reais */}
+                    {/* Grid de Métricas Reais do YouTube */}
                     <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-center text-xs">
                       <div>
                         <span className="text-[10px] uppercase font-bold text-slate-400 block flex items-center justify-center gap-1">
@@ -481,21 +544,43 @@ export const HypeonRadar: React.FC = () => {
                   </CardContent>
 
                   <CardFooter className="p-4 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 bg-slate-950/40">
-                    <a
-                      href={video.original_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-slate-300 hover:text-white font-medium"
-                    >
-                      <span>Ver Original</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setPlayingVideoId(isPlaying ? null : video.id)}
+                        className="h-8 px-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800/80 gap-1 rounded-lg"
+                      >
+                        {isPlaying ? (
+                          <>
+                            <Pause className="w-3 h-3 text-amber-400" />
+                            <span>Pausar</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3 h-3 text-rose-400 fill-rose-400" />
+                            <span>Assistir</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <a
+                        href={video.original_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white font-medium hover:underline"
+                        title="Abrir no YouTube"
+                      >
+                        <span>No YouTube</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
 
                     <Button
                       size="sm"
                       onClick={() => handleSaveReference(video)}
                       disabled={isSaved || isSaving}
-                      className={`text-xs font-bold h-9 px-3 rounded-xl gap-1.5 transition-all ${
+                      className={`text-xs font-bold h-8 px-3 rounded-xl gap-1.5 transition-all ${
                         isSaved
                           ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
                           : 'bg-purple-600 hover:bg-purple-500 text-white'

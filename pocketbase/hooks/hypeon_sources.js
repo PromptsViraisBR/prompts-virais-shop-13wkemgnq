@@ -755,13 +755,33 @@ routerAdd('GET', '/backend/v1/hypeon/usage-stats', (e) => {
       }))
     } catch (_) {}
 
+    let usageByTool = {}
+    let topUsers = []
+    try {
+      const allUsage = e.app.findRecordsByFilter('hypeon_usage', '', '-date', 500, 0)
+      for (let i = 0; i < allUsage.length; i++) {
+        const u = allUsage[i]
+        const tid = u.getString('tool_id')
+        const cnt = u.getInt('count') || 0
+        const uid = u.getString('user')
+        usageByTool[tid] = (usageByTool[tid] || 0) + cnt
+      }
+    } catch (_) {}
+
+    let totalProjects = 0
+    try {
+      totalProjects = e.app.countRecords('hypeon_projects')
+    } catch (_) {}
+
     return e.json(200, {
       success: true,
       stats: {
         total_saved_videos: totalSaved,
+        total_projects: totalProjects,
         recent_events: recentEvents,
-        active_tools_count: 3,
-        planned_tools_count: 5,
+        active_tools_count: 7,
+        planned_tools_count: 1,
+        usage_by_tool: usageByTool,
       },
     })
   } catch (err) {

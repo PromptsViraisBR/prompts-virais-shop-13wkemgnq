@@ -88,9 +88,11 @@ export interface HypeonUsageStatsResponse {
   success: boolean
   stats: {
     total_saved_videos: number
+    total_projects?: number
     recent_events: any[]
     active_tools_count: number
     planned_tools_count: number
+    usage_by_tool?: Record<string, number>
   }
 }
 

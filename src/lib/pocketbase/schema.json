@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T05:35:13.303Z",
+  "generatedAt": "2026-10-30T05:44:19.797Z",
   "collections": [
     {
       "name": "users",
@@ -1279,6 +1279,224 @@
         "CREATE UNIQUE INDEX idx_viral_saved_user_ext ON viral_saved (user, external_id, platform)",
         "CREATE INDEX idx_viral_saved_user_created ON viral_saved (user, created DESC)"
       ]
+    },
+    {
+      "name": "hypeon_usage",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != '' && @request.body.user = @request.auth.id",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "tool_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_hypeon_usage_u_t_d ON hypeon_usage (user, tool_id, date)",
+        "CREATE INDEX idx_hypeon_usage_date ON hypeon_usage (date)"
+      ]
+    },
+    {
+      "name": "hypeon_projects",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != '' && @request.body.user = @request.auth.id",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "tool_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mode",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_reference",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_favorite",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_hypeon_projects_user_tool ON hypeon_projects (user, tool_id, created DESC)"
+      ]
+    },
+    {
+      "name": "hypeon_series",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != '' && @request.body.user = @request.auth.id",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "series_title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "characters",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recurring_settings",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "episodes_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_events_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_hypeon_series_user ON hypeon_series (user, created DESC)"]
     }
   ]
 }

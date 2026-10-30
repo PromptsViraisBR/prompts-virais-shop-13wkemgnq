@@ -43,6 +43,7 @@ import {
   Send,
   Inbox,
   Trash2,
+  Zap,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import {
@@ -929,7 +930,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Estatísticas de Uso HYPEON */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-1">
               <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
                 <Bookmark className="w-3.5 h-3.5 text-purple-400" />
@@ -947,22 +948,70 @@ export const AdminDashboard: React.FC = () => {
                 Módulos Ativos no Ar
               </span>
               <p className="text-2xl font-black text-emerald-400">
-                {hypeonStats?.stats.active_tools_count ?? 3} / 8
+                {hypeonStats?.stats.active_tools_count ?? 7} / 8
               </p>
-              <p className="text-[11px] text-slate-400">Radar, Tendências, Biblioteca</p>
+              <p className="text-[11px] text-slate-400">Fase 2 + Fase 3 completas</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-1">
+              <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                Projetos IA Salvos
+              </span>
+              <p className="text-2xl font-black text-cyan-400">
+                {hypeonStats?.stats.total_projects ?? 0}
+              </p>
+              <p className="text-[11px] text-slate-400">Clonador, Stories, Ideas, Análises</p>
             </div>
 
             <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-1">
               <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-pink-400" />
-                Próximas Fases (Roadmap)
+                Próximas Fases
               </span>
               <p className="text-2xl font-black text-pink-400">
-                {hypeonStats?.stats.planned_tools_count ?? 5}
+                {hypeonStats?.stats.planned_tools_count ?? 1}
               </p>
-              <p className="text-[11px] text-slate-400">Clonador, Stories, Ideas...</p>
+              <p className="text-[11px] text-slate-400">Fábrica de Cenas (Fase 4)</p>
             </div>
           </div>
+
+          {/* Consumo por Ferramenta IA */}
+          {hypeonStats?.stats.usage_by_tool &&
+            Object.keys(hypeonStats.stats.usage_by_tool).length > 0 && (
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-2">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  Consumo Registrado por Ferramenta (Todas as Datas):
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                    <span className="text-slate-400 text-[11px] block">Clonador Viral:</span>
+                    <span className="text-white font-bold text-sm">
+                      {hypeonStats.stats.usage_by_tool['clonador'] || 0} gerações
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                    <span className="text-slate-400 text-[11px] block">HYPEON Stories:</span>
+                    <span className="text-white font-bold text-sm">
+                      {hypeonStats.stats.usage_by_tool['stories'] || 0} histórias
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                    <span className="text-slate-400 text-[11px] block">HYPEON Ideas:</span>
+                    <span className="text-white font-bold text-sm">
+                      {hypeonStats.stats.usage_by_tool['ideas'] || 0} lotes
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/5">
+                    <span className="text-slate-400 text-[11px] block">Analisador de Vídeos:</span>
+                    <span className="text-white font-bold text-sm">
+                      {hypeonStats.stats.usage_by_tool['analisador'] || 0} diagnósticos
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
           {/* Tabela de Limites por Ferramenta */}
           <div className="space-y-3">

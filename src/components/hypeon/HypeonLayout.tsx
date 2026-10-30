@@ -19,6 +19,9 @@ import { Badge } from '@/components/ui/badge'
 
 export interface HypeonNavProps {
   children: React.ReactNode
+  title?: string
+  description?: string
+  badge?: string
 }
 
 export const HYPEON_NAV_ITEMS = [
@@ -31,52 +34,44 @@ export const HYPEON_NAV_ITEMS = [
     badge: 'Hub',
   },
   {
+    id: 'clonador',
+    label: 'Clonador Viral',
+    href: '/hypeon/clonador',
+    icon: Copy,
+    status: 'active' as const,
+    badge: 'NOVO',
+  },
+  {
+    id: 'stories',
+    label: 'HYPEON Stories',
+    href: '/hypeon/stories',
+    icon: BookOpen,
+    status: 'active' as const,
+    badge: 'NOVO',
+  },
+  {
+    id: 'ideas',
+    label: 'HYPEON Ideas',
+    href: '/hypeon/ideas',
+    icon: Lightbulb,
+    status: 'active' as const,
+    badge: 'NOVO',
+  },
+  {
+    id: 'analisador',
+    label: 'Analisador de Vídeos',
+    href: '/hypeon/analisador',
+    icon: BarChart3,
+    status: 'active' as const,
+    badge: 'NOVO',
+  },
+  {
     id: 'radar',
     label: 'Radar Viral',
     href: '/hypeon/radar',
     icon: Radio,
     status: 'active' as const,
-    badge: 'Fase 2',
-  },
-  {
-    id: 'clonador',
-    label: 'Clonador de Estruturas',
-    href: '/hypeon/clonador',
-    icon: Copy,
-    status: 'planned' as const,
-    badge: 'Em breve',
-  },
-  {
-    id: 'stories',
-    label: 'Gerador de Stories',
-    href: '/hypeon/stories',
-    icon: BookOpen,
-    status: 'planned' as const,
-    badge: 'Em breve',
-  },
-  {
-    id: 'ideas',
-    label: 'Banco de Ideias IA',
-    href: '/hypeon/ideas',
-    icon: Lightbulb,
-    status: 'planned' as const,
-    badge: 'Em breve',
-  },
-  {
-    id: 'analisador',
-    label: 'Analisador de Retenção',
-    href: '/hypeon/analisador',
-    icon: BarChart3,
-    status: 'planned' as const,
-    badge: 'Em breve',
-  },
-  {
-    id: 'cenas',
-    label: 'Fábrica de Cenas',
-    href: '/hypeon/cenas',
-    icon: Clapperboard,
-    status: 'planned' as const,
-    badge: 'Em breve',
+    badge: 'YouTube',
   },
   {
     id: 'tendencias',
@@ -94,9 +89,17 @@ export const HYPEON_NAV_ITEMS = [
     status: 'active' as const,
     badge: 'Salvos',
   },
+  {
+    id: 'cenas',
+    label: 'Fábrica de Cenas',
+    href: '/hypeon/cenas',
+    icon: Clapperboard,
+    status: 'planned' as const,
+    badge: 'Fase 4',
+  },
 ]
 
-export const HypeonLayout: React.FC<HypeonNavProps> = ({ children }) => {
+export const HypeonLayout: React.FC<HypeonNavProps> = ({ children, title, description, badge }) => {
   const location = useLocation()
 
   return (
@@ -239,7 +242,22 @@ export const HypeonLayout: React.FC<HypeonNavProps> = ({ children }) => {
           </aside>
 
           {/* Conteúdo da Página */}
-          <main className="lg:col-span-9 min-w-0">{children}</main>
+          <main className="lg:col-span-9 min-w-0">
+            {title && (
+              <div className="mb-6 space-y-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-black text-white">{title}</h1>
+                  {badge && (
+                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
+                      {badge}
+                    </Badge>
+                  )}
+                </div>
+                {description && <p className="text-xs text-slate-400">{description}</p>}
+              </div>
+            )}
+            {children}
+          </main>
         </div>
       </div>
     </div>

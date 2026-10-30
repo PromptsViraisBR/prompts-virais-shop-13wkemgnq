@@ -48,6 +48,18 @@ const HypeonTendencias = lazy(() =>
 const HypeonPlannedTool = lazy(() =>
   import('./pages/hypeon/HypeonPlannedTool').then((m) => ({ default: m.HypeonPlannedTool })),
 )
+const HypeonClonador = lazy(() =>
+  import('./pages/hypeon/HypeonClonador').then((m) => ({ default: m.HypeonClonador })),
+)
+const HypeonStories = lazy(() =>
+  import('./pages/hypeon/HypeonStories').then((m) => ({ default: m.HypeonStories })),
+)
+const HypeonIdeas = lazy(() =>
+  import('./pages/hypeon/HypeonIdeas').then((m) => ({ default: m.HypeonIdeas })),
+)
+const HypeonAnalisador = lazy(() =>
+  import('./pages/hypeon/HypeonAnalisador').then((m) => ({ default: m.HypeonAnalisador })),
+)
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'))
 const NotFound = lazy(() => import('./pages/NotFound'))
@@ -117,16 +129,10 @@ const App = () => {
                   <Route path="/hypeon/radar" element={<HypeonRadar />} />
                   <Route path="/hypeon/biblioteca" element={<HypeonBiblioteca />} />
                   <Route path="/hypeon/tendencias" element={<HypeonTendencias />} />
-                  <Route
-                    path="/hypeon/clonador"
-                    element={<HypeonPlannedTool toolId="clonador" />}
-                  />
-                  <Route path="/hypeon/stories" element={<HypeonPlannedTool toolId="stories" />} />
-                  <Route path="/hypeon/ideas" element={<HypeonPlannedTool toolId="ideas" />} />
-                  <Route
-                    path="/hypeon/analisador"
-                    element={<HypeonPlannedTool toolId="analisador" />}
-                  />
+                  <Route path="/hypeon/clonador" element={<HypeonClonador />} />
+                  <Route path="/hypeon/stories" element={<HypeonStories />} />
+                  <Route path="/hypeon/ideas" element={<HypeonIdeas />} />
+                  <Route path="/hypeon/analisador" element={<HypeonAnalisador />} />
                   <Route path="/hypeon/cenas" element={<HypeonPlannedTool toolId="cenas" />} />
                   <Route path="/privacidade" element={<PrivacyPolicy />} />
                   <Route path="/termos" element={<TermsOfUse />} />

@@ -163,15 +163,80 @@ export const Navbar: React.FC = () => {
                   <p className="text-[11px] text-slate-400">O próximo viral começa aqui</p>
                 </div>
                 <DropdownMenuItem
+                  onClick={() => navigate('/hypeon')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="block font-bold">Central HYPEON</span>
+                      <span className="text-[9px] px-1 rounded bg-purple-500/30 text-purple-300 font-bold">
+                        HUB
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Visão geral e fluxo de uso dos 8 módulos
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/hypeon/radar')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <Radio className="w-4 h-4 text-cyan-400" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="block font-bold text-cyan-300">1. Radar Viral</span>
+                      <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-300 font-bold">
+                        DESCOBRIR
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Vídeos em alta e métricas reais
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/hypeon/tendencias')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <Layers className="w-4 h-4 text-purple-400" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="block font-bold">2. Tendências por Nicho</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Mapeamento das 8 categorias
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/hypeon/analisador')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <Sparkles className="w-4 h-4 text-blue-400" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="block font-bold">3. Analisador de Vídeos</span>
+                      <span className="text-[9px] px-1 rounded bg-blue-500/30 text-blue-300 font-bold">
+                        ANALISAR
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Diagnóstico de retenção e gancho
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onClick={() => navigate('/hypeon/clonador')}
                   className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
                 >
                   <Sparkles className="w-4 h-4 text-purple-400" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">Clonador Viral</span>
+                      <span className="block font-bold">4. Clonador Viral</span>
                       <span className="text-[9px] px-1 rounded bg-purple-500/30 text-purple-300 font-bold">
-                        NOVO
+                        ROTEIRIZAR
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400 font-normal">
@@ -186,13 +251,10 @@ export const Navbar: React.FC = () => {
                   <BookOpen className="w-4 h-4 text-amber-400" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">HYPEON Stories</span>
-                      <span className="text-[9px] px-1 rounded bg-amber-500/30 text-amber-300 font-bold">
-                        NOVO
-                      </span>
+                      <span className="block font-bold">5. HYPEON Stories</span>
                     </div>
                     <span className="text-[10px] text-slate-400 font-normal">
-                      Histórias em cenas e séries
+                      Narrativas cinematográficas & séries
                     </span>
                   </div>
                 </DropdownMenuItem>
@@ -203,10 +265,7 @@ export const Navbar: React.FC = () => {
                   <Sparkles className="w-4 h-4 text-emerald-400" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">HYPEON Ideas</span>
-                      <span className="text-[9px] px-1 rounded bg-emerald-500/30 text-emerald-300 font-bold">
-                        NOVO
-                      </span>
+                      <span className="block font-bold">6. HYPEON Ideas</span>
                     </div>
                     <span className="text-[10px] text-slate-400 font-normal">
                       Banco de ideias infinitas com IA
@@ -214,43 +273,19 @@ export const Navbar: React.FC = () => {
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/analisador')}
+                  onClick={() => navigate('/hypeon/cenas')}
                   className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
                 >
-                  <Sparkles className="w-4 h-4 text-blue-400" />
+                  <Sparkles className="w-4 h-4 text-pink-400" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">Analisador de Vídeos</span>
-                      <span className="text-[9px] px-1 rounded bg-blue-500/30 text-blue-300 font-bold">
-                        NOVO
+                      <span className="block font-bold">7. Criador de Cenas</span>
+                      <span className="text-[9px] px-1 rounded bg-pink-500/30 text-pink-300 font-bold">
+                        CENAS
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400 font-normal">
-                      Diagnóstico de retenção e gancho
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/radar')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <Radio className="w-4 h-4 text-cyan-400" />
-                  <div>
-                    <span className="block font-bold text-cyan-300">Radar Viral (YouTube)</span>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Vídeos em alta e métricas reais
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/tendencias')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <Layers className="w-4 h-4 text-purple-400" />
-                  <div>
-                    <span className="block font-bold">Tendências por Nicho</span>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Padrões de retenção
+                      Roteiros convertidos em cenas e prompts
                     </span>
                   </div>
                 </DropdownMenuItem>
@@ -260,9 +295,14 @@ export const Navbar: React.FC = () => {
                 >
                   <CheckCircle className="w-4 h-4 text-emerald-400" />
                   <div>
-                    <span className="block font-bold">Biblioteca Viral</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="block font-bold">8. Biblioteca Viral</span>
+                      <span className="text-[9px] px-1 rounded bg-emerald-500/30 text-emerald-300 font-bold">
+                        SALVAR
+                      </span>
+                    </div>
                     <span className="text-[10px] text-slate-400 font-normal">
-                      Suas referências salvas
+                      Suas referências e roteiros organizados
                     </span>
                   </div>
                 </DropdownMenuItem>

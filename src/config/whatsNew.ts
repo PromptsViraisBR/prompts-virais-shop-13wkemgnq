@@ -21,44 +21,44 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.86'
+export const CURRENT_VERSION = 'v0.0.87'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
   releaseDate: '2025-05-16',
   tagline: 'PROMPTS VIRAIS — Inteligência para criar conteúdos que conquistam a internet.',
-  headline: 'v0.0.86 — FASE 4 HYPEON: Criador de Cenas & Biblioteca Viral Completa! 🎬📁',
+  headline: 'v0.0.87 — Núcleo HYPEON Organizado no Fluxo Real de Uso! ⚡🚀',
   highlights: [
     {
-      icon: 'film',
-      badge: 'NOVA FERRAMENTA',
-      title: 'Criador de Cenas (/hypeon/cenas)',
+      icon: 'zap',
+      badge: 'FLUXO DE PRODUTO',
+      title: 'Sequência Natural: Descobrir → Analisar → Roteirizar → Salvar',
       description:
-        'Transforme qualquer roteiro em cenas completas com IA: enquadramento, iluminação, câmera, ação, narração, e prompts individuais de imagem (9:16) e vídeo prontos para Midjourney, Runway e Kling.',
+        'O núcleo do HYPEON agora guia sua produção no passo a passo lógico: comece descobrindo referências e termine salvando na sua biblioteca.',
+    },
+    {
+      icon: 'film',
+      badge: 'PASSO 1: DESCOBRIR',
+      title: '1. Radar Viral & 2. Tendências por Nicho em Primeiro Lugar',
+      description:
+        'O Radar Viral agora encabeça o painel e os menus para você ver de imediato os Shorts e tendências com métricas 100% reais do Brasil.',
     },
     {
       icon: 'sparkles',
-      badge: '7 ESTILOS VISUAIS',
-      title: 'Direção Visual Customizada',
+      badge: 'PASSOS 3 A 7: PRODUÇÃO',
+      title: 'Analisador → Clonador → Stories → Ideas → Cenas',
       description:
-        'Escolha entre Realista Cinematográfico, Animação 3D, Cartoon, Anime, Documentário, Terror Cinematográfico ou Estilo Viral de Redes Sociais.',
+        'Avalie o gancho no Analisador, desmonte a estrutura no Clonador, gere narrativas ou ideias e converta tudo em cenas prontas com prompts visuais.',
     },
     {
       icon: 'bookmark',
-      badge: 'ORGANIZAÇÃO TOTAL',
-      title: 'Biblioteca Viral com Pastas Personalizadas',
+      badge: 'PASSO 8: ARQUIVAMENTO',
+      title: '8. Biblioteca Viral como Destino Final',
       description:
-        'Crie pastas com cores, busque por palavra-chave, edite notas, duplique projetos, mova itens entre pastas e copie conteúdos com 1 clique.',
-    },
-    {
-      icon: 'zap',
-      badge: 'INTEGRAÇÃO TOTAL',
-      title: 'Conexão Direta com Geradores do Site',
-      description:
-        'Envie qualquer cena ou roteiro direto para os geradores de prompts existentes do site e salve todo o progresso na sua biblioteca na nuvem.',
+        'Organize todo o material gerado em pastas na nuvem com 1 clique, fechando o ciclo de criação sem perder nenhum detalhe.',
     },
   ],
-  ctaText: 'Experimentar o Criador de Cenas',
-  ctaLink: '/hypeon/cenas',
+  ctaText: 'Ver Novo Fluxo do HYPEON',
+  ctaLink: '/hypeon',
 }

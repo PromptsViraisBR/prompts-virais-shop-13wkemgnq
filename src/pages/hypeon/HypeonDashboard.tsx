@@ -23,6 +23,8 @@ import {
 
 export interface ToolCardData {
   id: string
+  stepNumber: number
+  flowStage: string
   title: string
   subtitle: string
   description: string
@@ -37,6 +39,8 @@ export interface ToolCardData {
 export const HYPEON_TOOLS: ToolCardData[] = [
   {
     id: 'radar',
+    stepNumber: 1,
+    flowStage: 'Descobrir',
     title: 'Radar Viral',
     subtitle: 'Feed de tendências em tempo real',
     description:
@@ -49,7 +53,39 @@ export const HYPEON_TOOLS: ToolCardData[] = [
     highlight: 'Dados oficiais via API',
   },
   {
+    id: 'tendencias',
+    stepNumber: 2,
+    flowStage: 'Descobrir',
+    title: 'Tendências por Nicho',
+    subtitle: 'Mapeamento das 8 categorias',
+    description:
+      'Descubra padrões estéticos, músicas em alta e formatos vencedores específicos do seu segmento.',
+    icon: TrendingUp,
+    href: '/hypeon/tendencias',
+    status: 'active',
+    statusBadge: 'Ativo',
+    phase: 'Fase 1',
+    highlight: '8 Nichos Mapeados',
+  },
+  {
+    id: 'analisador',
+    stepNumber: 3,
+    flowStage: 'Analisar',
+    title: 'Analisador de Vídeos',
+    subtitle: 'Diagnóstico de retenção e gancho',
+    description:
+      'Receba notas de 0 a 100 por critério, riscos de abandono (drop-off) e reescrita imediata do gancho.',
+    icon: BarChart3,
+    href: '/hypeon/analisador',
+    status: 'active',
+    statusBadge: 'Disponível',
+    phase: 'Fase 3',
+    highlight: 'Notas 0 a 100 em 8 critérios',
+  },
+  {
     id: 'clonador',
+    stepNumber: 4,
+    flowStage: 'Clonar / Roteirizar',
     title: 'Clonador Viral',
     subtitle: 'Engenharia reversa com IA',
     description:
@@ -63,6 +99,8 @@ export const HYPEON_TOOLS: ToolCardData[] = [
   },
   {
     id: 'stories',
+    stepNumber: 5,
+    flowStage: 'Gerar Histórias',
     title: 'HYPEON Stories',
     subtitle: 'Narrativas cinematográficas & séries',
     description:
@@ -76,6 +114,8 @@ export const HYPEON_TOOLS: ToolCardData[] = [
   },
   {
     id: 'ideas',
+    stepNumber: 6,
+    flowStage: 'Gerar Ideias',
     title: 'HYPEON Ideas',
     subtitle: 'Banco infinito com estimativa IA',
     description:
@@ -88,20 +128,9 @@ export const HYPEON_TOOLS: ToolCardData[] = [
     highlight: '5, 10 ou 20 ideias por vez',
   },
   {
-    id: 'analisador',
-    title: 'Analisador de Vídeos',
-    subtitle: 'Diagnóstico de retenção e gancho',
-    description:
-      'Receba notas de 0 a 100 por critério, riscos de abandono (drop-off) e reescrita imediata do gancho.',
-    icon: BarChart3,
-    href: '/hypeon/analisador',
-    status: 'active',
-    statusBadge: 'Disponível',
-    phase: 'Fase 3',
-    highlight: 'Notas 0 a 100 em 8 critérios',
-  },
-  {
     id: 'cenas',
+    stepNumber: 7,
+    flowStage: 'Gerar Cenas',
     title: 'Criador de Cenas',
     subtitle: 'Roteiros transformados em cenas prontas',
     description:
@@ -114,20 +143,9 @@ export const HYPEON_TOOLS: ToolCardData[] = [
     highlight: '7 estilos visuais + prompts prontos',
   },
   {
-    id: 'tendencias',
-    title: 'Tendências por Nicho',
-    subtitle: 'Mapeamento das 8 categorias',
-    description:
-      'Descubra padrões estéticos, músicas em alta e formatos vencedores específicos do seu segmento.',
-    icon: TrendingUp,
-    href: '/hypeon/tendencias',
-    status: 'active',
-    statusBadge: 'Ativo',
-    phase: 'Fase 1',
-    highlight: '8 Nichos Mapeados',
-  },
-  {
     id: 'biblioteca',
+    stepNumber: 8,
+    flowStage: 'Salvar & Organizar',
     title: 'Biblioteca Viral',
     subtitle: 'Suas referências organizadas',
     description:
@@ -215,7 +233,8 @@ export const HypeonDashboard: React.FC = () => {
                 </Badge>
               </h2>
               <p className="text-xs sm:text-sm text-slate-400">
-                Ferramentas ativas disponíveis para uso imediato e próximas etapas em implementação.
+                Organizadas no fluxo criativo: Descobrir → Analisar → Clonar/Roteirizar → Gerar
+                Cenas → Salvar.
               </p>
             </div>
           </div>
@@ -236,34 +255,53 @@ export const HypeonDashboard: React.FC = () => {
                 >
                   <CardHeader className="p-5 pb-3 space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105 ${
-                            isActive
-                              ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
-                              : 'bg-slate-800/60 border-slate-700 text-slate-400'
-                          }`}
-                        >
-                          <Icon className="w-5 h-5" />
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {/* Numeração sutil de passo no fluxo de uso */}
+                        <div className="relative">
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105 ${
+                              isActive
+                                ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
+                                : 'bg-slate-800/60 border-slate-700 text-slate-400'
+                            }`}
+                          >
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <span
+                            className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-pink-600 text-white text-[10px] font-black flex items-center justify-center shadow-xs border border-slate-950"
+                            title={`Passo ${tool.stepNumber} do fluxo`}
+                          >
+                            {tool.stepNumber}
+                          </span>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <CardTitle className="text-base font-bold text-white flex items-center gap-2">
-                            <span>{tool.title}</span>
+                            <span className="truncate">{tool.title}</span>
                           </CardTitle>
-                          <p className="text-xs text-slate-400 font-medium">{tool.subtitle}</p>
+                          <p className="text-xs text-slate-400 font-medium truncate">
+                            {tool.subtitle}
+                          </p>
                         </div>
                       </div>
 
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 shrink-0 ${
-                          isActive
-                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}
-                      >
-                        {tool.statusBadge}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-purple-500/10 text-purple-300 border-purple-500/30 hidden sm:inline-flex"
+                        >
+                          {tool.flowStage}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 shrink-0 ${
+                            isActive
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}
+                        >
+                          {tool.statusBadge}
+                        </Badge>
+                      </div>
                     </div>
 
                     <CardDescription className="text-xs text-slate-300 leading-relaxed pt-1">

@@ -246,7 +246,7 @@ export const Landing: React.FC = () => {
             <span className="text-[11px] text-muted-foreground">
               Viu algum bug? Avise em{' '}
               <a
-                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.78"
+                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais"
                 className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
               >
                 juniorrodriguesjr123.jr@gmail.com

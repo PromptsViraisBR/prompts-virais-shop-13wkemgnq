@@ -126,8 +126,8 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
       })
     }
 
-    // Cache simples em memória usando o objeto global de cache (v2 com curadoria estrita)
-    const cacheKey = `yt_radar_v2_${platform}_${niche}_${period}_${sort}`
+    // Cache simples em memória usando o objeto global de cache (v3 com multi-busca ampliada)
+    const cacheKey = `yt_radar_v3_${platform}_${niche}_${period}_${sort}`
     const cacheTtlMs = 20 * 60 * 1000 // 20 minutos
     const nowTs = Date.now()
 
@@ -152,94 +152,226 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
     }
 
     // 1. REFINAR TERMOS DE BUSCA: foco 100% em formatos de ENTRETENIMENTO para criadores
-    // Termo principal + termo alternativo para fallback se sobrar poucos vídeos
+    // 2 a 3 variações por nicho para coletar um volume abundante de vídeos reais + termos de reforço
     const nicheQueries = {
       all: {
-        primary: '"você sabia" OR "curiosidades" OR "como fazer" shorts brasil',
-        fallback: '"história narrada" OR "experimento caseiro" shorts brasil',
+        queries: [
+          '"você sabia" OR "curiosidades" shorts brasil',
+          '"como fazer" OR "experimento caseiro" shorts brasil',
+          '"fatos curiosos" OR "história narrada" shorts brasil',
+        ],
+        fallback: [
+          'truques incríveis você sabia shorts brasil',
+          'curiosidades impressionantes shorts brasil',
+        ],
       },
       historias: {
-        primary: 'história narrada shorts brasil relatos',
-        fallback: 'histórias reais narradas animação shorts',
+        queries: [
+          'história narrada shorts brasil relatos',
+          'relatos reais histórias narradas shorts',
+          'histórias incríveis reflexão shorts brasil',
+        ],
+        fallback: [
+          'histórias de superação narradas shorts',
+          'contos narrados animação shorts brasil',
+        ],
       },
       terror: {
-        primary: 'história de terror narrada shorts brasil contos',
-        fallback: 'relatos assustadores narrados shorts',
+        queries: [
+          'história de terror narrada shorts brasil contos',
+          'relatos assustadores narrados shorts brasil',
+          'lendas urbanas histórias de terror shorts',
+        ],
+        fallback: [
+          'casos sobrenaturais histórias curtas shorts',
+          'contos de suspense e terror narrados shorts',
+        ],
       },
       suspense: {
-        primary: 'suspense mistério história narrada shorts',
-        fallback: 'casos misteriosos curiosidades shorts brasil',
+        queries: [
+          'suspense mistério história narrada shorts',
+          'casos misteriosos curiosidades shorts brasil',
+          'histórias de suspense intrigantes shorts',
+        ],
+        fallback: [
+          'enigmas e suspense histórias shorts brasil',
+          'casos sem explicação mistério shorts',
+        ],
       },
       misterio: {
-        primary: 'mistério revelado curiosidades fatos shorts',
-        fallback: 'segredos e mistérios você sabia shorts',
+        queries: [
+          'mistério revelado curiosidades fatos shorts',
+          'segredos e mistérios você sabia shorts',
+          'mistérios do mundo fatos curiosos shorts',
+        ],
+        fallback: [
+          'fatos misteriosos que ninguém explica shorts',
+          'segredos ocultos você sabia shorts brasil',
+        ],
       },
       humor: {
-        primary: 'comédia esquetes engraçado humor shorts brasil',
-        fallback: 'piadas engraçadas meme criativo shorts',
+        queries: [
+          'comédia esquetes engraçado humor shorts brasil',
+          'piadas engraçadas meme criativo shorts',
+          'situações engraçadas paródia comédia shorts',
+        ],
+        fallback: [
+          'memes engraçados esquetes shorts brasil',
+          'humor criativo shorts brasil comédia',
+        ],
       },
       comedia: {
-        primary: 'comédia esquetes engraçado shorts brasil',
-        fallback: 'situações engraçadas paródia shorts',
+        queries: [
+          'comédia esquetes engraçado shorts brasil',
+          'situações engraçadas paródia shorts',
+          'humor dia a dia esquetes curtas shorts',
+        ],
+        fallback: [
+          'piadas curtas e engraçadas shorts brasil',
+          'esquetes de comédia criativa shorts',
+        ],
       },
       curiosidades: {
-        primary: '"você sabia" curiosidades fatos incríveis shorts',
-        fallback: 'curiosidades que você não sabia shorts brasil',
+        queries: [
+          '"você sabia" curiosidades fatos incríveis shorts',
+          'curiosidades que você não sabia shorts brasil',
+          'fatos curiosos shorts você sabia',
+        ],
+        fallback: [
+          'curiosidades incríveis do mundo shorts',
+          'coisas que você não sabia fatos shorts brasil',
+        ],
       },
       ia: {
-        primary: 'inteligência artificial tutorial dicas como fazer shorts',
-        fallback: 'ferramentas de IA incríveis truques shorts',
+        queries: [
+          'inteligência artificial tutorial dicas como fazer shorts',
+          'ferramentas de IA incríveis truques shorts',
+          'como usar IA dicas e truques shorts brasil',
+        ],
+        fallback: [
+          'novidades de inteligência artificial shorts',
+          'prompts e ferramentas IA passo a passo shorts',
+        ],
       },
       animacoes: {
-        primary: 'animação curta história em desenho shorts brasil',
-        fallback: 'desenho animado história narrada shorts',
+        queries: [
+          'animação curta história em desenho shorts brasil',
+          'desenho animado história narrada shorts',
+          'curta de animação engraçado shorts brasil',
+        ],
+        fallback: ['animação criativa historinha shorts', 'desenhos animados curtos virais shorts'],
       },
       personagens: {
-        primary: 'frutas humanizadas animais humanizados história shorts',
-        fallback: 'personagens humanizados animação shorts brasil',
+        queries: [
+          'frutas humanizadas animais humanizados história shorts',
+          'personagens humanizados animação shorts brasil',
+          'historinhas de frutas personagens shorts',
+        ],
+        fallback: [
+          'comida humanizada história engraçada shorts',
+          'objetos com vida história animada shorts',
+        ],
       },
       animais: {
-        primary: 'animais fofos engraçados curiosidades pet shorts',
-        fallback: 'cães e gatos engraçados dublagem shorts',
+        queries: [
+          'animais fofos engraçados curiosidades pet shorts',
+          'cães e gatos engraçados dublagem shorts',
+          'curiosidades sobre animais selvagens shorts',
+        ],
+        fallback: ['pets engraçados e fofos shorts brasil', 'fatos curiosos sobre animais shorts'],
       },
       relacionamentos: {
-        primary: 'dicas de relacionamento conselhos história shorts',
-        fallback: 'relacionamento amoroso reflexão histórias shorts',
+        queries: [
+          'dicas de relacionamento conselhos história shorts',
+          'relacionamento amoroso reflexão histórias shorts',
+          'conselhos sobre namoro e casal shorts',
+        ],
+        fallback: [
+          'psicologia dos relacionamentos dicas shorts',
+          'histórias de amor e lição shorts brasil',
+        ],
       },
       motivacao: {
-        primary: 'motivação reflexão lição de vida história shorts',
-        fallback: 'mensagem motivacional para o dia shorts',
+        queries: [
+          'motivação reflexão lição de vida história shorts',
+          'mensagem motivacional para o dia shorts',
+          'disciplina e foco reflexão estoicismo shorts',
+        ],
+        fallback: [
+          'histórias inspiradoras lição de vida shorts',
+          'frases de motivação e sabedoria shorts brasil',
+        ],
       },
       conhecimento: {
-        primary: 'como fazer tutorial aprenda dica truque shorts',
-        fallback: 'conhecimento prático você sabia como funciona shorts',
+        queries: [
+          'como fazer tutorial aprenda dica truque shorts',
+          'conhecimento prático você sabia como funciona shorts',
+          'dicas úteis para o dia a dia shorts',
+        ],
+        fallback: [
+          'aprenda em 1 minuto dicas fáceis shorts',
+          'como funciona na prática você sabia shorts',
+        ],
       },
       tecnologia: {
-        primary: 'dicas de tecnologia truques celular pc shorts',
-        fallback: 'tecnologia segredos recursos incríveis shorts',
+        queries: [
+          'dicas de tecnologia truques celular pc shorts',
+          'tecnologia segredos recursos incríveis shorts',
+          'recursos escondidos no celular truques shorts',
+        ],
+        fallback: [
+          'funções secretas no celular e pc shorts',
+          'dicas de tech truques fáceis shorts brasil',
+        ],
       },
       experimentos: {
-        primary: 'experimento caseiro teste na prática ciência shorts',
-        fallback: 'experiência incrível testando truques shorts',
+        queries: [
+          'experimento caseiro teste na prática ciência shorts',
+          'experiência incrível testando truques shorts',
+          'experimentos científicos fáceis shorts brasil',
+        ],
+        fallback: [
+          'testando truques da internet na prática shorts',
+          'ciência divertida experimentos caseiros shorts',
+        ],
       },
       satisfatorios: {
-        primary: 'vídeo satisfatório asmr relaxante shorts',
-        fallback: 'oddly satisfying asmr visual shorts',
+        queries: [
+          'vídeo satisfatório asmr relaxante shorts',
+          'oddly satisfying asmr visual shorts',
+          'processo de corte satisfatório asmr shorts',
+        ],
+        fallback: [
+          'vídeos que relaxam visual satisfatório shorts',
+          'asmr visual relaxante sons shorts brasil',
+        ],
       },
       outros: {
-        primary: 'curiosidades como fazer você sabia shorts brasil',
-        fallback: 'truques criativos tutoriais shorts brasil',
+        queries: [
+          'curiosidades como fazer você sabia shorts brasil',
+          'truques criativos tutoriais shorts brasil',
+          'fatos impressionantes você sabia shorts',
+        ],
+        fallback: [
+          'dicas incríveis e curiosidades shorts',
+          'coisas satisfatórias e tutoriais shorts brasil',
+        ],
       },
     }
 
     const currentNicheConfig = nicheQueries[niche] || {
-      primary: `${niche} como fazer curiosidades shorts brasil`,
-      fallback: `${niche} dicas tutorial shorts brasil`,
+      queries: [
+        `${niche} como fazer curiosidades shorts brasil`,
+        `${niche} dicas tutorial shorts brasil`,
+        `${niche} você sabia fatos shorts brasil`,
+      ],
+      fallback: [`${niche} truques e curiosidades shorts brasil`],
     }
 
-    // Período
-    let daysAgo = 7
+    // Período padrão: 30 dias (30d) para garantir volume robusto
+    let daysAgo = 30
     if (period === '24h') daysAgo = 1
+    if (period === '7d') daysAgo = 7
     if (period === '30d') daysAgo = 30
     const publishedAfter = new Date(nowTs - daysAgo * 24 * 60 * 60 * 1000).toISOString()
 
@@ -389,11 +521,11 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
       return score
     }
 
-    // Helper para buscar vídeos na YouTube API v3
+    // Helper para buscar vídeos na YouTube API v3 com maxResults = 50 (máximo suportado por requisição)
     const fetchYouTubeVideos = (term) => {
       const searchUrl =
         'https://www.googleapis.com/youtube/v3/search?' +
-        'part=snippet&type=video&videoDuration=short&maxResults=25' +
+        'part=snippet&type=video&videoDuration=short&maxResults=50' +
         '&regionCode=BR' +
         '&relevanceLanguage=pt' +
         '&q=' +
@@ -423,61 +555,82 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
       }
     }
 
-    // 1ª busca: termo primário refinado para entretenimento
-    const primaryResult = fetchYouTubeVideos(currentNicheConfig.primary)
-    if (primaryResult.error && !primaryResult.items.length) {
-      return e.json(502, {
-        success: false,
-        connected: false,
-        error: 'A YouTube Data API retornou erro: ' + primaryResult.error,
+    // Executa as buscas principais (2 a 3 termos por nicho) agregando resultados sem duplicatas
+    const queryList = currentNicheConfig.queries || [currentNicheConfig.primary || 'shorts brasil']
+    const combinedRawItems = []
+    const seenRawVideoIds = {}
+
+    for (let qIdx = 0; qIdx < queryList.length; qIdx++) {
+      const qTerm = queryList[qIdx]
+      const qRes = fetchYouTubeVideos(qTerm)
+      const qItems = qRes.items || []
+      for (let i = 0; i < qItems.length; i++) {
+        const item = qItems[i]
+        const vId = item.id && item.id.videoId
+        if (vId && !seenRawVideoIds[vId]) {
+          seenRawVideoIds[vId] = true
+          combinedRawItems.push(item)
+        }
+      }
+    }
+
+    if (combinedRawItems.length === 0) {
+      return e.json(200, {
+        success: true,
+        connected: true,
+        source: 'youtube_data_api_v3',
         filters_applied: { platform, niche, period, sort },
+        total_items: 0,
         items: [],
       })
     }
-
-    let combinedRawItems = primaryResult.items || []
 
     // Coletar IDs para buscar estatísticas
     const extractIds = (list) => list.map((it) => it.id && it.id.videoId).filter(Boolean)
 
     let initialIds = extractIds(combinedRawItems)
 
-    // Helper para buscar estatísticas (/videos)
+    // Helper para buscar estatísticas (/videos) em lotes de até 50 IDs (limite máximo da YouTube API)
     const fetchStats = (ids) => {
       if (!ids || ids.length === 0) return {}
       const statsMap = {}
-      const statsUrl =
-        'https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=' +
-        encodeURIComponent(ids.join(',')) +
-        '&key=' +
-        encodeURIComponent(ytKey)
 
-      const statsRes = $http.send({
-        url: statsUrl,
-        method: 'GET',
-        timeout: 15,
-      })
+      for (let offset = 0; offset < ids.length; offset += 50) {
+        const batchIds = ids.slice(offset, offset + 50)
+        const statsUrl =
+          'https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=' +
+          encodeURIComponent(batchIds.join(',')) +
+          '&key=' +
+          encodeURIComponent(ytKey)
 
-      if (statsRes.statusCode === 200) {
-        try {
-          const statsData = JSON.parse(statsRes.raw)
-          const statItems = statsData.items || []
-          for (let i = 0; i < statItems.length; i++) {
-            const s = statItems[i]
-            statsMap[s.id] = {
-              statistics: s.statistics || {},
-              snippet: s.snippet || {},
-              contentDetails: s.contentDetails || {},
+        const statsRes = $http.send({
+          url: statsUrl,
+          method: 'GET',
+          timeout: 15,
+        })
+
+        if (statsRes.statusCode === 200) {
+          try {
+            const statsData = JSON.parse(statsRes.raw)
+            const statItems = statsData.items || []
+            for (let i = 0; i < statItems.length; i++) {
+              const s = statItems[i]
+              statsMap[s.id] = {
+                statistics: s.statistics || {},
+                snippet: s.snippet || {},
+                contentDetails: s.contentDetails || {},
+              }
             }
-          }
-        } catch (_) {}
+          } catch (_) {}
+        }
       }
+
       return statsMap
     }
 
     let allStatsMap = fetchStats(initialIds)
 
-    // Formatar e filtrar 1ª rodada
+    // Formatar e filtrar itens preservando rigorosamente o filtro de entretenimento
     const processItems = (rawItems, statsMap) => {
       const valid = []
       const seen = {}
@@ -497,7 +650,7 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
         const titleNorm = normalizeText(title)
         const channelNorm = normalizeText(channelTitle)
 
-        // Filtro rígido de exclusão
+        // Filtro rígido de exclusão (notícia/política/tragédia/agenda esportiva)
         if (isExcluded(titleNorm, channelNorm)) {
           continue
         }
@@ -552,25 +705,40 @@ routerAdd('GET', '/backend/v1/hypeon/radar', (e) => {
 
     let filtered = processItems(combinedRawItems, allStatsMap)
 
-    // 4. Se após o filtro sobrar menos de ~6 vídeos, executar busca complementar com termo fallback
-    if (filtered.length < 6 && currentNicheConfig.fallback) {
-      const fallbackResult = fetchYouTubeVideos(currentNicheConfig.fallback)
-      if (fallbackResult.items && fallbackResult.items.length > 0) {
-        const existingIds = {}
-        for (let i = 0; i < filtered.length; i++) {
-          existingIds[filtered[i].id] = true
-        }
+    // 4. REFORÇO: se após curadoria sobrarem MENOS DE 20 VÍDEOS, dispara busca adicional com termos alternativos
+    const fallbackList = Array.isArray(currentNicheConfig.fallback)
+      ? currentNicheConfig.fallback
+      : currentNicheConfig.fallback
+        ? [currentNicheConfig.fallback]
+        : []
 
-        const newRaw = fallbackResult.items.filter(
-          (it) => it.id?.videoId && !existingIds[it.id.videoId],
-        )
+    if (filtered.length < 20 && fallbackList.length > 0) {
+      const existingIds = {}
+      for (let i = 0; i < filtered.length; i++) {
+        existingIds[filtered[i].id] = true
+      }
 
-        if (newRaw.length > 0) {
-          const newIds = newRaw.map((it) => it.id.videoId)
-          const newStatsMap = fetchStats(newIds)
-          const additional = processItems(newRaw, newStatsMap)
-          filtered = filtered.concat(additional)
+      const additionalRaw = []
+      for (let fbIdx = 0; fbIdx < fallbackList.length; fbIdx++) {
+        if (filtered.length + additionalRaw.length >= 35) break // já tem volume excelente
+        const fbTerm = fallbackList[fbIdx]
+        const fallbackResult = fetchYouTubeVideos(fbTerm)
+        const fbItems = fallbackResult.items || []
+        for (let j = 0; j < fbItems.length; j++) {
+          const vId = fbItems[j].id?.videoId
+          if (vId && !existingIds[vId] && !seenRawVideoIds[vId]) {
+            seenRawVideoIds[vId] = true
+            existingIds[vId] = true
+            additionalRaw.push(fbItems[j])
+          }
         }
+      }
+
+      if (additionalRaw.length > 0) {
+        const newIds = additionalRaw.map((it) => it.id.videoId)
+        const newStatsMap = fetchStats(newIds)
+        const additional = processItems(additionalRaw, newStatsMap)
+        filtered = filtered.concat(additional)
       }
     }
 

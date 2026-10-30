@@ -97,7 +97,8 @@ export const HypeonRadar: React.FC = () => {
   // YouTube passa a ser a plataforma selecionada por padrão (com outras visíveis)
   const [platform, setPlatform] = useState<string>('youtube')
   const [niche, setNiche] = useState<string>('all')
-  const [period, setPeriod] = useState<'24h' | '7d' | '30d'>('7d')
+  // Período padrão: 30 dias para garantir lista abundante de referências virais
+  const [period, setPeriod] = useState<'24h' | '7d' | '30d'>('30d')
   const [sort, setSort] = useState<'recent' | 'views' | 'engagement' | 'growth'>('views')
 
   const [videos, setVideos] = useState<RadarVideoItem[]>([])

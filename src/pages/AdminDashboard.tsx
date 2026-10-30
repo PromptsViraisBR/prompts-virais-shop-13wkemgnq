@@ -61,7 +61,16 @@ import {
   toggleUserWelcomeSent,
   AdminUserItem,
 } from '@/services/adminUsers'
-import { Eye, Search, UserX, UserCheck } from 'lucide-react'
+import {
+  getHypeonLimits,
+  updateHypeonLimit,
+  getHypeonSourcesStatus,
+  getHypeonUsageStats,
+  HypeonLimitItem,
+  SourcesStatusResponse,
+  HypeonUsageStatsResponse,
+} from '@/services/hypeon'
+import { Eye, Search, UserX, UserCheck, Radio, Sliders, Activity, Bookmark } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {
   const { user, isAdmin, isLoading: authLoading } = useAuth()
@@ -75,6 +84,14 @@ export const AdminDashboard: React.FC = () => {
   const [userToDelete, setUserToDelete] = useState<AdminUserItem | null>(null)
   const [deletingUser, setDeletingUser] = useState(false)
   const [togglingWelcomeId, setTogglingWelcomeId] = useState<string | null>(null)
+
+  // HYPEON Admin State
+  const [hypeonLimits, setHypeonLimits] = useState<HypeonLimitItem[]>([])
+  const [hypeonSources, setHypeonSources] = useState<SourcesStatusResponse | null>(null)
+  const [hypeonStats, setHypeonStats] = useState<HypeonUsageStatsResponse | null>(null)
+  const [editingLimit, setEditingLimit] = useState<HypeonLimitItem | null>(null)
+  const [savingLimit, setSavingLimit] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -145,7 +162,7 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const [res, fRes, eRes, cRes, fbRes, uRes] = await Promise.allSettled([
+      const [res, fRes, eRes, cRes, fbRes, uRes, hlRes, hsRes, hstRes] = await Promise.allSettled([
         getAdminOverview(),
         getFunnelMetrics(funnelPeriod),
         getEmailStatus(),
@@ -157,7 +174,20 @@ export const AdminDashboard: React.FC = () => {
           sort: '-created',
         }),
         listAdminUsers(),
+        getHypeonLimits(),
+        getHypeonSourcesStatus(),
+        getHypeonUsageStats(),
       ])
+
+      if (hlRes.status === 'fulfilled') {
+        setHypeonLimits(hlRes.value.limits || [])
+      }
+      if (hsRes.status === 'fulfilled') {
+        setHypeonSources(hsRes.value)
+      }
+      if (hstRes.status === 'fulfilled') {
+        setHypeonStats(hstRes.value)
+      }
 
       let criticalError = ''
       if (res.status === 'fulfilled') {
@@ -389,6 +419,37 @@ export const AdminDashboard: React.FC = () => {
       })
     } finally {
       setDeletingUser(false)
+    }
+  }
+
+  const handleSaveHypeonLimit = async () => {
+    if (!editingLimit) return
+    setSavingLimit(true)
+    try {
+      await updateHypeonLimit({
+        tool_id: editingLimit.tool_id,
+        free_limit_daily: editingLimit.free_limit_daily,
+        pro_limit_daily: editingLimit.pro_limit_daily,
+        credit_cost: editingLimit.credit_cost,
+        is_active: editingLimit.is_active,
+        description: editingLimit.description,
+      })
+      toast({
+        title: 'Limites atualizados!',
+        description: `Configuração da ferramenta "${editingLimit.tool_name}" salva no servidor.`,
+      })
+      setHypeonLimits((prev) =>
+        prev.map((l) => (l.tool_id === editingLimit.tool_id ? editingLimit : l)),
+      )
+      setEditingLimit(null)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar limites',
+        description: err?.message || 'Falha ao atualizar limite.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingLimit(false)
     }
   }
 
@@ -768,6 +829,329 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* SEÇÃO: HYPEON ADMIN — LIMITES POR FERRAMENTA & FONTES DE TENDÊNCIAS */}
+      <Card className="border-2 border-purple-500/30 bg-slate-950 text-slate-100 shadow-xl">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-purple-500/20">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 via-pink-600 to-cyan-500 flex items-center justify-center text-white shadow-xs">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <CardTitle className="text-lg font-black text-white flex items-center gap-2">
+                <span>Gestão HYPEON — Limites, Fontes & Estatísticas</span>
+                <Badge className="bg-purple-600 text-white text-[10px] uppercase font-mono">
+                  FASE 5
+                </Badge>
+              </CardTitle>
+            </div>
+            <CardDescription className="text-slate-400 text-xs">
+              Configure limites diários por ferramenta, monitore conexões das fontes oficiais e
+              visualize métricas da nova divisão.
+            </CardDescription>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link to="/hypeon">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-purple-500/40 text-purple-300 hover:bg-purple-500/20 text-xs font-bold h-9 px-3.5 rounded-xl gap-1.5"
+              >
+                <span>Acessar /hypeon</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6 pt-5">
+          {/* Status das Fontes de Tendências (YouTube Data API, etc.) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Painel de Fontes de Tendências (APIs Oficiais)</span>
+              </h4>
+              <span className="text-[11px] text-slate-400">
+                Sem dados fictícios • Processamento server-side
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {hypeonSources?.sources ? (
+                Object.values(hypeonSources.sources).map((src) => (
+                  <div
+                    key={src.id}
+                    className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-2 ${
+                      src.connected
+                        ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                        : 'bg-amber-950/20 border-amber-500/40 text-amber-200'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs text-white">{src.name}</span>
+                        <Badge
+                          className={`text-[9px] uppercase font-mono font-bold ${
+                            src.connected
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          }`}
+                        >
+                          {src.connected ? 'Conectado' : 'Desconectado'}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-tight">{src.description}</p>
+                    </div>
+
+                    <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400 font-mono">
+                        Segredo: {src.required_secret}
+                      </span>
+                      <span className="font-semibold">
+                        {src.connected ? '✓ Ativo' : '⚠ Pendente'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-3 p-4 rounded-xl border border-slate-800 text-xs text-slate-400 text-center">
+                  Consultando fontes no servidor...
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Estatísticas de Uso HYPEON */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-1">
+              <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                <Bookmark className="w-3.5 h-3.5 text-purple-400" />
+                Vídeos Salvos no Radar
+              </span>
+              <p className="text-2xl font-black text-white">
+                {hypeonStats?.stats.total_saved_videos ?? 0}
+              </p>
+              <p className="text-[11px] text-slate-400">Referências armazenadas</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-1">
+              <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                Módulos Ativos no Ar
+              </span>
+              <p className="text-2xl font-black text-emerald-400">
+                {hypeonStats?.stats.active_tools_count ?? 3} / 8
+              </p>
+              <p className="text-[11px] text-slate-400">Radar, Tendências, Biblioteca</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-1">
+              <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-pink-400" />
+                Próximas Fases (Roadmap)
+              </span>
+              <p className="text-2xl font-black text-pink-400">
+                {hypeonStats?.stats.planned_tools_count ?? 5}
+              </p>
+              <p className="text-[11px] text-slate-400">Clonador, Stories, Ideas...</p>
+            </div>
+          </div>
+
+          {/* Tabela de Limites por Ferramenta */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                <span>Configuração de Limites por Ferramenta (Coleção hypeon_limits)</span>
+              </h4>
+              <span className="text-[11px] text-slate-400">
+                Aplicado no servidor via hook • Respeita planos existentes
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full text-left text-xs min-w-[680px]">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-semibold">
+                    <th className="py-2.5 px-3">Ferramenta</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3 text-center">Limite Grátis / Dia</th>
+                    <th className="py-2.5 px-3 text-center">Limite PRO / Dia</th>
+                    <th className="py-2.5 px-3 text-center">Custo em Créditos</th>
+                    <th className="py-2.5 px-3 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 bg-slate-950">
+                  {hypeonLimits.map((tool) => (
+                    <tr key={tool.tool_id} className="hover:bg-slate-900/50">
+                      <td className="py-3 px-3 font-semibold text-white">
+                        <div className="flex flex-col">
+                          <span>{tool.tool_name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono font-normal">
+                            id: {tool.tool_id}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] uppercase font-bold ${
+                            tool.is_active
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}
+                        >
+                          {tool.is_active ? 'Ativa' : 'Fase Futura'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono font-bold text-slate-200">
+                        {tool.free_limit_daily} / dia
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono font-bold text-purple-300">
+                        {tool.pro_limit_daily} / dia
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono text-slate-300">
+                        {tool.credit_cost > 0 ? `${tool.credit_cost} crédito(s)` : '0 (incluso)'}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingLimit({ ...tool })}
+                          className="h-7 px-2.5 text-xs border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+                        >
+                          Editar Limites
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* MODAL DE EDIÇÃO DE LIMITES HYPEON */}
+      <Dialog
+        open={Boolean(editingLimit)}
+        onOpenChange={(val) => {
+          if (!val) setEditingLimit(null)
+        }}
+      >
+        <DialogContent className="max-w-md bg-slate-950 text-slate-100 border border-purple-500/40 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-purple-400" />
+              <span>Editar Limites: {editingLimit?.tool_name}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Ajuste as regras de cota diária por plano. Alterações refletem imediatamente no
+              backend.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingLimit && (
+            <div className="space-y-4 py-3 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase">
+                  Limite Grátis Diário (Gerações/Consultas)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingLimit.free_limit_daily}
+                  onChange={(e) =>
+                    setEditingLimit({
+                      ...editingLimit,
+                      free_limit_daily: parseInt(e.target.value || '0', 10),
+                    })
+                  }
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase">
+                  Limite PRO Diário (Assinantes Mensal e Anual)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingLimit.pro_limit_daily}
+                  onChange={(e) =>
+                    setEditingLimit({
+                      ...editingLimit,
+                      pro_limit_daily: parseInt(e.target.value || '0', 10),
+                    })
+                  }
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase">
+                  Custo em Créditos Extras (quando esgotado o plano)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingLimit.credit_cost}
+                  onChange={(e) =>
+                    setEditingLimit({
+                      ...editingLimit,
+                      credit_cost: parseInt(e.target.value || '0', 10),
+                    })
+                  }
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="tool_is_active"
+                  checked={editingLimit.is_active}
+                  onChange={(e) =>
+                    setEditingLimit({
+                      ...editingLimit,
+                      is_active: e.target.checked,
+                    })
+                  }
+                  className="rounded border-slate-700 bg-slate-900"
+                />
+                <label
+                  htmlFor="tool_is_active"
+                  className="text-xs text-slate-300 font-semibold cursor-pointer"
+                >
+                  Ferramenta Ativa para Usuários (Fase Atual)
+                </label>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setEditingLimit(null)}
+              className="text-xs text-slate-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={savingLimit}
+              onClick={handleSaveHypeonLimit}
+              className="text-xs font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 text-white"
+            >
+              {savingLimit ? 'Salvando...' : 'Salvar Alterações'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* SEÇÃO: AUTOMAÇÕES TRANSACIONAIS E JOB DE VENCIMENTO (Fase D) */}
       <Card className="border-2 border-indigo-500/20 shadow-md">

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Navbar, Footer } from '@/components/Navigation'
 import { ReferralBanner } from '@/components/ReferralBanner'
+import { WhatsNewModal } from '@/components/WhatsNewModal'
 
 export default function Layout() {
   return (
@@ -11,6 +12,7 @@ export default function Layout() {
       </main>
       <ReferralBanner />
       <Footer />
+      <WhatsNewModal />
     </div>
   )
 }

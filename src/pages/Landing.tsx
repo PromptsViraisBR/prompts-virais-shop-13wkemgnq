@@ -227,23 +227,26 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="space-y-12 sm:space-y-16 pb-16">
-      {/* BANNER INFORMATIVO DISCRETO: VERSÃO 0.0.77 + AVISO DE BUGS + SUPORTE + FEEDBACK */}
+      {/* BANNER INFORMATIVO DISCRETO: VERSÃO 0.0.78 + AVISO DE BUGS + VER NOVIDADES + FEEDBACK */}
       <section className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pt-3">
-        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-amber-500/10 border border-pink-500/20 backdrop-blur-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs shadow-xs">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-amber-500/10 border border-purple-500/30 backdrop-blur-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs shadow-xs">
           <div className="flex items-center gap-2 flex-1 flex-wrap">
             <Badge
               variant="outline"
-              className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30 px-2 py-0.5"
+              className="text-[10px] font-mono font-bold bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/40 px-2 py-0.5"
             >
-              v0.0.77
+              v0.0.78
             </Badge>
-            <span className="font-semibold text-foreground text-xs sm:text-sm">
-              App novo em constante melhoria!
+            <span className="font-semibold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
+              <span>App novo em constante melhoria!</span>
+              <span className="hidden sm:inline text-purple-600 dark:text-purple-400 font-bold">
+                • HYPEON Ativo
+              </span>
             </span>
             <span className="text-[11px] text-muted-foreground">
               Viu algum bug? Avise em{' '}
               <a
-                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.77"
+                href="mailto:juniorrodriguesjr123.jr@gmail.com?subject=Suporte%20Prompts%20Virais%20v0.0.78"
                 className="font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
               >
                 juniorrodriguesjr123.jr@gmail.com
@@ -252,6 +255,20 @@ export const Landing: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Força reabertura do modal de novidades
+                localStorage.removeItem('pv_last_seen_version')
+                window.dispatchEvent(new Event('pv_open_whats_new'))
+              }}
+              className="text-xs min-h-[36px] h-9 px-3 gap-1.5 border-purple-500/40 text-purple-600 dark:text-purple-300 hover:bg-purple-500/10 font-bold rounded-xl"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+              <span>Ver Novidades ✨</span>
+            </Button>
             <Button
               type="button"
               size="sm"

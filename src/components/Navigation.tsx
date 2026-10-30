@@ -24,6 +24,7 @@ import {
   Video,
   Flame,
   Layers,
+  Radio,
 } from 'lucide-react'
 
 export const Navbar: React.FC = () => {
@@ -128,6 +129,89 @@ export const Navbar: React.FC = () => {
                 </span>
               </Button>
             </Link>
+
+            {/* SEÇÃO HYPEON — INTELIGÊNCIA VIRAL (MENU DESK) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={location.pathname.startsWith('/hypeon') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={`gap-1.5 font-bold h-9 text-xs sm:text-sm relative rounded-xl transition-all ${
+                    location.pathname.startsWith('/hypeon')
+                      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/40 shadow-xs'
+                      : 'hover:bg-purple-500/10 hover:text-purple-600'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-purple-500" />
+                  <span>HYPEON</span>
+                  <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-black rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white uppercase tracking-wider">
+                    NOVO
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="center"
+                className="w-64 p-1.5 rounded-2xl bg-slate-950 text-slate-100 border border-purple-500/30 shadow-2xl"
+              >
+                <div className="px-2.5 py-2 border-b border-slate-800">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-xs text-white">HYPEON</span>
+                    <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+                      • Inteligência
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">O próximo viral começa aqui</p>
+                </div>
+                <DropdownMenuItem
+                  onClick={() => navigate('/hypeon')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  <div>
+                    <span className="block font-bold">Painel Geral HYPEON</span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Hub com os 8 módulos
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/hypeon/radar')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <Radio className="w-4 h-4 text-cyan-400" />
+                  <div>
+                    <span className="block font-bold text-cyan-300">Radar Viral (Fase 2)</span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Vídeos em alta e filtros
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/hypeon/tendencias')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <Layers className="w-4 h-4 text-purple-400" />
+                  <div>
+                    <span className="block font-bold">Tendências por Nicho</span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Padrões de retenção
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/hypeon/biblioteca')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                >
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <div>
+                    <span className="block font-bold">Biblioteca Viral</span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Suas referências salvas
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Link to="/gerador">
               <Button
@@ -297,6 +381,23 @@ export const Navbar: React.FC = () => {
             </button>
           </Link>
 
+          {/* ITEM HYPEON NO MOBILE */}
+          <Link to="/hypeon" className="shrink-0">
+            <button
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
+                location.pathname.startsWith('/hypeon')
+                  ? 'bg-gradient-to-r from-purple-600/30 via-pink-600/30 to-cyan-500/20 text-foreground border border-purple-500/60 shadow-xs'
+                  : 'bg-purple-500/10 text-purple-600 dark:text-purple-300 hover:bg-purple-500/20 border border-purple-500/30'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+              <span>HYPEON</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-extrabold">
+                NOVO
+              </span>
+            </button>
+          </Link>
+
           <Link to="/gerador" className="shrink-0">
             <button
               className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
@@ -415,6 +516,19 @@ export const Footer: React.FC = () => {
               <li>
                 <Link to="/nichos" className="hover:text-foreground transition-colors">
                   Nichos do Acervo (8 Categorias)
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/hypeon"
+                  className="hover:text-foreground transition-colors text-purple-600 dark:text-purple-400 font-bold"
+                >
+                  HYPEON — Inteligência Viral ⚡
+                </Link>
+              </li>
+              <li>
+                <Link to="/hypeon/radar" className="hover:text-foreground transition-colors">
+                  Radar Viral (Tendências em Alta)
                 </Link>
               </li>
               <li>

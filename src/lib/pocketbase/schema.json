@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T17:27:20.077Z",
+  "generatedAt": "2026-10-30T04:55:00.096Z",
   "collections": [
     {
       "name": "users",
@@ -1074,6 +1074,210 @@
         "CREATE INDEX idx_feedback_created ON feedback (created DESC)",
         "CREATE INDEX idx_feedback_status ON feedback (status)",
         "CREATE INDEX idx_feedback_user ON feedback (user)"
+      ]
+    },
+    {
+      "name": "hypeon_limits",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != '' && (@request.auth.is_admin = true || @request.auth.email = 'juniorrodriguesjr123.jr@gmail.com')",
+        "update": "@request.auth.id != '' && (@request.auth.is_admin = true || @request.auth.email = 'juniorrodriguesjr123.jr@gmail.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.is_admin = true || @request.auth.email = 'juniorrodriguesjr123.jr@gmail.com')"
+      },
+      "fields": [
+        {
+          "name": "tool_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tool_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "free_limit_daily",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pro_limit_daily",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "credit_cost",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_hypeon_limits_tool ON hypeon_limits (tool_id)"]
+    },
+    {
+      "name": "viral_saved",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != '' && @request.body.user = @request.auth.id",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "external_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "platform",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "thumbnail_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "original_url",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "author_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "author_handle",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "views_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "likes_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "comments_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shares_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "niche",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "growth_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "published_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_viral_saved_user_ext ON viral_saved (user, external_id, platform)",
+        "CREATE INDEX idx_viral_saved_user_created ON viral_saved (user, created DESC)"
       ]
     }
   ]

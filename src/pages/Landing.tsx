@@ -240,7 +240,7 @@ export const Landing: React.FC = () => {
             <span className="font-semibold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
               <span>App novo em constante melhoria!</span>
               <span className="hidden sm:inline text-purple-600 dark:text-purple-400 font-bold">
-                • HYPEON Ativo
+                • Ferramentas Virais no Ar
               </span>
             </span>
             <span className="text-[11px] text-muted-foreground">

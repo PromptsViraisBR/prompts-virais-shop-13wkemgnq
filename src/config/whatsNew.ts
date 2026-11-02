@@ -21,44 +21,44 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.88'
+export const CURRENT_VERSION = 'v0.0.90'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
-  releaseDate: '2025-05-17',
-  tagline: 'PROMPTS VIRAIS — Inteligência para criar conteúdos que conquistam a internet.',
-  headline: 'v0.0.88 — Opção de Post Escrito Pronto para Copiar e Postar! 📋✨',
+  releaseDate: '2025-11-02',
+  tagline: 'PROMPTS VIRAIS — Suas ferramentas práticas para acelerar conteúdos virais.',
+  headline: 'v0.0.90 — Chegaram as Ferramentas Virais: Transcritor e Limpador de Vídeos! 🛠️✨',
   highlights: [
     {
       icon: 'sparkles',
-      badge: 'NOVIDADE',
-      title: 'Post Escrito Pronto no Gerador de Vídeos Virais',
+      badge: 'NOVA SEÇÃO',
+      title: 'Ferramentas Virais no Ar',
       description:
-        'Sempre que você gerar um roteiro de vídeo (qualquer duração: 10s, 30s, 60s...), agora aparece também uma legenda escrita de acordo com o nicho para copiar e postar junto com o vídeo nas redes!',
+        'Substituímos o antigo HYPEON por uma nova seção prática e direta: Ferramentas Virais, acessível diretamente no menu superior e mobile, focada em utilitários que resolvem a rotina do criador.',
     },
     {
       icon: 'zap',
-      badge: 'HASHTAGS LIVRES',
-      title: 'Marcadores "# " para Suas Hashtags',
+      badge: 'FERRAMENTA 1',
+      title: 'Transcritor & Tradutor de Vídeos',
       description:
-        'O post escrito vem sem hashtags pré-preenchidas — ele inclui apenas os marcadores "# " (cerilha com espaço na frente) para você preencher livremente com as hashtags da sua escolha.',
+        'Envie qualquer áudio ou vídeo (MP4, MP3, WAV...) e obtenha a narração completa em texto na ordem exata das falas, com tradução natural e pronta para uma nova gravação em Português ou em múltiplos idiomas.',
     },
     {
       icon: 'film',
-      badge: 'GERADOR GERAL',
-      title: 'Disponível Também no Gerador Geral (TikTok Shop / Vendas)',
+      badge: 'FERRAMENTA 2',
+      title: 'Baixar & Limpar Vídeos (Remover Legendas)',
       description:
-        'No gerador geral e na personalização com fotos reais da vitrine, a legenda escrita correspondente já vem montada com botão de copiar em 1 clique e feedback de "Copiado!".',
+        'Importe seus vídeos, marque a área da legenda na tela e processe diretamente no navegador com desfoque suave ou recorte, preservando a resolução, o áudio original e o formato MP4.',
     },
     {
       icon: 'bookmark',
-      badge: 'PRATICIDADE',
-      title: 'Cópia Instantânea & Formatação Pronta',
+      badge: 'ESTABILIDADE',
+      title: 'Correções dos Geradores & Fidelidade Total',
       description:
-        'Ganhe agilidade: o vídeo sai pronto cena a cena e o post escrito sai pronto para a área de transferência. Basta colar na legenda da postagem.',
+        'Incorporamos todas as melhorias recentes de fidelidade dos geradores de prompts, post escrito com marcadores "# " e suporte a imagens reais da vitrine, mantendo o sistema 100% rápido e estável.',
     },
   ],
-  ctaText: 'Testar Novo Post Escrito',
-  ctaLink: '/videos-virais',
+  ctaText: 'Conhecer as Novas Ferramentas',
+  ctaLink: '/ferramentas',
 }

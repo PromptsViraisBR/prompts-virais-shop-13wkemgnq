@@ -18,13 +18,13 @@ import {
   User,
   LogOut,
   LogIn,
-  Menu,
-  X,
   CheckCircle,
   Video,
   Flame,
   Layers,
-  Radio,
+  Wrench,
+  Languages,
+  Eraser,
 } from 'lucide-react'
 
 export const Navbar: React.FC = () => {
@@ -130,20 +130,20 @@ export const Navbar: React.FC = () => {
               </Button>
             </Link>
 
-            {/* SEÇÃO HYPEON — INTELIGÊNCIA VIRAL (MENU DESK) */}
+            {/* SEÇÃO FERRAMENTAS VIRAIS (MENU DESK) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={location.pathname.startsWith('/hypeon') ? 'secondary' : 'ghost'}
+                  variant={location.pathname.startsWith('/ferramentas') ? 'secondary' : 'ghost'}
                   size="sm"
                   className={`gap-1.5 font-bold h-9 text-xs sm:text-sm relative rounded-xl transition-all ${
-                    location.pathname.startsWith('/hypeon')
+                    location.pathname.startsWith('/ferramentas')
                       ? 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/40 shadow-xs'
                       : 'hover:bg-purple-500/10 hover:text-purple-600'
                   }`}
                 >
-                  <Sparkles className="w-4 h-4 text-purple-500" />
-                  <span>HYPEON</span>
+                  <Wrench className="w-4 h-4 text-purple-500" />
+                  <span>Ferramentas Virais</span>
                   <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-black rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white uppercase tracking-wider">
                     NOVO
                   </span>
@@ -151,158 +151,65 @@ export const Navbar: React.FC = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="center"
-                className="w-64 p-1.5 rounded-2xl bg-slate-950 text-slate-100 border border-purple-500/30 shadow-2xl"
+                className="w-64 p-1.5 rounded-2xl bg-card text-foreground border border-purple-500/30 shadow-2xl"
               >
-                <div className="px-2.5 py-2 border-b border-slate-800">
+                <div className="px-2.5 py-2 border-b">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-black text-xs text-white">HYPEON</span>
-                    <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">
-                      • Inteligência
+                    <span className="font-black text-xs text-foreground">Ferramentas Virais</span>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider">
+                      • Suite Prática
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">O próximo viral começa aqui</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Utilitários para criadores de vídeo
+                  </p>
                 </div>
                 <DropdownMenuItem
-                  onClick={() => navigate('/hypeon')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                  onClick={() => navigate('/ferramentas')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold"
                 >
-                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  <Wrench className="w-4 h-4 text-purple-500" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">Central HYPEON</span>
-                      <span className="text-[9px] px-1 rounded bg-purple-500/30 text-purple-300 font-bold">
+                      <span className="block font-bold">Central de Ferramentas</span>
+                      <span className="text-[9px] px-1 rounded bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold">
                         HUB
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Visão geral e fluxo de uso dos 8 módulos
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      Visão geral das duas ferramentas
                     </span>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/radar')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                  onClick={() => navigate('/ferramentas/transcritor')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold"
                 >
-                  <Radio className="w-4 h-4 text-cyan-400" />
+                  <Languages className="w-4 h-4 text-pink-500" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="block font-bold text-cyan-300">1. Radar Viral</span>
-                      <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-300 font-bold">
-                        DESCOBRIR
+                      <span className="block font-bold text-pink-600 dark:text-pink-400">
+                        1. Transcritor & Tradutor
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Vídeos em alta e métricas reais
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      Narração em texto e tradução natural
                     </span>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/tendencias')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
+                  onClick={() => navigate('/ferramentas/limpar-videos')}
+                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold"
                 >
-                  <Layers className="w-4 h-4 text-purple-400" />
+                  <Eraser className="w-4 h-4 text-emerald-500" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">2. Tendências por Nicho</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Mapeamento das 8 categorias
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/analisador')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <Sparkles className="w-4 h-4 text-blue-400" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">3. Analisador de Vídeos</span>
-                      <span className="text-[9px] px-1 rounded bg-blue-500/30 text-blue-300 font-bold">
-                        ANALISAR
+                      <span className="block font-bold text-emerald-600 dark:text-emerald-400">
+                        2. Baixar & Limpar Vídeos
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Diagnóstico de retenção e gancho
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/clonador')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">4. Clonador Viral</span>
-                      <span className="text-[9px] px-1 rounded bg-purple-500/30 text-purple-300 font-bold">
-                        ROTEIRIZAR
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Engenharia reversa em 14 blocos
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/stories')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <BookOpen className="w-4 h-4 text-amber-400" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">5. HYPEON Stories</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Narrativas cinematográficas & séries
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/ideas')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <Sparkles className="w-4 h-4 text-emerald-400" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">6. HYPEON Ideas</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Banco de ideias infinitas com IA
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/cenas')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <Sparkles className="w-4 h-4 text-pink-400" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">7. Criador de Cenas</span>
-                      <span className="text-[9px] px-1 rounded bg-pink-500/30 text-pink-300 font-bold">
-                        CENAS
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Roteiros convertidos em cenas e prompts
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate('/hypeon/biblioteca')}
-                  className="cursor-pointer gap-2.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 focus:bg-slate-900 focus:text-white"
-                >
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="block font-bold">8. Biblioteca Viral</span>
-                      <span className="text-[9px] px-1 rounded bg-emerald-500/30 text-emerald-300 font-bold">
-                        SALVAR
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Suas referências e roteiros organizados
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      Remoção de legendas e exportação MP4
                     </span>
                   </div>
                 </DropdownMenuItem>
@@ -477,17 +384,17 @@ export const Navbar: React.FC = () => {
             </button>
           </Link>
 
-          {/* ITEM HYPEON NO MOBILE */}
-          <Link to="/hypeon" className="shrink-0">
+          {/* ITEM FERRAMENTAS VIRAIS NO MOBILE */}
+          <Link to="/ferramentas" className="shrink-0">
             <button
               className={`flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 touch-manipulation ${
-                location.pathname.startsWith('/hypeon')
+                location.pathname.startsWith('/ferramentas')
                   ? 'bg-gradient-to-r from-purple-600/30 via-pink-600/30 to-cyan-500/20 text-foreground border border-purple-500/60 shadow-xs'
                   : 'bg-purple-500/10 text-purple-600 dark:text-purple-300 hover:bg-purple-500/20 border border-purple-500/30'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-              <span>HYPEON</span>
+              <Wrench className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+              <span>Ferramentas</span>
               <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-extrabold">
                 NOVO
               </span>
@@ -616,15 +523,26 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <Link
-                  to="/hypeon"
+                  to="/ferramentas"
                   className="hover:text-foreground transition-colors text-purple-600 dark:text-purple-400 font-bold"
                 >
-                  HYPEON — Inteligência Viral ⚡
+                  Ferramentas Virais 🛠️
                 </Link>
               </li>
               <li>
-                <Link to="/hypeon/radar" className="hover:text-foreground transition-colors">
-                  Radar Viral (Tendências em Alta)
+                <Link
+                  to="/ferramentas/transcritor"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Transcritor & Tradutor de Vídeos
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/ferramentas/limpar-videos"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Baixar e Limpar Vídeos
                 </Link>
               </li>
               <li>

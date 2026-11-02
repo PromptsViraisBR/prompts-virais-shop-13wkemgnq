@@ -1,6 +1,6 @@
 /* Main App Component - Handles routing (using react-router-dom), query client and other providers - use this file to add all routes */
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -33,35 +33,14 @@ const CheckoutSuccess = lazy(() =>
 const AdminDashboard = lazy(() =>
   import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard })),
 )
-const HypeonDashboard = lazy(() =>
-  import('./pages/hypeon/HypeonDashboard').then((m) => ({ default: m.HypeonDashboard })),
+const ViralToolsHub = lazy(() =>
+  import('./pages/ViralToolsHub').then((m) => ({ default: m.ViralToolsHub })),
 )
-const HypeonRadar = lazy(() =>
-  import('./pages/hypeon/HypeonRadar').then((m) => ({ default: m.HypeonRadar })),
+const VideoTranscriber = lazy(() =>
+  import('./pages/VideoTranscriber').then((m) => ({ default: m.VideoTranscriber })),
 )
-const HypeonBiblioteca = lazy(() =>
-  import('./pages/hypeon/HypeonBiblioteca').then((m) => ({ default: m.HypeonBiblioteca })),
-)
-const HypeonTendencias = lazy(() =>
-  import('./pages/hypeon/HypeonTendencias').then((m) => ({ default: m.HypeonTendencias })),
-)
-const HypeonPlannedTool = lazy(() =>
-  import('./pages/hypeon/HypeonPlannedTool').then((m) => ({ default: m.HypeonPlannedTool })),
-)
-const HypeonClonador = lazy(() =>
-  import('./pages/hypeon/HypeonClonador').then((m) => ({ default: m.HypeonClonador })),
-)
-const HypeonStories = lazy(() =>
-  import('./pages/hypeon/HypeonStories').then((m) => ({ default: m.HypeonStories })),
-)
-const HypeonIdeas = lazy(() =>
-  import('./pages/hypeon/HypeonIdeas').then((m) => ({ default: m.HypeonIdeas })),
-)
-const HypeonAnalisador = lazy(() =>
-  import('./pages/hypeon/HypeonAnalisador').then((m) => ({ default: m.HypeonAnalisador })),
-)
-const HypeonCenas = lazy(() =>
-  import('./pages/hypeon/HypeonCenas').then((m) => ({ default: m.HypeonCenas })),
+const VideoCleaner = lazy(() =>
+  import('./pages/VideoCleaner').then((m) => ({ default: m.VideoCleaner })),
 )
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'))
@@ -128,15 +107,30 @@ const App = () => {
                   <Route path="/perfil" element={<Profile />} />
                   <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
                   <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/hypeon" element={<HypeonDashboard />} />
-                  <Route path="/hypeon/radar" element={<HypeonRadar />} />
-                  <Route path="/hypeon/biblioteca" element={<HypeonBiblioteca />} />
-                  <Route path="/hypeon/tendencias" element={<HypeonTendencias />} />
-                  <Route path="/hypeon/clonador" element={<HypeonClonador />} />
-                  <Route path="/hypeon/stories" element={<HypeonStories />} />
-                  <Route path="/hypeon/ideas" element={<HypeonIdeas />} />
-                  <Route path="/hypeon/analisador" element={<HypeonAnalisador />} />
-                  <Route path="/hypeon/cenas" element={<HypeonCenas />} />
+
+                  {/* NOVAS FERRAMENTAS VIRAIS */}
+                  <Route path="/ferramentas" element={<ViralToolsHub />} />
+                  <Route path="/ferramentas/transcritor" element={<VideoTranscriber />} />
+                  <Route path="/ferramentas/limpar-videos" element={<VideoCleaner />} />
+
+                  {/* REDIRECIONAMENTOS SUAVES DE ROTAS ANTIGAS DO HYPEON (sem 404 para links salvos) */}
+                  <Route path="/hypeon" element={<Navigate to="/ferramentas" replace />} />
+                  <Route path="/hypeon/radar" element={<Navigate to="/virais" replace />} />
+                  <Route
+                    path="/hypeon/biblioteca"
+                    element={<Navigate to="/biblioteca" replace />}
+                  />
+                  <Route path="/hypeon/tendencias" element={<Navigate to="/nichos" replace />} />
+                  <Route path="/hypeon/clonador" element={<Navigate to="/gerador" replace />} />
+                  <Route path="/hypeon/stories" element={<Navigate to="/gerador" replace />} />
+                  <Route path="/hypeon/ideas" element={<Navigate to="/gerador" replace />} />
+                  <Route
+                    path="/hypeon/analisador"
+                    element={<Navigate to="/ferramentas/transcritor" replace />}
+                  />
+                  <Route path="/hypeon/cenas" element={<Navigate to="/virais" replace />} />
+                  <Route path="/hypeon/*" element={<Navigate to="/ferramentas" replace />} />
+
                   <Route path="/privacidade" element={<PrivacyPolicy />} />
                   <Route path="/termos" element={<TermsOfUse />} />
                 </Route>

@@ -368,7 +368,7 @@ routerAdd('POST', '/backend/v1/generate-viral-scene', (e) => {
 
             const gRes = $http.send({
               method: 'POST',
-              url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+              url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents: [{ parts: geminiParts }],

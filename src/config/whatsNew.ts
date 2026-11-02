@@ -21,44 +21,44 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.92'
+export const CURRENT_VERSION = 'v0.0.95'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
-  releaseDate: '2025-11-03',
+  releaseDate: '2025-11-04',
   tagline: 'PROMPTS VIRAIS — Suas ferramentas práticas para acelerar conteúdos virais.',
-  headline: 'v0.0.92 — Opção de sites externos para baixar vídeos de TikTok e Facebook! 🎬🔗',
+  headline: 'v0.0.95 — Transcritor Corrigido com Modelo de IA Atualizado! 🎙️⚡',
   highlights: [
     {
       icon: 'sparkles',
-      badge: 'NOVA OPÇÃO',
-      title: 'Opção de Links Externos no Card de Orientação',
+      badge: 'IA ATUALIZADA',
+      title: 'Transcritor 100% Operacional',
       description:
-        'No Transcritor e no Limpar Vídeos, o card agora oferece atalhos diretos para sites externos: ssstik.io para TikTok e fdownloader.net para Facebook. Para o Instagram, segue a orientação oficial via app.',
+        'O Transcritor e Tradutor Viral foi atualizado para os novos modelos de IA multimodal de alta velocidade (família Gemini 3.x), restaurando a transcrição de áudios e vídeos com máxima fidelidade e zero erros de modelo desativado.',
+    },
+    {
+      icon: 'languages',
+      badge: 'DUPLA SAÍDA',
+      title: 'Transcrição Original e Tradução Natural',
+      description:
+        'Envie seus vídeos ou áudios em qualquer idioma e receba a transcrição fiel na íntegra acompanhada da tradução coloquial para Português, ideal para gravar uma nova narração de alta conversão.',
     },
     {
       icon: 'shield',
-      badge: 'TRANSPARÊNCIA',
-      title: 'Aviso Honesto & Sem Afiliação',
+      badge: 'DIAGNÓSTICOS CLAROS',
+      title: 'Mensagens de Status Específicas',
       description:
-        'Mantemos total transparência: esses sites são serviços de terceiros sem vínculo com o PV. Você avalia, salva o vídeo no seu aparelho e volta ao PV para transcrever ou limpar com total liberdade.',
+        'Avisos de processamento agora detalham exatamente se houve tempo esgotado, alta demanda ou formato incompatível, eliminando mensagens genéricas e oferecendo total transparência.',
     },
     {
       icon: 'zap',
-      badge: 'FLUXO ÁGIL',
-      title: 'Botão Direto "ENVIAR MEU VÍDEO"',
+      badge: 'COMPATIBILIDADE',
+      title: 'Compatível com MP3, WAV, MP4 e WebM',
       description:
-        'Após baixar seu vídeo pelo site externo ou pelo app oficial da rede, um único clique no botão de destaque foca e abre o seletor de arquivos para iniciar o processamento na hora.',
-    },
-    {
-      icon: 'film',
-      badge: 'FERRAMENTAS',
-      title: 'Transcritor & Limpador de Vídeos Sempre Ativos',
-      description:
-        'Ambas as ferramentas operam de forma rápida no desktop e celular, aceitando MP4, WebM e faixas de áudio diretamente da sua galeria ou downloads.',
+        'Suporte direto a arquivos da galeria ou downloads de até 25MB, com cópia em 1 clique e exportação de relatório completo em arquivo .TXT.',
     },
   ],
-  ctaText: 'Testar Ferramentas Virais',
-  ctaLink: '/ferramentas',
+  ctaText: 'Testar Transcritor Agora',
+  ctaLink: '/ferramentas/transcritor',
 }

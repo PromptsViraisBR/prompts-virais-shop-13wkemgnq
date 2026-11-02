@@ -21,36 +21,35 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.91'
+export const CURRENT_VERSION = 'v0.0.92'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
   releaseDate: '2025-11-03',
   tagline: 'PROMPTS VIRAIS — Suas ferramentas práticas para acelerar conteúdos virais.',
-  headline:
-    'v0.0.91 — Importar vídeos ficou mais fácil: guia oficial para TikTok, Instagram e Facebook! 📲🎬',
+  headline: 'v0.0.92 — Opção de sites externos para baixar vídeos de TikTok e Facebook! 🎬🔗',
   highlights: [
     {
       icon: 'sparkles',
-      badge: 'NOVO GUIA',
-      title: 'Passo a Passo Oficial para Salvar Seus Vídeos',
+      badge: 'NOVA OPÇÃO',
+      title: 'Opção de Links Externos no Card de Orientação',
       description:
-        'Ao colar um link no Transcritor ou no Limpar Vídeos, você recebe o passo a passo oficial de como salvar o próprio vídeo pelo app do TikTok, Instagram e Facebook com qualidade máxima e links para as centrais oficiais de ajuda.',
+        'No Transcritor e no Limpar Vídeos, o card agora oferece atalhos diretos para sites externos: ssstik.io para TikTok e fdownloader.net para Facebook. Para o Instagram, segue a orientação oficial via app.',
+    },
+    {
+      icon: 'shield',
+      badge: 'TRANSPARÊNCIA',
+      title: 'Aviso Honesto & Sem Afiliação',
+      description:
+        'Mantemos total transparência: esses sites são serviços de terceiros sem vínculo com o PV. Você avalia, salva o vídeo no seu aparelho e volta ao PV para transcrever ou limpar com total liberdade.',
     },
     {
       icon: 'zap',
       badge: 'FLUXO ÁGIL',
       title: 'Botão Direto "ENVIAR MEU VÍDEO"',
       description:
-        'Após salvar seu vídeo pelo app oficial ou pelo seu downloader favorito, um único clique no botão de destaque foca e abre o seletor de arquivos da página para você transcrever ou limpar imediatamente.',
-    },
-    {
-      icon: 'shield',
-      badge: 'TRANSPARÊNCIA',
-      title: 'Segurança & Sem Custos de APIs Pagas',
-      description:
-        'O PV não faz raspagem de links de terceiros nem usa APIs cobradas em dólar: você salva seus próprios arquivos com privacidade e autonomia total no seu aparelho e processa gratuitamente no PV.',
+        'Após baixar seu vídeo pelo site externo ou pelo app oficial da rede, um único clique no botão de destaque foca e abre o seletor de arquivos para iniciar o processamento na hora.',
     },
     {
       icon: 'film',

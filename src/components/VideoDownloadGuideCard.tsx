@@ -28,6 +28,8 @@ interface PlatformGuide {
   steps: string[]
   helpUrl: string
   helpLabel: string
+  externalDownloaderUrl?: string
+  externalDownloaderName?: string
 }
 
 const PLATFORMS: PlatformGuide[] = [
@@ -44,6 +46,8 @@ const PLATFORMS: PlatformGuide[] = [
     ],
     helpUrl: 'https://support.tiktok.com/pt-BR/using-tiktok/creating-videos/downloading-videos',
     helpLabel: 'Central de Ajuda oficial do TikTok: Baixar vídeos',
+    externalDownloaderUrl: 'https://ssstik.io/pt',
+    externalDownloaderName: 'ssstik.io',
   },
   {
     id: 'instagram',
@@ -72,6 +76,8 @@ const PLATFORMS: PlatformGuide[] = [
     ],
     helpUrl: 'https://www.facebook.com/help/212802592072244',
     helpLabel: 'Central de Ajuda oficial do Facebook: Baixar suas informações e vídeos',
+    externalDownloaderUrl: 'https://fdownloader.net/pt',
+    externalDownloaderName: 'fdownloader.net',
   },
 ]
 
@@ -174,12 +180,41 @@ export const VideoDownloadGuideCard: React.FC<VideoDownloadGuideCardProps> = ({
                     </ol>
                   </div>
 
-                  <div className="pt-2 border-t border-border/50">
+                  <div className="pt-2 border-t border-border/50 space-y-2">
+                    {platform.externalDownloaderUrl ? (
+                      <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/30 space-y-1.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider">
+                            Opção site externo:
+                          </span>
+                          <span className="text-[9px] text-muted-foreground font-semibold">
+                            (serviço de terceiros)
+                          </span>
+                        </div>
+                        <a
+                          href={platform.externalDownloaderUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-[11px] shadow-sm transition-all text-center"
+                        >
+                          <span>Abrir {platform.externalDownloaderName}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded-xl bg-muted/40 border border-border/50 text-[10px] text-muted-foreground leading-tight">
+                        <span className="font-semibold text-foreground/80">
+                          Sem site externo recomendado:
+                        </span>{' '}
+                        siga o passo a passo oficial acima para salvar seu Reel pelo próprio app.
+                      </div>
+                    )}
+
                     <a
                       href={platform.helpUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline transition-colors"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline transition-colors pt-1"
                       title={platform.helpLabel}
                     >
                       <ExternalLink className="w-3 h-3 shrink-0" />
@@ -192,16 +227,26 @@ export const VideoDownloadGuideCard: React.FC<VideoDownloadGuideCardProps> = ({
           </div>
         </div>
 
-        {/* Downloader próprio do usuário (postura neutra) */}
+        {/* Downloader próprio do usuário / sites de terceiros (aviso transparente & postura honesta) */}
         <div className="p-4 rounded-2xl bg-muted/30 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-start gap-2.5">
             <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <p className="font-bold text-foreground">Já usa um app que baixa vídeos?</p>
+            <div className="space-y-1">
+              <p className="font-bold text-foreground">
+                Aviso sobre sites de terceiros & downloaders externos:
+              </p>
               <p className="text-muted-foreground text-[11px] leading-relaxed">
-                Pode usar ele normalmente: salve o vídeo no seu dispositivo e volte aqui para enviar
-                o arquivo. O PV aceita MP4, WebM e áudios diretamente do seu rolo de câmera ou pasta
-                de downloads.
+                Os links externos sugeridos acima (ssstik.io para TikTok e fdownloader.net para
+                Facebook) são serviços de terceiros independentes, sem qualquer afiliação ou vínculo
+                com o Prompts Virais (PV). Cada usuário avalia e utiliza por sua própria conta e
+                risco. Para o Instagram, não há site externo sugerido — utilize o método oficial de
+                salvar direto pelo app.
+              </p>
+              <p className="text-foreground/90 font-medium text-[11px] leading-relaxed">
+                Após salvar o vídeo no seu celular ou computador (seja pelo app oficial ou pelo site
+                de sua preferência),{' '}
+                <strong className="text-amber-400">volte aqui e clique em ENVIAR MEU VÍDEO</strong>{' '}
+                para processá-lo normalmente.
               </p>
             </div>
           </div>
@@ -211,10 +256,10 @@ export const VideoDownloadGuideCard: React.FC<VideoDownloadGuideCardProps> = ({
             variant="outline"
             size="sm"
             onClick={onUploadClick}
-            className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 font-bold text-xs h-9 rounded-xl shrink-0 gap-1.5"
+            className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 font-bold text-xs h-10 rounded-xl shrink-0 gap-1.5 self-start sm:self-center"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Pronto, enviar arquivo</span>
+            <span>Voltar e enviar arquivo</span>
           </Button>
         </div>
 

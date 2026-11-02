@@ -35,6 +35,7 @@ import {
   extractVideoMetadata,
   processVideoCleaning,
 } from '@/services/videoCleaner'
+import { VideoDownloadGuideCard } from '@/components/VideoDownloadGuideCard'
 
 export const VideoCleaner: React.FC = () => {
   const { user } = useAuth()
@@ -43,6 +44,10 @@ export const VideoCleaner: React.FC = () => {
   // Entradas
   const [videoLink, setVideoLink] = useState('')
   const [linkNotice, setLinkNotice] = useState<string | null>(null)
+  const [showGuideCard, setShowGuideCard] = useState(false)
+  const [detectedPlatform, setDetectedPlatform] = useState<
+    'tiktok' | 'instagram' | 'facebook' | 'generic'
+  >('generic')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null)
@@ -66,6 +71,17 @@ export const VideoCleaner: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoPreviewRef = useRef<HTMLVideoElement>(null)
+  const uploadSectionRef = useRef<HTMLDivElement>(null)
+
+  // Rolar e focar no campo de upload
+  const handleFocusUpload = () => {
+    if (uploadSectionRef.current) {
+      uploadSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    setTimeout(() => {
+      fileInputRef.current?.click()
+    }, 350)
+  }
 
   // Checagem honesta de link de plataformas
   const handleLinkCheck = () => {
@@ -80,6 +96,18 @@ export const VideoCleaner: React.FC = () => {
     }
 
     const lower = trimmed.toLowerCase()
+    let detected: 'tiktok' | 'instagram' | 'facebook' | 'generic' = 'generic'
+    if (lower.includes('tiktok.com')) {
+      detected = 'tiktok'
+    } else if (lower.includes('instagram.com')) {
+      detected = 'instagram'
+    } else if (lower.includes('facebook.com') || lower.includes('fb.watch')) {
+      detected = 'facebook'
+    }
+
+    setDetectedPlatform(detected)
+    setShowGuideCard(true)
+
     if (
       lower.includes('tiktok.com') ||
       lower.includes('instagram.com') ||
@@ -87,11 +115,11 @@ export const VideoCleaner: React.FC = () => {
       lower.includes('fb.watch')
     ) {
       setLinkNotice(
-        'Importação direta por link bloqueada pela plataforma: TikTok, Instagram e Facebook protegem seus vídeos contra extração sem autenticação paga. Por respeito às diretrizes das plataformas e para evitar serviços pagos de terceiros, salve o vídeo pelo app oficial e envie o arquivo abaixo pelo botão "Enviar Arquivo".',
+        'Importação direta por link bloqueada pela plataforma: TikTok, Instagram e Facebook protegem seus vídeos contra extração sem autenticação paga. Salve o vídeo pelo app oficial da rede e envie o arquivo abaixo.',
       )
     } else {
       setLinkNotice(
-        'Esta plataforma externa não oferece método de importação direto e gratuito. Por gentileza, faça o upload do vídeo salvo no seu dispositivo.',
+        'Esta plataforma externa não oferece método de importação direto e gratuito. Por gentileza, salve o vídeo no seu dispositivo e envie o arquivo abaixo.',
       )
     }
   }
@@ -115,6 +143,7 @@ export const VideoCleaner: React.FC = () => {
     setSelectedFile(file)
     setProcessedUrl(null)
     setLinkNotice(null)
+    setShowGuideCard(false)
 
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl)
@@ -230,6 +259,7 @@ export const VideoCleaner: React.FC = () => {
     setMetadata(null)
     setVideoLink('')
     setLinkNotice(null)
+    setShowGuideCard(false)
     setProgressPercent(0)
     setProgressStatus('')
     if (fileInputRef.current) {
@@ -320,14 +350,23 @@ export const VideoCleaner: React.FC = () => {
                 <div className="space-y-1">
                   <p className="font-semibold">{linkNotice}</p>
                   <p className="text-[11px] opacity-80">
-                    Clique no botão abaixo para enviar o vídeo salvo diretamente do seu aparelho.
+                    Siga o passo a passo oficial no card abaixo para salvar seu vídeo e enviar aqui.
                   </p>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="relative flex items-center justify-center">
+          {/* Card de Orientação útil para obter o vídeo */}
+          {showGuideCard && (
+            <VideoDownloadGuideCard
+              detectedPlatform={detectedPlatform}
+              onUploadClick={handleFocusUpload}
+              toolName="Limpar Vídeos"
+            />
+          )}
+
+          <div className="relative flex items-center justify-center" ref={uploadSectionRef}>
             <div className="border-t w-full" />
             <span className="bg-card px-3 text-[11px] font-bold text-muted-foreground uppercase">
               OU ENVIE O ARQUIVO DO DISPOSITIVO

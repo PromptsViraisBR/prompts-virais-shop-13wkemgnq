@@ -21,44 +21,45 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.90'
+export const CURRENT_VERSION = 'v0.0.91'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
-  releaseDate: '2025-11-02',
+  releaseDate: '2025-11-03',
   tagline: 'PROMPTS VIRAIS — Suas ferramentas práticas para acelerar conteúdos virais.',
-  headline: 'v0.0.90 — Chegaram as Ferramentas Virais: Transcritor e Limpador de Vídeos! 🛠️✨',
+  headline:
+    'v0.0.91 — Importar vídeos ficou mais fácil: guia oficial para TikTok, Instagram e Facebook! 📲🎬',
   highlights: [
     {
       icon: 'sparkles',
-      badge: 'NOVA SEÇÃO',
-      title: 'Ferramentas Virais no Ar',
+      badge: 'NOVO GUIA',
+      title: 'Passo a Passo Oficial para Salvar Seus Vídeos',
       description:
-        'Substituímos o antigo HYPEON por uma nova seção prática e direta: Ferramentas Virais, acessível diretamente no menu superior e mobile, focada em utilitários que resolvem a rotina do criador.',
+        'Ao colar um link no Transcritor ou no Limpar Vídeos, você recebe o passo a passo oficial de como salvar o próprio vídeo pelo app do TikTok, Instagram e Facebook com qualidade máxima e links para as centrais oficiais de ajuda.',
     },
     {
       icon: 'zap',
-      badge: 'FERRAMENTA 1',
-      title: 'Transcritor & Tradutor de Vídeos',
+      badge: 'FLUXO ÁGIL',
+      title: 'Botão Direto "ENVIAR MEU VÍDEO"',
       description:
-        'Envie qualquer áudio ou vídeo (MP4, MP3, WAV...) e obtenha a narração completa em texto na ordem exata das falas, com tradução natural e pronta para uma nova gravação em Português ou em múltiplos idiomas.',
+        'Após salvar seu vídeo pelo app oficial ou pelo seu downloader favorito, um único clique no botão de destaque foca e abre o seletor de arquivos da página para você transcrever ou limpar imediatamente.',
+    },
+    {
+      icon: 'shield',
+      badge: 'TRANSPARÊNCIA',
+      title: 'Segurança & Sem Custos de APIs Pagas',
+      description:
+        'O PV não faz raspagem de links de terceiros nem usa APIs cobradas em dólar: você salva seus próprios arquivos com privacidade e autonomia total no seu aparelho e processa gratuitamente no PV.',
     },
     {
       icon: 'film',
-      badge: 'FERRAMENTA 2',
-      title: 'Baixar & Limpar Vídeos (Remover Legendas)',
+      badge: 'FERRAMENTAS',
+      title: 'Transcritor & Limpador de Vídeos Sempre Ativos',
       description:
-        'Importe seus vídeos, marque a área da legenda na tela e processe diretamente no navegador com desfoque suave ou recorte, preservando a resolução, o áudio original e o formato MP4.',
-    },
-    {
-      icon: 'bookmark',
-      badge: 'ESTABILIDADE',
-      title: 'Correções dos Geradores & Fidelidade Total',
-      description:
-        'Incorporamos todas as melhorias recentes de fidelidade dos geradores de prompts, post escrito com marcadores "# " e suporte a imagens reais da vitrine, mantendo o sistema 100% rápido e estável.',
+        'Ambas as ferramentas operam de forma rápida no desktop e celular, aceitando MP4, WebM e faixas de áudio diretamente da sua galeria ou downloads.',
     },
   ],
-  ctaText: 'Conhecer as Novas Ferramentas',
+  ctaText: 'Testar Ferramentas Virais',
   ctaLink: '/ferramentas',
 }

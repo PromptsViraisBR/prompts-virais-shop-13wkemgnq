@@ -39,6 +39,7 @@ import {
   SOURCE_LANGUAGES,
   TranscribeMediaResponse,
 } from '@/services/viralTranscriber'
+import { VideoDownloadGuideCard } from '@/components/VideoDownloadGuideCard'
 
 export const VideoTranscriber: React.FC = () => {
   const { user } = useAuth()
@@ -47,6 +48,10 @@ export const VideoTranscriber: React.FC = () => {
   // Estados de entrada
   const [videoLink, setVideoLink] = useState('')
   const [linkNotice, setLinkNotice] = useState<string | null>(null)
+  const [showGuideCard, setShowGuideCard] = useState(false)
+  const [detectedPlatform, setDetectedPlatform] = useState<
+    'tiktok' | 'instagram' | 'facebook' | 'generic'
+  >('generic')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [sourceLang, setSourceLang] = useState('auto')
@@ -62,6 +67,18 @@ export const VideoTranscriber: React.FC = () => {
   const [editableTranslated, setEditableTranslated] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadSectionRef = useRef<HTMLDivElement>(null)
+
+  // Rolar e focar no campo de upload
+  const handleFocusUpload = () => {
+    if (uploadSectionRef.current) {
+      uploadSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    // Abre seletor nativo de arquivo
+    setTimeout(() => {
+      fileInputRef.current?.click()
+    }, 350)
+  }
 
   // Tratamento de link inserido
   const handleLinkCheck = () => {
@@ -76,6 +93,18 @@ export const VideoTranscriber: React.FC = () => {
     }
 
     const lower = trimmed.toLowerCase()
+    let detected: 'tiktok' | 'instagram' | 'facebook' | 'generic' = 'generic'
+    if (lower.includes('tiktok.com')) {
+      detected = 'tiktok'
+    } else if (lower.includes('instagram.com')) {
+      detected = 'instagram'
+    } else if (lower.includes('facebook.com') || lower.includes('fb.watch')) {
+      detected = 'facebook'
+    }
+
+    setDetectedPlatform(detected)
+    setShowGuideCard(true)
+
     if (
       lower.includes('tiktok.com') ||
       lower.includes('instagram.com') ||
@@ -83,15 +112,15 @@ export const VideoTranscriber: React.FC = () => {
       lower.includes('fb.watch')
     ) {
       setLinkNotice(
-        'As plataformas TikTok, Instagram e Facebook bloqueiam o download direto via link sem autenticação oficial paga. Para garantir 100% de precisão e sem custos extras, baixe o vídeo pelo aplicativo da plataforma e envie o arquivo abaixo pelo botão "Enviar Arquivo".',
+        'As plataformas TikTok, Instagram e Facebook bloqueiam o download direto via link sem autenticação oficial paga. Para garantir 100% de precisão e sem custos extras, salve o vídeo pelo app da rede e envie o arquivo abaixo.',
       )
     } else if (lower.endsWith('.mp4') || lower.endsWith('.mp3') || lower.endsWith('.wav')) {
       setLinkNotice(
-        'Link direto detectado. Para garantir estabilidade no navegador sem problemas de CORS ou bloqueios de rede, recomendamos baixar o arquivo e enviar no campo abaixo.',
+        'Link direto detectado. Para garantir estabilidade sem bloqueios de CORS, salve o arquivo e envie no campo abaixo.',
       )
     } else {
       setLinkNotice(
-        'Esta fonte não possui API pública gratuita para extração direta de áudio. Por favor, envie o arquivo de vídeo ou áudio salvo no seu dispositivo.',
+        'Esta fonte não possui API pública gratuita para extração direta de áudio. Por favor, salve o arquivo no seu dispositivo e envie abaixo.',
       )
     }
   }
@@ -115,6 +144,7 @@ export const VideoTranscriber: React.FC = () => {
     setSelectedFile(file)
     setResult(null)
     setLinkNotice(null)
+    setShowGuideCard(false)
 
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl)
@@ -300,6 +330,7 @@ Gerado por Prompts Virais (https://promptsvirais.com.br)
     setEditableTranslated('')
     setVideoLink('')
     setLinkNotice(null)
+    setShowGuideCard(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -387,15 +418,25 @@ Gerado por Prompts Virais (https://promptsvirais.com.br)
                 <div className="space-y-1">
                   <p className="font-semibold">{linkNotice}</p>
                   <p className="text-[11px] opacity-80">
-                    Dica: use o botão de upload abaixo para enviar o arquivo baixado.
+                    Confira o guia abaixo com o passo a passo oficial de como salvar o vídeo para
+                    enviar aqui.
                   </p>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Card de Orientação útil para obter o vídeo */}
+          {showGuideCard && (
+            <VideoDownloadGuideCard
+              detectedPlatform={detectedPlatform}
+              onUploadClick={handleFocusUpload}
+              toolName="Transcritor de Vídeos"
+            />
+          )}
+
           {/* Divisor */}
-          <div className="relative flex items-center justify-center">
+          <div className="relative flex items-center justify-center" ref={uploadSectionRef}>
             <div className="border-t w-full" />
             <span className="bg-card px-3 text-[11px] font-bold text-muted-foreground uppercase">
               OU ENVIE O ARQUIVO DIRETO

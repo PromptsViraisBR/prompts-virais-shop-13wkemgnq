@@ -102,9 +102,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Carga inicial
     if (pb.authStore.record) {
       setUser(pb.authStore.record as unknown as UserRecord)
-      refreshSubscription().finally(() => {
-        setIsLoading(false)
-      })
+      // Blindagem de sessão corrompida/expirada: valida o token contra o
+      // servidor na abertura do app. Se inválido, o authStore é limpo e a UI
+      // passa a mostrar o estado de deslogado (e o modal de login nas ações),
+      // em vez de enviar requests que falham com 401 por todo o site.
+      pb.collection('users')
+        .authRefresh()
+        .catch(() => {
+          try {
+            pb.authStore.clear()
+          } catch {
+            /* ignore */
+          }
+          setUser(null)
+          setSubscription(null)
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+      refreshSubscription()
     } else {
       setIsLoading(false)
     }

@@ -40,10 +40,13 @@ import {
   TranscribeMediaResponse,
 } from '@/services/viralTranscriber'
 import { VideoDownloadGuideCard } from '@/components/VideoDownloadGuideCard'
+import { AuthGateModal } from '@/components/AuthGateModal'
+import { TranscriberAuthError } from '@/services/viralTranscriber'
 
 export const VideoTranscriber: React.FC = () => {
   const { user } = useAuth()
   const { toast } = useToast()
+  const [showAuthGate, setShowAuthGate] = useState(false)
 
   // Estados de entrada
   const [videoLink, setVideoLink] = useState('')
@@ -174,11 +177,8 @@ export const VideoTranscriber: React.FC = () => {
   // Ação de Transcrever
   const handleTranscribe = async () => {
     if (!user) {
-      toast({
-        title: 'Faça login para transcrever',
-        description: 'Entre na sua conta para utilizar o Transcritor & Tradutor Viral.',
-        variant: 'destructive',
-      })
+      // Deslogado: convite claro de login (modal), nunca erro genérico
+      setShowAuthGate(true)
       return
     }
 
@@ -232,15 +232,26 @@ export const VideoTranscriber: React.FC = () => {
     } catch (err: any) {
       clearTimeout(timeoutId)
       console.error('[Transcritor] Erro:', err)
-      const errorMsg =
-        err?.data?.error ||
-        err?.message ||
-        'Não foi possível concluir a transcrição. Verifique o áudio e tente novamente.'
-      toast({
-        title: 'Erro na transcrição',
-        description: errorMsg,
-        variant: 'destructive',
-      })
+
+      if (err instanceof TranscriberAuthError) {
+        setShowAuthGate(true)
+        toast({
+          title: 'Login necessário',
+          description:
+            'Sua sessão não está ativa. Faça login para usar o Transcritor & Tradutor Viral.',
+          variant: 'destructive',
+        })
+      } else {
+        const errorMsg =
+          err?.data?.error ||
+          err?.message ||
+          'Não foi possível concluir a transcrição. Verifique o áudio e tente novamente.'
+        toast({
+          title: 'Erro na transcrição',
+          description: errorMsg,
+          variant: 'destructive',
+        })
+      }
     } finally {
       setIsProcessing(false)
       setProcessStep('')
@@ -748,6 +759,15 @@ Gerado por Prompts Virais (https://promptsvirais.com.br)
           </div>
         </Card>
       )}
+
+      {/* Modal de login: aberto quando a sessão está ausente/expirada no envio */}
+      <AuthGateModal
+        open={showAuthGate}
+        onOpenChange={setShowAuthGate}
+        title="Entre para Transcrever Vídeos"
+        description="O Transcritor & Tradutor Viral usa IA no servidor com a sua conta. Entre na sua conta gratuita (ou crie uma em segundos) para transcrever e traduzir seus vídeos."
+        actionName="Transcrever e traduzir o vídeo"
+      />
     </div>
   )
 }

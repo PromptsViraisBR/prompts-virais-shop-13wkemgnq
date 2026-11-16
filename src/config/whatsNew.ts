@@ -21,44 +21,37 @@ export interface VersionRelease {
  * veem automaticamente quando a versão sobe.
  * Salva no localStorage sob a chave 'pv_last_seen_version'.
  */
-export const CURRENT_VERSION = 'v0.0.96'
+export const CURRENT_VERSION = 'v0.0.97'
 export const STORAGE_KEY_WHATS_NEW = 'pv_last_seen_version'
 
 export const CURRENT_RELEASE: VersionRelease = {
   version: CURRENT_VERSION,
-  releaseDate: '2025-11-04',
+  releaseDate: '2025-11-05',
   tagline: 'PROMPTS VIRAIS — Suas ferramentas práticas para acelerar conteúdos virais.',
-  headline: 'v0.0.96 — Login no Transcritor Corrigido! 🔐🎙️',
+  headline: 'v0.0.97 — Site Conectado ao Seu Próprio Hub de IA! 🔌🤖',
   highlights: [
     {
+      icon: 'plug',
+      badge: 'INTEGRAÇÃO',
+      title: 'Prompts agora passam pelo seu hub de IA (jrl-ai-hub)',
+      description:
+        'As gerações de TEXTO do site — roteiros virais, cenas, variações e prompts de imagem — agora consultam primeiro o seu próprio hub de IA (jrl-ai-hub), com a chave guardada em segredo no servidor. Nada de chaves no navegador: tudo acontece no backend.',
+    },
+    {
       icon: 'shield',
-      badge: 'BUG CORRIGIDO',
-      title: 'Transcritor volta a funcionar para quem está logado',
+      badge: 'ZERO DOWNTIME',
+      title: 'Fallback automático: se o hub falhar, a IA atual assume',
       description:
-        'Corrigimos o erro que pedia autenticação mesmo com você já logado na hora de transcrever. O envio do vídeo/áudio agora leva sua sessão correta até a IA — logado, a transcrição rola direto, sem pedir login de novo.',
+        'Se o hub estiver fora do ar, lento ou retornar erro, cada geração cai automaticamente para o caminho de IA atual do Skip Cloud (e depois para o gerador dinâmico interno). Gerador, transcritor, bibliotecas, login, Pix do Mercado Pago e indicações seguem funcionando normalmente.',
     },
     {
-      icon: 'lock',
-      badge: 'EXPERIÊNCIA CLARA',
-      title: 'Sessão expirou? Avisamos com modal de login — nunca erro genérico',
+      icon: 'mic',
+      badge: 'TRANSCRITOR',
+      title: 'Transcrição continua no Gemini (o hub ainda não recebe áudio)',
       description:
-        'Se a sessão expirar ou não existir, o Transcritor agora abre um convite claro para entrar na sua conta (com botões de criar conta e fazer login), em vez de mostrar mensagens genéricas de rede.',
-    },
-    {
-      icon: 'sparkles',
-      badge: 'SANIDADE GERAL',
-      title: 'Varredura completa do site',
-      description:
-        'Passamos por login/cadastro, assinatura PRO com Pix do Mercado Pago, indicações, gerador de prompts, bibliotecas e Limpador de Vídeos corrigindo inconsistências encontradas — sem mudar preços, planos ou regras.',
-    },
-    {
-      icon: 'zap',
-      badge: 'CONTINUIDADE',
-      title: 'Transcrição segue com IA atualizada',
-      description:
-        'Mantemos a transcrição fiel + tradução natural em Português com os modelos rápidos da família Gemini, suporte a MP3, WAV, MP4 e WebM até 25MB e diagnóstico específico para cada falha.',
+        'O hub ainda não expõe entrada de áudio, então o Transcritor segue no Gemini (gemini-3.5-flash), que está estável desde a v0.0.95. Quando o hub passar a aceitar áudio, a migração é automática pelo servidor — sem nova versão do site.',
     },
   ],
-  ctaText: 'Testar Transcritor Agora',
-  ctaLink: '/ferramentas/transcritor',
+  ctaText: 'Gerar um Prompt Agora',
+  ctaLink: '/gerador',
 }

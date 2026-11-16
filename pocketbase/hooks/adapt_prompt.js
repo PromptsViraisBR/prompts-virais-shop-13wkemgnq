@@ -110,6 +110,70 @@ routerAdd('POST', '/backend/v1/adapt-prompt', (e) => {
 
     let aiPromptResult = ''
 
+    // Fonte prioritária de IA de TEXTO: hub JRL do usuário (jrl-ai-hub), com fallback
+    // para o $ai.chat (Skip AI) atual — nada quebra se o hub estiver fora do ar.
+    // Funções inline para compatibilidade estrita com o pool JSVM do PocketBase.
+    const readJrlSecret = function (name) {
+      let v = ''
+      try {
+        v = $os.getenv(name) || ''
+      } catch (_) {}
+      if (!v) {
+        try {
+          if ($secrets.has(name)) v = $secrets.get(name) || ''
+        } catch (_) {}
+      }
+      return v
+    }
+    const jrlHubChatText = function (systemPrompt, userPrompt, opts) {
+      const r = { ok: false, text: '', model: '', error: '', status: 0 }
+      try {
+        const base = (readJrlSecret('JRL_AI_HUB_BASE_URL') || '').replace(/\/+$/, '')
+        const key = readJrlSecret('JRL_AI_HUB_API_KEY') || ''
+        if (!base || !key) {
+          r.error = 'hub-não-configurado'
+          return r
+        }
+        const messages = []
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+        messages.push({ role: 'user', content: userPrompt })
+        const body = { messages: messages }
+        if (opts && opts.model) body.model = opts.model
+        if (opts && opts.maxTokens) body.max_tokens = opts.maxTokens
+        const res = $http.send({
+          method: 'POST',
+          url: base + '/chat/completions',
+          headers: {
+            Authorization: 'Bearer ' + key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          timeout: (opts && opts.timeout) || 90,
+        })
+        r.status = res.statusCode
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          r.error = 'hub-http-' + res.statusCode
+          return r
+        }
+        const json = res.json || {}
+        if (json.choices && json.choices[0] && json.choices[0].message) {
+          const content = String(json.choices[0].message.content || '')
+          if (content.trim()) {
+            r.ok = true
+            r.text = content
+            r.model = json.model || (opts && opts.model) || ''
+          } else {
+            r.error = 'hub-resposta-vazia'
+          }
+        } else {
+          r.error = 'hub-formato-inesperado'
+        }
+      } catch (err) {
+        r.error = 'hub-exceção: ' + (err.message || String(err))
+      }
+      return r
+    }
+
     // Tentativa com IA Skip AI ($ai.chat) para adaptação e substituição profunda
     try {
       const systemInstruction = `Você é um diretor e roteirista profissional de vídeos virais para TikTok, Shopee Vídeo, Reels e Shorts em Português Brasileiro (PT-BR).
@@ -137,20 +201,34 @@ ${characterName ? `- Novo personagem desejado para a história: ${characterName}
 
 Crie um roteiro totalmente novo e renovado, substituindo perfeitamente o produto ou personagem anterior pelo informado agora, com vídeo 100% limpo sem texto na tela.`
 
-      const reply = $ai.chat({
-        model: 'fast',
-        messages: [
-          { role: 'system', content: systemInstruction },
-          { role: 'user', content: userMessage },
-        ],
+      // 1) Prioridade: hub JRL; 2) fallback: $ai.chat (Skip AI)
+      const hubRes = jrlHubChatText(systemInstruction, userMessage, {
+        maxTokens: 1600,
+        timeout: 90,
       })
+      if (hubRes.ok) {
+        aiPromptResult = sanitizeText(hubRes.text)
+        console.log('[adapt-prompt] roteiro gerado via hub JRL (' + hubRes.model + ')')
+      } else {
+        console.log(
+          '[adapt-prompt] hub JRL indisponível (' + hubRes.error + '), usando $ai.chat (Skip AI)',
+        )
+        const reply = $ai.chat({
+          model: 'fast',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: userMessage },
+          ],
+        })
 
-      if (reply && reply.choices && reply.choices[0] && reply.choices[0].message) {
-        aiPromptResult = sanitizeText(reply.choices[0].message.content)
+        if (reply && reply.choices && reply.choices[0] && reply.choices[0].message) {
+          aiPromptResult = sanitizeText(reply.choices[0].message.content)
+        }
       }
     } catch (aiErr) {
       console.log(
-        'adapt-prompt: falha no $ai.chat, usando gerador dinâmico de fallback: ' + aiErr.message,
+        'adapt-prompt: falha no hub/$ai.chat, usando gerador dinâmico de fallback: ' +
+          aiErr.message,
       )
     }
 
@@ -410,7 +488,69 @@ routerAdd('POST', '/backend/v1/generate-viral-scene', (e) => {
     const effectiveIdea = userIdea || themeName || characterOrTheme
     const effectiveChar = characterName || (userIdea ? '' : characterOrTheme)
 
-    // Tentar via $ai.chat com prompt estrito de fidelidade à ideia e personagem
+    // Tentar gerar via hub JRL (prioritário) e $ai.chat com prompt estrito de fidelidade à ideia e personagem
+    // Funções do hub inline (pool JSVM): mesma definição da ROTA 1.
+    const readJrlSecret = function (name) {
+      let v = ''
+      try {
+        v = $os.getenv(name) || ''
+      } catch (_) {}
+      if (!v) {
+        try {
+          if ($secrets.has(name)) v = $secrets.get(name) || ''
+        } catch (_) {}
+      }
+      return v
+    }
+    const jrlHubChatText = function (systemPrompt, userPrompt, opts) {
+      const r = { ok: false, text: '', model: '', error: '', status: 0 }
+      try {
+        const base = (readJrlSecret('JRL_AI_HUB_BASE_URL') || '').replace(/\/+$/, '')
+        const key = readJrlSecret('JRL_AI_HUB_API_KEY') || ''
+        if (!base || !key) {
+          r.error = 'hub-não-configurado'
+          return r
+        }
+        const messages = []
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+        messages.push({ role: 'user', content: userPrompt })
+        const body = { messages: messages }
+        if (opts && opts.model) body.model = opts.model
+        if (opts && opts.maxTokens) body.max_tokens = opts.maxTokens
+        const res = $http.send({
+          method: 'POST',
+          url: base + '/chat/completions',
+          headers: {
+            Authorization: 'Bearer ' + key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          timeout: (opts && opts.timeout) || 90,
+        })
+        r.status = res.statusCode
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          r.error = 'hub-http-' + res.statusCode
+          return r
+        }
+        const json = res.json || {}
+        if (json.choices && json.choices[0] && json.choices[0].message) {
+          const content = String(json.choices[0].message.content || '')
+          if (content.trim()) {
+            r.ok = true
+            r.text = content
+            r.model = json.model || (opts && opts.model) || ''
+          } else {
+            r.error = 'hub-resposta-vazia'
+          }
+        } else {
+          r.error = 'hub-formato-inesperado'
+        }
+      } catch (err) {
+        r.error = 'hub-exceção: ' + (err.message || String(err))
+      }
+      return r
+    }
+
     try {
       const systemInstruction = `Você é um diretor e roteirista profissional de canais virais (TikTok, Shorts, Reels) em Português Brasileiro (PT-BR).
 
@@ -452,16 +592,34 @@ ${effectiveChar ? `- Personagem Principal: "${effectiveChar}"` : ''}
 
 Gere agora a [IDEIA_DE_CENA] e o [ROTEIRO_OPCIONAL] baseados na ideia digitada e na foto.`
 
-      const aiRes = $ai.chat({
-        model: 'fast',
-        messages: [
-          { role: 'system', content: systemInstruction },
-          { role: 'user', content: userInstruction },
-        ],
+      // 1) Prioridade: hub JRL; 2) fallback: $ai.chat (Skip AI)
+      const hubRes = jrlHubChatText(systemInstruction, userInstruction, {
+        maxTokens: 2000,
+        timeout: 90,
       })
+      let fullTxt = ''
+      if (hubRes.ok) {
+        console.log('[generate-viral-scene] roteiro gerado via hub JRL (' + hubRes.model + ')')
+        fullTxt = hubRes.text
+      } else {
+        console.log(
+          '[generate-viral-scene] hub JRL indisponível (' +
+            hubRes.error +
+            '), usando $ai.chat (Skip AI)',
+        )
+        const aiRes = $ai.chat({
+          model: 'fast',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: userInstruction },
+          ],
+        })
+        if (aiRes && aiRes.choices && aiRes.choices[0] && aiRes.choices[0].message) {
+          fullTxt = aiRes.choices[0].message.content
+        }
+      }
 
-      if (aiRes && aiRes.choices && aiRes.choices[0] && aiRes.choices[0].message) {
-        const fullTxt = aiRes.choices[0].message.content
+      if (fullTxt) {
         if (fullTxt.includes('[IDEIA_DE_CENA]') && fullTxt.includes('[ROTEIRO_OPCIONAL]')) {
           const parts = fullTxt.split('[ROTEIRO_OPCIONAL]')
           sceneConcept = sanitizeText(parts[0].replace('[IDEIA_DE_CENA]', ''))
@@ -581,8 +739,69 @@ routerAdd('POST', '/backend/v1/regenerate-variations', (e) => {
       photoNotes = `📸 Adaptação baseada em ${imageCount} foto(s) anexada(s). ${visualDetails ? `Detalhes: ${visualDetails}` : ''}`
     }
 
-    // Tentar gerar 3 variações via $ai.chat com ângulos distintos
-    let aiVariations = []
+    // Tentar gerar 3 variações via hub JRL (prioritário) e $ai.chat com ângulos distintos
+    // Funções do hub inline (pool JSVM): mesma definição da ROTA 1.
+    const readJrlSecret = function (name) {
+      let v = ''
+      try {
+        v = $os.getenv(name) || ''
+      } catch (_) {}
+      if (!v) {
+        try {
+          if ($secrets.has(name)) v = $secrets.get(name) || ''
+        } catch (_) {}
+      }
+      return v
+    }
+    const jrlHubChatText = function (systemPrompt, userPrompt, opts) {
+      const r = { ok: false, text: '', model: '', error: '', status: 0 }
+      try {
+        const base = (readJrlSecret('JRL_AI_HUB_BASE_URL') || '').replace(/\/+$/, '')
+        const key = readJrlSecret('JRL_AI_HUB_API_KEY') || ''
+        if (!base || !key) {
+          r.error = 'hub-não-configurado'
+          return r
+        }
+        const messages = []
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+        messages.push({ role: 'user', content: userPrompt })
+        const body = { messages: messages }
+        if (opts && opts.model) body.model = opts.model
+        if (opts && opts.maxTokens) body.max_tokens = opts.maxTokens
+        const res = $http.send({
+          method: 'POST',
+          url: base + '/chat/completions',
+          headers: {
+            Authorization: 'Bearer ' + key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          timeout: (opts && opts.timeout) || 90,
+        })
+        r.status = res.statusCode
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          r.error = 'hub-http-' + res.statusCode
+          return r
+        }
+        const json = res.json || {}
+        if (json.choices && json.choices[0] && json.choices[0].message) {
+          const content = String(json.choices[0].message.content || '')
+          if (content.trim()) {
+            r.ok = true
+            r.text = content
+            r.model = json.model || (opts && opts.model) || ''
+          } else {
+            r.error = 'hub-resposta-vazia'
+          }
+        } else {
+          r.error = 'hub-formato-inesperado'
+        }
+      } catch (err) {
+        r.error = 'hub-exceção: ' + (err.message || String(err))
+      }
+      return r
+    }
+
     try {
       const angles = isViral
         ? [
@@ -642,13 +861,29 @@ REGRAS:
 
 Separe cada uma com as tags [VARIACAO_1], [VARIACAO_2], [VARIACAO_3].`
 
-      const aiRes = $ai.chat({
-        model: 'fast',
-        messages: [{ role: 'user', content: promptRequest }],
-      })
+      // 1) Prioridade: hub JRL; 2) fallback: $ai.chat (Skip AI)
+      const hubRes = jrlHubChatText('', promptRequest, { maxTokens: 2400, timeout: 120 })
+      let hubText = ''
+      if (hubRes.ok) {
+        console.log('[regenerate-variations] variações geradas via hub JRL (' + hubRes.model + ')')
+        hubText = hubRes.text
+      } else {
+        console.log(
+          '[regenerate-variations] hub JRL indisponível (' +
+            hubRes.error +
+            '), usando $ai.chat (Skip AI)',
+        )
+        const aiRes = $ai.chat({
+          model: 'fast',
+          messages: [{ role: 'user', content: promptRequest }],
+        })
+        if (aiRes && aiRes.choices && aiRes.choices[0] && aiRes.choices[0].message) {
+          hubText = aiRes.choices[0].message.content
+        }
+      }
 
-      if (aiRes && aiRes.choices && aiRes.choices[0] && aiRes.choices[0].message) {
-        const text = aiRes.choices[0].message.content
+      if (hubText) {
+        const text = hubText
         if (
           text.includes('[VARIACAO_1]') &&
           text.includes('[VARIACAO_2]') &&
@@ -937,7 +1172,69 @@ routerAdd('POST', '/backend/v1/generate-image-prompt', (e) => {
     let generatedPrompt = ''
     let usedAi = false
 
-    // Chamada à IA Skip ($ai.chat) com model "fast"
+    // Chamada à IA: hub JRL prioritário e $ai.chat (Skip AI) como fallback.
+    // Funções do hub inline (pool JSVM): mesma definição da ROTA 1.
+    const readJrlSecret = function (name) {
+      let v = ''
+      try {
+        v = $os.getenv(name) || ''
+      } catch (_) {}
+      if (!v) {
+        try {
+          if ($secrets.has(name)) v = $secrets.get(name) || ''
+        } catch (_) {}
+      }
+      return v
+    }
+    const jrlHubChatText = function (systemPrompt, userPrompt, opts) {
+      const r = { ok: false, text: '', model: '', error: '', status: 0 }
+      try {
+        const base = (readJrlSecret('JRL_AI_HUB_BASE_URL') || '').replace(/\/+$/, '')
+        const key = readJrlSecret('JRL_AI_HUB_API_KEY') || ''
+        if (!base || !key) {
+          r.error = 'hub-não-configurado'
+          return r
+        }
+        const messages = []
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+        messages.push({ role: 'user', content: userPrompt })
+        const body = { messages: messages }
+        if (opts && opts.model) body.model = opts.model
+        if (opts && opts.maxTokens) body.max_tokens = opts.maxTokens
+        const res = $http.send({
+          method: 'POST',
+          url: base + '/chat/completions',
+          headers: {
+            Authorization: 'Bearer ' + key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          timeout: (opts && opts.timeout) || 90,
+        })
+        r.status = res.statusCode
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          r.error = 'hub-http-' + res.statusCode
+          return r
+        }
+        const json = res.json || {}
+        if (json.choices && json.choices[0] && json.choices[0].message) {
+          const content = String(json.choices[0].message.content || '')
+          if (content.trim()) {
+            r.ok = true
+            r.text = content
+            r.model = json.model || (opts && opts.model) || ''
+          } else {
+            r.error = 'hub-resposta-vazia'
+          }
+        } else {
+          r.error = 'hub-formato-inesperado'
+        }
+      } catch (err) {
+        r.error = 'hub-exceção: ' + (err.message || String(err))
+      }
+      return r
+    }
+
     try {
       const systemInstruction = `Você é um especialista sênior em engenharia de prompts de imagem para inteligências artificiais geradoras (Google Flow, Nano Banana, Gemini Imagen 3, ChatGPT DALL-E 3, Midjourney).
 
@@ -971,23 +1268,38 @@ Variação/Seed: #${seed}
 
 Gere o prompt em Português Brasileiro (PT-BR), vertical 9:16, 100% fiel ao elemento pedido, com imagem limpa sem texto na tela.`
 
-      const reply = $ai.chat({
-        model: 'fast',
-        messages: [
-          { role: 'system', content: systemInstruction },
-          { role: 'user', content: userInstruction },
-        ],
+      // 1) Prioridade: hub JRL; 2) fallback: $ai.chat (Skip AI)
+      const hubRes = jrlHubChatText(systemInstruction, userInstruction, {
+        maxTokens: 900,
+        timeout: 90,
       })
-
-      if (reply && reply.choices && reply.choices[0] && reply.choices[0].message) {
-        const rawContent = reply.choices[0].message.content || ''
-        const cleaned = sanitizeText(rawContent)
-          .replace(/^["']|["']$/g, '')
-          .trim()
-        if (cleaned && cleaned.length >= 30) {
-          generatedPrompt = cleaned
-          usedAi = true
+      let rawContent = ''
+      if (hubRes.ok) {
+        console.log('[generate-image-prompt] prompt gerado via hub JRL (' + hubRes.model + ')')
+        rawContent = hubRes.text
+      } else {
+        console.log(
+          '[generate-image-prompt] hub JRL indisponível (' +
+            hubRes.error +
+            '), usando $ai.chat (Skip AI)',
+        )
+        const reply = $ai.chat({
+          model: 'fast',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: userInstruction },
+          ],
+        })
+        if (reply && reply.choices && reply.choices[0] && reply.choices[0].message) {
+          rawContent = reply.choices[0].message.content || ''
         }
+      }
+      const cleaned = sanitizeText(rawContent)
+        .replace(/^["']|["']$/g, '')
+        .trim()
+      if (cleaned && cleaned.length >= 30) {
+        generatedPrompt = cleaned
+        usedAi = true
       }
     } catch (aiErr) {
       console.log(
